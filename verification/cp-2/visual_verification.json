@@ -1,0 +1,49 @@
+{
+  "checkpoint": "CP-2",
+  "date": "2026-04-03",
+  "baseline": "Corrected mockups built on Chatbox shell (Phase 2.5 rebuild)",
+  "screens": [
+    {
+      "page": "student-chat",
+      "viewport": "1479x812",
+      "scores": {
+        "layout_structure": 0.80,
+        "design_tokens": 0.65,
+        "information_hierarchy": 0.65,
+        "anti_reference_distance": 0.85,
+        "workspace_authenticity": 0.70
+      },
+      "composite": 0.73,
+      "verdict": "PARTIAL",
+      "findings": [
+        {
+          "dimension": "layout_structure",
+          "severity": "warning",
+          "element": "classroom_badge",
+          "expected": "Classroom badge in top bar: 'Ms. Torres's Math - Grade 6-8'",
+          "actual": "No classroom badge. Top bar shows only session title and Chatbox actions.",
+          "remediation": "Add classroom badge component to top bar when session is a ChatBridge classroom session."
+        },
+        {
+          "dimension": "information_hierarchy",
+          "severity": "warning",
+          "element": "app_card_inline",
+          "expected": "Chess app card renders as inline iframe in MessageList with board visible",
+          "actual": "Chess app renders as text link ('Open Chess Board') that opens in a new tab",
+          "remediation": "Wire AppCardPartUI into message rendering when AI response includes app invocation. Component exists at src/renderer/components/message-parts/AppCardPartUI.tsx."
+        },
+        {
+          "dimension": "information_hierarchy",
+          "severity": "info",
+          "element": "suggestion_chips",
+          "expected": "2-3 suggestion chips below AI response",
+          "actual": "Not implemented (deferred to SHR-143, CP-3)",
+          "remediation": "Tracked in Linear SHR-143. Not blocking for CP-2."
+        }
+      ]
+    }
+  ],
+  "overall_verdict": "PARTIAL",
+  "overall_score": 0.73,
+  "remediation_attempt": "One remediation attempt allowed per PARTIAL verdict. Classroom badge and inline app card wiring are the two actionable items. Suggestion chips deferred."
+}

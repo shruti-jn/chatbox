@@ -1,7 +1,7 @@
 import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, Badge, Flex, Text, Tooltip } from '@mantine/core'
 import type { Session } from '@shared/types'
-import { IconLayoutSidebarLeftExpand, IconMenu2, IconPencil } from '@tabler/icons-react'
+import { IconLayoutSidebarLeftExpand, IconMenu2, IconPencil, IconSchool } from '@tabler/icons-react'
 import clsx from 'clsx'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -108,6 +108,20 @@ export default function Header(props: { session: Session }) {
               <ScalableIcon icon={IconPencil} size={14} />
             </ActionIcon>
           </Tooltip>
+          {/* ChatBridge classroom badge — shows when session is connected to a classroom */}
+          {currentSession?.chatbridgeClassroom && (
+            <Badge
+              data-chatbridge
+              size="sm"
+              variant="light"
+              color="indigo"
+              ml={8}
+              leftSection={<IconSchool size={12} />}
+              className="flex-shrink-0"
+            >
+              {currentSession.chatbridgeClassroom}
+            </Badge>
+          )}
         </Flex>
 
         <Toolbar sessionId={currentSession.id} />

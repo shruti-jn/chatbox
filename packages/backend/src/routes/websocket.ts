@@ -9,6 +9,26 @@
 import type { FastifyInstance } from 'fastify'
 import { verifyJWT } from '../middleware/auth.js'
 import type { JWTPayload } from '@chatbridge/shared'
+import { prisma, withTenantContext } from '../middleware/rls.js'
+import { runSafetyPipeline } from '../safety/pipeline.js'
+
+/** Grade bands that require parental consent (under-13) — mirrors coppa.ts */
+const COPPA_GRADE_BANDS = new Set(['k2', 'g35'])
+
+/**
+ * Check COPPA consent for a user. Returns true if access is allowed.
+ * Teachers/admins and students in grade bands g68+ are always allowed.
+ * Under-13 students need a 'granted' parental consent record.
+ */
+async function checkCoppaConsent(user: JWTPayload): Promise<boolean> {
+  if (user.role !== 'student') return true
+  if (!user.gradeBand || !COPPA_GRADE_BANDS.has(user.gradeBand)) return true
+
+  const consent = await prisma.parentalConsent.findUnique({
+    where: { studentId: user.userId },
+  })
+  return consent?.consentStatus === 'granted'
+}
 
 // Connection registries
 const chatConnections = new Map<string, Set<WebSocket>>() // conversationId → sockets
@@ -17,7 +37,7 @@ const collabConnections = new Map<string, Set<WebSocket>>() // sessionId → soc
 
 export async function websocketRoutes(server: FastifyInstance) {
   // WS /ws/chat — Student chat
-  server.get('/ws/chat', { websocket: true }, (socket, request) => {
+  server.get('/ws/chat', { websocket: true }, async (socket, request) => {
     const token = (request.query as Record<string, string>)?.token
     let user: JWTPayload
 
@@ -25,6 +45,13 @@ export async function websocketRoutes(server: FastifyInstance) {
       user = verifyJWT(token)
     } catch {
       socket.close(4001, 'Authentication failed')
+      return
+    }
+
+    // COPPA consent gate for under-13 students
+    const coppaAllowed = await checkCoppaConsent(user)
+    if (!coppaAllowed) {
+      socket.close(4003, 'COPPA_CONSENT_REQUIRED')
       return
     }
 
@@ -37,7 +64,7 @@ export async function websocketRoutes(server: FastifyInstance) {
       chatConnections.get(conversationId)!.add(socket as any)
     }
 
-    socket.on('message', (raw: Buffer) => {
+    socket.on('message', async (raw: Buffer) => {
       try {
         const msg = JSON.parse(raw.toString())
 
@@ -48,12 +75,64 @@ export async function websocketRoutes(server: FastifyInstance) {
 
         // Handle typing indicator
         if (msg.type === 'typing') {
-          // Broadcast to Mission Control for this classroom
           broadcastToMissionControl(user.districtId, {
             type: 'student_typing',
             studentId: user.userId,
             conversationId,
           })
+          return
+        }
+
+        // Handle chat messages — run safety pipeline before processing
+        if (msg.type === 'chat_message' && typeof msg.text === 'string') {
+          const safetyResult = await runSafetyPipeline(msg.text)
+
+          // Log safety event for non-safe messages
+          if (safetyResult.severity !== 'safe') {
+            await withTenantContext(user.districtId, async (tx) => {
+              await tx.safetyEvent.create({
+                data: {
+                  districtId: user.districtId,
+                  userId: user.userId,
+                  eventType: safetyResult.category === 'crisis' ? 'crisis_detected'
+                    : safetyResult.category === 'injection_detected' ? 'injection_detected'
+                    : safetyResult.category === 'pii_detected' ? 'pii_detected'
+                    : 'content_blocked',
+                  severity: safetyResult.severity,
+                  messageContextRedacted: safetyResult.redactedMessage.slice(0, 500),
+                  actionTaken: safetyResult.severity === 'blocked' ? 'message_rejected'
+                    : safetyResult.severity === 'critical' ? 'crisis_resources_returned'
+                    : 'message_processed_with_warning',
+                },
+              })
+            })
+          }
+
+          if (safetyResult.severity === 'blocked') {
+            socket.send(JSON.stringify({
+              type: 'safety_blocked',
+              category: safetyResult.category,
+              error: 'Message could not be processed',
+            }))
+            return
+          }
+
+          if (safetyResult.severity === 'critical') {
+            socket.send(JSON.stringify({
+              type: 'crisis_resources',
+              severity: 'critical',
+              crisisResources: safetyResult.crisisResources,
+              message: "It sounds like you might be going through a difficult time. Here are some resources that can help:",
+            }))
+            return
+          }
+
+          // Safe or warning — forward with redacted text for AI processing
+          socket.send(JSON.stringify({
+            type: 'safety_passed',
+            severity: safetyResult.severity,
+            redactedText: safetyResult.redactedMessage,
+          }))
         }
       } catch {
         // Ignore invalid messages

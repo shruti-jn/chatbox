@@ -9,14 +9,19 @@
 const CRISIS_KEYWORDS = [
   /\b(want\s+to\s+)?kill\s+my\s*self\b/i,
   /\bsuicid(e|al)\b/i,
-  /\bself[\s-]?harm\b/i,
+  /\bself[\s-]?harm(ing)?\b/i,
   /\bcut(ting)?\s+my\s*self\b/i,
   /\bend\s+(my\s+)?life\b/i,
-  /\bwant\s+to\s+die\b/i,
+  /\bwants?\s+to\s+die\b/i,
   /\bnot\s+worth\s+living\b/i,
   /\bno\s+(reason|point)\s+to\s+live\b/i,
   /\bhurt\s+my\s*self\b/i,
   /\bdon'?t\s+want\s+to\s+(be\s+)?alive\b/i,
+  /\beveryone\s+(?:would\s+be\s+)?better\s+off\s+without\s+me\b/i,
+  /\bdon'?t\s+want\s+to\s+be\s+here\s+anymore\b/i,
+  /\btook\s+(?:too\s+many\s+)?pills\b/i,
+  /\boverdos/i,
+  /\bno\s+one\s+(?:would\s+)?(?:care|miss\s+me|notice)\b/i,
 ]
 
 export const CRISIS_RESOURCES = [

@@ -117,12 +117,25 @@ export const MessageToolCallPartSchema = z.object({
   result: z.unknown().optional(),
 })
 
+export const MessageAppCardPartSchema = z.object({
+  type: z.literal('app-card'),
+  appId: z.string().uuid(),
+  appName: z.string(),
+  instanceId: z.string().uuid(),
+  status: z.enum(['loading', 'active', 'suspended', 'collapsed', 'terminated', 'error']),
+  url: z.string().url().optional(),
+  height: z.number().optional(),
+  summary: z.string().optional(),
+  stateSnapshot: z.record(z.string(), z.unknown()).optional(),
+})
+
 export const MessageContentPartSchema = z.discriminatedUnion('type', [
   MessageTextPartSchema,
   MessageImagePartSchema,
   MessageInfoPartSchema,
   MessageReasoningPartSchema,
   MessageToolCallPartSchema,
+  MessageAppCardPartSchema,
 ])
 
 export const MessageContentPartsSchema = z.array(MessageContentPartSchema)
@@ -268,6 +281,8 @@ export const SessionSchema = z.object({
   threadName: z.string().optional(),
   messageForksHash: z.record(z.string(), MessageForkSchema).optional(),
   compactionPoints: z.array(CompactionPointSchema).optional(),
+  // ChatBridge: classroom context displayed as badge in header (e.g., "Ms. Torres's Math · Grade 6-8")
+  chatbridgeClassroom: z.string().optional(),
 })
 
 export const SessionMetaSchema = SessionSchema.pick({
@@ -304,6 +319,7 @@ export type MessageToolCallPart<Args = unknown, Result = unknown> = z.infer<type
   args: Args
   result?: Result
 }
+export type MessageAppCardPart = z.infer<typeof MessageAppCardPartSchema>
 export type MessageContentParts = z.infer<typeof MessageContentPartsSchema>
 export type StreamTextResult = z.infer<typeof StreamTextResultSchema>
 export type ToolUseScope = z.infer<typeof ToolUseScopeSchema>

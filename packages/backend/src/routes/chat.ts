@@ -1,14 +1,17 @@
 import type { FastifyInstance } from 'fastify'
 import { authenticate, getUser } from '../middleware/auth.js'
+import { requireCoppaConsent } from '../middleware/coppa.js'
 import { prisma, withTenantContext } from '../middleware/rls.js'
 import { runSafetyPipeline } from '../safety/pipeline.js'
 import { createTrace, createSafetySpan, createGeneration, endGeneration, flushTraces } from '../observability/langfuse.js'
 import { generateResponse, type AIContext } from '../ai/service.js'
+import { assembleSystemPrompt } from '../prompts/registry.js'
+import { applyOutputGuardrails } from '../safety/output-guardrail.js'
 
 export async function chatRoutes(server: FastifyInstance) {
   // POST /conversations/:id/messages — Send a message
   server.post('/conversations/:conversationId/messages', {
-    preHandler: [authenticate],
+    preHandler: [authenticate, requireCoppaConsent],
     schema: {
       params: { type: 'object', properties: { conversationId: { type: 'string' } } },
       body: { type: 'object', required: ['text'], properties: { text: { type: 'string', maxLength: 4000 } } },
@@ -49,20 +52,22 @@ export async function chatRoutes(server: FastifyInstance) {
 
     // Log safety event if not safe
     if (safetyResult.severity !== 'safe') {
-      await prisma.safetyEvent.create({
-        data: {
-          districtId: user.districtId,
-          userId: user.userId,
-          eventType: safetyResult.category === 'crisis' ? 'crisis_detected'
-            : safetyResult.category === 'injection_detected' ? 'injection_detected'
-            : safetyResult.category === 'pii_detected' ? 'pii_detected'
-            : 'content_blocked',
-          severity: safetyResult.severity,
-          messageContextRedacted: safetyResult.redactedMessage.slice(0, 500),
-          actionTaken: safetyResult.severity === 'blocked' ? 'message_rejected'
-            : safetyResult.severity === 'critical' ? 'crisis_resources_returned'
-            : 'message_processed_with_warning',
-        },
+      await withTenantContext(user.districtId, async (tx) => {
+        await tx.safetyEvent.create({
+          data: {
+            districtId: user.districtId,
+            userId: user.userId,
+            eventType: safetyResult.category === 'crisis' ? 'crisis_detected'
+              : safetyResult.category === 'injection_detected' ? 'injection_detected'
+              : safetyResult.category === 'pii_detected' ? 'pii_detected'
+              : 'content_blocked',
+            severity: safetyResult.severity,
+            messageContextRedacted: safetyResult.redactedMessage.slice(0, 500),
+            actionTaken: safetyResult.severity === 'blocked' ? 'message_rejected'
+              : safetyResult.severity === 'critical' ? 'crisis_resources_returned'
+              : 'message_processed_with_warning',
+          },
+        })
       })
     }
 
@@ -129,19 +134,23 @@ export async function chatRoutes(server: FastifyInstance) {
     })
 
     // Get classroom config
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      include: { classroom: true },
+    const conversation = await withTenantContext(user.districtId, async (tx) => {
+      return tx.conversation.findUnique({
+        where: { id: conversationId },
+        include: { classroom: true },
+      })
     })
 
     // Get any pending whisper
-    const whisper = await prisma.message.findFirst({
-      where: {
-        conversationId,
-        authorRole: 'teacher_whisper',
-        createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) }, // Last 5 minutes
-      },
-      orderBy: { createdAt: 'desc' },
+    const whisper = await withTenantContext(user.districtId, async (tx) => {
+      return tx.message.findFirst({
+        where: {
+          conversationId,
+          authorRole: 'teacher_whisper',
+          createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) }, // Last 5 minutes
+        },
+        orderBy: { createdAt: 'desc' },
+      })
     })
 
     // Build AI context
@@ -183,6 +192,13 @@ export async function chatRoutes(server: FastifyInstance) {
       for await (const chunk of result.textStream) {
         fullText += chunk
       }
+
+      // Apply output guardrails on AI response
+      const guardrailResult = applyOutputGuardrails(fullText, {
+        mode: aiConfig.mode,
+        subject: aiConfig.subject,
+      })
+      fullText = guardrailResult.text
 
       // End generation span
       endGeneration(generation, {
@@ -237,7 +253,7 @@ export async function chatRoutes(server: FastifyInstance) {
 
   // GET /conversations/:id/messages — Get conversation history
   server.get('/conversations/:conversationId/messages', {
-    preHandler: [authenticate],
+    preHandler: [authenticate, requireCoppaConsent],
     schema: {
       params: { type: 'object', properties: { conversationId: { type: 'string' } } },
       querystring: {
@@ -276,7 +292,7 @@ export async function chatRoutes(server: FastifyInstance) {
 
   // POST /conversations — Create a new conversation
   server.post('/conversations', {
-    preHandler: [authenticate],
+    preHandler: [authenticate, requireCoppaConsent],
     schema: {
       body: {
         type: 'object',
@@ -291,13 +307,15 @@ export async function chatRoutes(server: FastifyInstance) {
     const { classroomId, title } = request.body as { classroomId: string; title?: string }
     const user = getUser(request)
 
-    const conversation = await prisma.conversation.create({
-      data: {
-        districtId: user.districtId,
-        classroomId,
-        studentId: user.userId,
-        title,
-      },
+    const conversation = await withTenantContext(user.districtId, async (tx) => {
+      return tx.conversation.create({
+        data: {
+          districtId: user.districtId,
+          classroomId,
+          studentId: user.userId,
+          title,
+        },
+      })
     })
 
     return reply.status(201).send({
