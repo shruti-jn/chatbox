@@ -151,6 +151,26 @@ export async function aiProxyRoutes(server: FastifyInstance) {
       }
     }
 
+    // Inject ChatBridge system prompt with app awareness
+    if (body?.messages && Array.isArray(body.messages)) {
+      const chatbridgeSystemPrompt = `You are a helpful AI assistant in the ChatBridge K-12 learning platform. You have access to these educational apps that students can use:
+
+1. **Chess** - Interactive chess game. When a student wants to play chess, tell them the chess board is opening and include this exact markdown link: [🎮 Open Chess Board](http://localhost:3001/api/v1/apps/chess/ui/)
+
+2. **Weather** - Weather dashboard. When a student asks about weather, tell them the weather dashboard is opening and include: [🌤️ Open Weather Dashboard](http://localhost:3001/api/v1/apps/weather/ui/?location=CITY) (replace CITY with the requested city)
+
+3. **Spotify** - Playlist creator. When a student wants music, tell them about the Spotify integration and include: [🎵 Open Spotify Playlist Creator](http://localhost:3001/api/v1/apps/spotify/ui/?mock=playlist)
+
+Always be helpful, educational, and age-appropriate. When a student clearly requests an app, respond with a brief message AND include the link to open it.`
+
+      // Prepend as system message if not already present
+      const msgs = body.messages as Array<{ role: string; content: string }>
+      const hasSystem = msgs.some(m => m.role === 'system' && (m.content as string)?.includes('ChatBridge'))
+      if (!hasSystem) {
+        body.messages = [{ role: 'user', content: chatbridgeSystemPrompt }, { role: 'assistant', content: 'Understood! I\'m ready to help students learn. I\'ll suggest our apps when appropriate.' }, ...msgs]
+      }
+    }
+
     // Forward to Anthropic
     const headers: Record<string, string> = {
       'content-type': 'application/json',
