@@ -1,0 +1,509 @@
+<!-- Mobile variant (375px) of teacher-whisper.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatBridge — Teacher Whisper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --color-primary: #4F46E5;
+  --color-primary-hover: #4338CA;
+  --color-primary-active: #3730A3;
+  --color-primary-disabled: #A5B4FC;
+  --color-primary-light: #EEF2FF;
+  --color-secondary: #0D9488;
+  --color-secondary-hover: #0F766E;
+  --color-secondary-active: #115E59;
+  --color-secondary-disabled: #99F6E4;
+  --color-secondary-light: #F0FDFA;
+  --color-accent: #F59E0B;
+  --color-accent-hover: #D97706;
+  --color-accent-active: #B45309;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+  --neutral-0: #FFFFFF;
+  --neutral-50: #F9FAFB;
+  --neutral-100: #F3F4F6;
+  --neutral-200: #E5E7EB;
+  --neutral-300: #D1D5DB;
+  --neutral-400: #9CA3AF;
+  --neutral-500: #6B7280;
+  --neutral-600: #374151;
+  --neutral-900: #111827;
+  --bg-page: #F9FAFB;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  /* Legacy aliases */
+  --color-bg-page: #F9FAFB;
+  --color-bg-surface: #FFFFFF;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+  --color-text-muted: #9CA3AF;
+  --color-border: #E5E7EB;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: var(--font-sans);
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* ── Top Bar (mobile) ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 52px; padding: 0 var(--space-md);
+  background: var(--color-bg-surface); border-bottom: 1px solid var(--color-border);
+  position: relative; z-index: 200;
+}
+
+.topbar-left { display: flex; align-items: center; gap: var(--space-sm); }
+
+.back-btn {
+  width: 44px; height: 44px; border: none; background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--color-text-secondary); border-radius: var(--radius-md);
+  text-decoration: none;
+}
+
+.logo {
+  font-size: 16px; font-weight: 700; color: var(--color-primary);
+  text-decoration: none; display: flex; align-items: center; gap: 6px;
+}
+.logo svg { width: 18px; height: 18px; }
+
+.topbar-right { display: flex; align-items: center; gap: var(--space-sm); }
+
+.teacher-avatar {
+  width: 36px; height: 36px; border-radius: var(--radius-full);
+  background: var(--color-secondary); color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+}
+
+/* ── Context bar: classroom + student ── */
+.context-bar {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex; align-items: center; gap: var(--space-sm);
+}
+
+.context-bar select {
+  font-family: var(--font-sans); font-size: 13px;
+  color: var(--color-text-primary); background: var(--color-bg-page);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  padding: 6px 10px; min-height: 36px; flex: 1;
+}
+
+/* ── Tab switcher: Teacher View / Student View ── */
+.tab-bar {
+  display: flex;
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+}
+
+.tab-btn.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.tab-dot {
+  width: 7px; height: 7px; border-radius: var(--radius-full); flex-shrink: 0;
+}
+.tab-dot.teacher { background: var(--color-secondary); }
+.tab-dot.student { background: var(--color-primary); }
+
+/* ── Tab Panels ── */
+.tab-panels {
+  height: calc(100vh - 52px - 46px - 44px); /* topbar + context-bar + tab-bar */
+  position: relative;
+  overflow: hidden;
+}
+
+.tab-panel {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-panel.active { display: flex; }
+
+/* ── Teacher Panel ── */
+/* Student info card */
+.student-card-header {
+  display: flex; align-items: center; gap: var(--space-md);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  flex-shrink: 0;
+}
+
+.card-avatar {
+  width: 40px; height: 40px; border-radius: var(--radius-full);
+  background: #6366F1; color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 600;
+}
+
+.card-name { font-size: 14px; font-weight: 600; }
+.card-activity { font-size: 12px; color: var(--color-text-secondary); }
+
+/* Conversation preview */
+.teacher-messages {
+  flex: 1; overflow-y: auto; padding: var(--space-md);
+  display: flex; flex-direction: column; gap: var(--space-sm);
+  -webkit-overflow-scrolling: touch;
+}
+
+.card-msg {
+  padding: 10px 12px; border-radius: var(--radius-md);
+  font-size: 13px; line-height: 1.5;
+}
+.card-msg .msg-label { font-size: 11px; font-weight: 600; color: var(--color-text-muted); margin-bottom: 4px; display: block; }
+.card-msg.student-msg { background: #EEF2FF; align-self: flex-end; max-width: 85%; }
+.card-msg.ai-msg { background: var(--color-bg-page); border: 1px solid var(--color-border); align-self: flex-start; max-width: 85%; }
+
+/* Active whisper indicator */
+.active-whisper {
+  margin: 0 var(--space-md) var(--space-sm);
+  padding: 10px 12px;
+  background: #EEF2FF;
+  border: 1px solid #C7D2FE;
+  border-radius: var(--radius-md);
+  font-size: 12px; color: var(--color-primary);
+  display: flex; align-items: center; gap: var(--space-sm);
+  flex-shrink: 0;
+}
+.active-whisper-label { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; margin-right: var(--space-xs); }
+.active-whisper-text { flex: 1; font-size: 12px; color: var(--color-text-secondary); }
+.whisper-dismiss {
+  width: 24px; height: 24px; border: none; background: transparent;
+  border-radius: var(--radius-sm); cursor: pointer; color: var(--color-text-muted);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+
+/* Whisper compose area */
+.whisper-compose {
+  padding: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  flex-shrink: 0;
+}
+
+.whisper-label {
+  display: flex; align-items: center; gap: var(--space-sm);
+  font-size: 13px; font-weight: 600; color: var(--color-primary);
+  margin-bottom: var(--space-xs);
+}
+
+.whisper-tooltip {
+  font-size: 12px; color: var(--color-text-muted); margin-bottom: var(--space-sm); line-height: 1.4;
+}
+
+.whisper-textarea {
+  width: 100%; min-height: 80px; padding: 10px 12px;
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  font-family: var(--font-sans); font-size: 14px; line-height: 1.5;
+  color: var(--color-text-primary); resize: none;
+  background: var(--color-bg-page);
+}
+.whisper-textarea:focus {
+  outline: none; border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+.whisper-textarea::placeholder { color: var(--color-text-muted); }
+
+.whisper-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: var(--space-sm);
+}
+
+.char-count { font-size: 11px; color: var(--color-text-muted); font-family: var(--font-mono); }
+
+.whisper-buttons { display: flex; gap: var(--space-sm); }
+
+.btn-send-whisper {
+  padding: 10px 16px; background: var(--color-primary); color: white;
+  border: none; border-radius: var(--radius-md);
+  font-family: var(--font-sans); font-size: 14px; font-weight: 500; cursor: pointer;
+  min-height: 44px;
+}
+.btn-cancel-whisper {
+  padding: 10px 16px; background: transparent; color: var(--color-text-secondary);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  font-family: var(--font-sans); font-size: 14px; font-weight: 500; cursor: pointer;
+  min-height: 44px;
+}
+
+/* ── Student Panel ── */
+.student-chat-area {
+  flex: 1; overflow-y: auto; padding: var(--space-md);
+  -webkit-overflow-scrolling: touch;
+}
+
+.s-message {
+  display: flex; gap: var(--space-sm); margin-bottom: var(--space-md);
+}
+.s-message.student { flex-direction: row-reverse; }
+
+.s-message-avatar {
+  width: 30px; height: 30px; border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 600; flex-shrink: 0;
+}
+.s-message.ai .s-message-avatar { background: linear-gradient(135deg, var(--color-primary), var(--color-secondary)); color: white; }
+.s-message.student .s-message-avatar { background: #DBEAFE; color: #1E40AF; }
+
+.s-message-bubble {
+  display: inline-block; padding: 10px 12px;
+  border-radius: var(--radius-lg); font-size: 14px; line-height: 1.6;
+  max-width: calc(100% - 46px);
+  word-break: break-word;
+}
+.s-message.ai .s-message-bubble { background: var(--color-bg-page); border: 1px solid var(--color-border); }
+.s-message.student .s-message-bubble { background: var(--color-primary); color: white; }
+
+.s-ai-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--color-text-muted); margin-top: 4px; }
+
+/* Annotation note */
+.annotation {
+  margin: 0 0 var(--space-md);
+  padding: 10px 12px;
+  background: #FFFBEB;
+  border: 1px dashed #FDE68A;
+  border-radius: var(--radius-md);
+  font-size: 12px; color: #92400E;
+  display: flex; align-items: flex-start; gap: var(--space-sm);
+}
+.annotation svg { flex-shrink: 0; margin-top: 1px; }
+
+.student-input-bar {
+  padding: var(--space-sm) var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--color-border); background: var(--color-bg-surface);
+  flex-shrink: 0;
+}
+.student-input-row {
+  display: flex; align-items: center; gap: var(--space-sm);
+  background: var(--color-bg-page); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); padding: 4px;
+}
+.s-chat-input {
+  flex: 1; border: none; background: transparent;
+  font-family: var(--font-sans); font-size: 15px; padding: 10px 8px;
+  outline: none; color: var(--color-text-primary);
+}
+.s-chat-input::placeholder { color: var(--color-text-muted); }
+.s-send-btn {
+  width: 44px; height: 44px; border: none; border-radius: var(--radius-md);
+  background: var(--color-primary); color: white; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="teacher-dashboard--mobile.html" class="back-btn" aria-label="Back to dashboard">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <a href="#" class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      ChatBridge
+    </a>
+  </div>
+  <div class="topbar-right">
+    <div class="teacher-avatar">MR</div>
+  </div>
+</header>
+
+<!-- Context: classroom + student -->
+<div class="context-bar">
+  <select>
+    <option selected>Period 2 — Math</option>
+    <option>Period 3 — Science</option>
+  </select>
+</div>
+
+<!-- Tab Bar -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tabTeacher" onclick="switchTab('teacher')">
+    <span class="tab-dot teacher"></span>
+    Teacher View
+  </button>
+  <button class="tab-btn" id="tabStudent" onclick="switchTab('student')">
+    <span class="tab-dot student"></span>
+    Student View
+  </button>
+</div>
+
+<!-- Tab Panels -->
+<div class="tab-panels">
+
+  <!-- Teacher Panel -->
+  <div class="tab-panel active" id="panelTeacher">
+    <div class="student-card-header">
+      <div class="card-avatar">AK</div>
+      <div>
+        <div class="card-name">Aisha K.</div>
+        <div class="card-activity">Chatting with AI — Quadratic equations</div>
+      </div>
+    </div>
+
+    <div class="teacher-messages">
+      <div class="card-msg student-msg">
+        <span class="msg-label">Aisha</span>
+        How do I solve x^2 + 5x + 6 = 0?
+      </div>
+      <div class="card-msg ai-msg">
+        <span class="msg-label">ChatBridge AI</span>
+        Great question! Instead of giving you the answer, let me guide you. What two numbers multiply to give 6 and add up to 5?
+      </div>
+      <div class="card-msg student-msg">
+        <span class="msg-label">Aisha</span>
+        Hmm... 2 and 3?
+      </div>
+      <div class="card-msg ai-msg">
+        <span class="msg-label">ChatBridge AI</span>
+        Exactly! So you can write x^2 + 5x + 6 as (x + 2)(x + 3) = 0. Now, what values of x make each factor equal to zero?
+      </div>
+    </div>
+
+    <div class="active-whisper">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+      <span class="active-whisper-label">Active Whisper:</span>
+      <span class="active-whisper-text">Guide toward discovery-based learning for quadratic equations</span>
+      <button class="whisper-dismiss" title="Remove whisper">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="whisper-compose">
+      <div class="whisper-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        Whisper to AI
+      </div>
+      <p class="whisper-tooltip">Your guidance shapes how the AI responds. The student won't see your whisper.</p>
+      <textarea class="whisper-textarea" placeholder="e.g., Guide Aisha toward discovering the quadratic formula rather than giving it directly"></textarea>
+      <div class="whisper-footer">
+        <span class="char-count">0 / 500</span>
+        <div class="whisper-buttons">
+          <button class="btn-cancel-whisper">Cancel</button>
+          <button class="btn-send-whisper">Send Whisper</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Student Panel -->
+  <div class="tab-panel" id="panelStudent">
+    <div class="student-chat-area">
+      <div class="s-message student">
+        <div class="s-message-avatar">AK</div>
+        <div>
+          <div class="s-message-bubble">How do I solve x^2 + 5x + 6 = 0?</div>
+        </div>
+      </div>
+      <div class="s-message ai">
+        <div class="s-message-avatar">CB</div>
+        <div>
+          <div class="s-message-bubble">Great question! Instead of giving you the answer directly, let me guide you. What two numbers multiply to give 6 and add up to 5?</div>
+          <div class="s-ai-badge">AI-generated</div>
+        </div>
+      </div>
+      <div class="s-message student">
+        <div class="s-message-avatar">AK</div>
+        <div>
+          <div class="s-message-bubble">Hmm... 2 and 3?</div>
+        </div>
+      </div>
+      <div class="s-message ai">
+        <div class="s-message-avatar">CB</div>
+        <div>
+          <div class="s-message-bubble">Exactly! So you can write x^2 + 5x + 6 as (x + 2)(x + 3) = 0. Now, what values of x make each factor equal to zero?</div>
+          <div class="s-ai-badge">AI-generated</div>
+        </div>
+      </div>
+
+      <div class="annotation">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#92400E" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Mockup note: The AI's discovery-based approach was shaped by the teacher's whisper. Aisha sees no indication of this.
+      </div>
+    </div>
+
+    <div class="student-input-bar">
+      <div class="student-input-row">
+        <input class="s-chat-input" type="text" placeholder="Type a message..." autocomplete="off">
+        <button class="s-send-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    if (tab === 'teacher') {
+      document.getElementById('tabTeacher').classList.add('active');
+      document.getElementById('panelTeacher').classList.add('active');
+    } else {
+      document.getElementById('tabStudent').classList.add('active');
+      document.getElementById('panelStudent').classList.add('active');
+    }
+  }
+</script>
+
+</body>
+</html>

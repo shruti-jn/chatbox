@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatBridge — Student Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+    :root {
+      /* --- Colors: Primary (Indigo) --- */
+      --color-primary: #4F46E5;
+      --color-primary-hover: #4338CA;
+      --color-primary-active: #3730A3;
+      --color-primary-disabled: #A5B4FC;
+      --color-primary-light: #EEF2FF;
+
+      /* --- Colors: Secondary (Teal) --- */
+      --color-secondary: #0D9488;
+      --color-secondary-hover: #0F766E;
+      --color-secondary-active: #115E59;
+      --color-secondary-disabled: #99F6E4;
+      --color-secondary-light: #F0FDFA;
+
+      /* --- Colors: Accent (Amber) --- */
+      --color-accent: #F59E0B;
+      --color-accent-hover: #D97706;
+      --color-accent-active: #B45309;
+
+      /* --- Colors: Semantic --- */
+      --color-success: #10B981;
+      --color-warning: #F59E0B;
+      --color-error: #EF4444;
+      --color-info: #3B82F6;
+
+      /* --- Colors: Neutral Scale (9 steps) --- */
+      --neutral-0: #FFFFFF;
+      --neutral-50: #F9FAFB;
+      --neutral-100: #F3F4F6;
+      --neutral-200: #E5E7EB;
+      --neutral-300: #D1D5DB;
+      --neutral-400: #9CA3AF;
+      --neutral-500: #6B7280;
+      --neutral-600: #374151;
+      --neutral-900: #111827;
+
+      /* --- Colors: Background Tiers --- */
+      --bg-page: #F9FAFB;
+      --bg-surface: #FFFFFF;
+      --bg-elevated: #FFFFFF; /* with shadow */
+
+      /* --- Chat Bubble Colors --- */
+      --bubble-student: #4F46E5;
+      --bubble-student-text: #FFFFFF;
+      --bubble-ai: #F3F4F6;
+      --bubble-ai-text: #111827;
+      --bubble-system: #E5E7EB;
+      --bubble-system-text: #6B7280;
+
+      /* --- Typography --- */
+      --font-heading: 'Inter', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --text-xs: 0.75rem;   /* 12px */
+      --text-sm: 0.875rem;  /* 14px */
+      --text-base: 1rem;    /* 16px */
+      --text-lg: 1.125rem;  /* 18px */
+      --text-xl: 1.25rem;   /* 20px */
+      --text-2xl: 1.5rem;   /* 24px */
+      --text-3xl: 1.875rem; /* 30px */
+
+      --weight-regular: 400;
+      --weight-medium: 500;
+      --weight-semibold: 600;
+      --weight-bold: 700;
+
+      --leading-tight: 1.25;
+      --leading-normal: 1.5;
+      --leading-relaxed: 1.75;
+
+      /* --- Spacing --- */
+      --space-unit: 4px;
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      --space-2xl: 48px;
+      --space-3xl: 64px;
+
+      /* --- Elevation --- */
+      --shadow-flat: none;
+      --shadow-raised: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-floating: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-overlay: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05);
+
+      /* --- Border Radius --- */
+      --radius-none: 0;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --radius-full: 9999px;
+
+      /* --- Motion --- */
+      --ease-micro: cubic-bezier(0, 0, 0.2, 1);
+      --ease-panel: cubic-bezier(0.4, 0, 0.2, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+      --duration-micro: 200ms;
+      --duration-panel: 300ms;
+      --duration-page: 400ms;
+      --duration-app-materialize: 500ms;
+      --duration-shimmer: 1.5s;
+    }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-page);
+  color: var(--neutral-900);
+  line-height: 1.5;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Top Bar ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 var(--space-lg);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--neutral-200);
+  z-index: 10;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.logo {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.logo svg {
+  width: 24px;
+  height: 24px;
+}
+
+.grade-badge {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--neutral-500);
+  background: var(--bg-page);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--neutral-200);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.topbar-menu {
+  position: relative;
+}
+
+.topbar-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--neutral-200);
+  background: var(--bg-surface);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--neutral-500);
+  text-decoration: none;
+}
+
+.topbar-menu-btn:hover {
+  background: var(--bg-page);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── Layout ── */
+.app-layout {
+  display: flex;
+  height: calc(100vh - 56px);
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 240px;
+  min-width: 240px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--neutral-200);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--neutral-200);
+}
+
+.new-chat-btn {
+  width: 100%;
+  padding: 10px var(--space-md);
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.new-chat-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.convo-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-sm);
+}
+
+.convo-item {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  margin-bottom: 2px;
+  text-decoration: none;
+  display: block;
+  color: inherit;
+}
+
+.convo-item:hover {
+  background: var(--bg-page);
+}
+
+.convo-item.active {
+  background: #EEF2FF;
+  border: 1px solid #C7D2FE;
+}
+
+.convo-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--neutral-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.convo-meta {
+  font-size: 11px;
+  color: var(--neutral-400);
+  margin-top: 2px;
+}
+
+/* ── Main Chat Area ── */
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-lg) var(--space-2xl);
+}
+
+.message {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  max-width: 760px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.message.student {
+  flex-direction: row-reverse;
+}
+
+.message-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.message.ai .message-avatar {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  color: white;
+}
+
+.message.student .message-avatar {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+
+.message-content {
+  max-width: 600px;
+}
+
+.message.student .message-content {
+  text-align: right;
+}
+
+.message-bubble {
+  display: inline-block;
+  padding: 12px var(--space-md);
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.message.ai .message-bubble {
+  background: var(--bg-page);
+  border: 1px solid var(--neutral-200);
+}
+
+.message.student .message-bubble {
+  background: var(--color-primary);
+  color: white;
+}
+
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--neutral-400);
+  margin-top: 4px;
+}
+
+.ai-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ── App Card ── */
+.app-card {
+  max-width: 760px;
+  margin: var(--space-md) auto var(--space-lg);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-floating);
+  overflow: hidden;
+}
+
+.app-card-header {
+  display: flex;
+  align-items: center;
+  padding: 12px var(--space-md);
+  border-bottom: 1px solid var(--neutral-200);
+  background: var(--bg-page);
+  gap: var(--space-sm);
+}
+
+.app-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: #EEF2FF;
+}
+
+.app-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--neutral-900);
+}
+
+.app-status {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  margin-left: var(--space-sm);
+}
+
+.app-status.active {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+.app-collapse-btn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--neutral-400);
+}
+
+.app-collapse-btn:hover {
+  background: var(--neutral-200);
+}
+
+.app-card-body {
+  padding: var(--space-md);
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Chess Board ── */
+.chess-board {
+  display: grid;
+  grid-template-columns: repeat(8, 52px);
+  grid-template-rows: repeat(8, 52px);
+  border: 2px solid var(--neutral-900);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.chess-square {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  line-height: 1;
+  user-select: none;
+}
+
+.chess-square.light {
+  background: #EEF2FF;
+}
+
+.chess-square.dark {
+  background: #C7D2FE;
+}
+
+/* ── Message rich text ── */
+.message-bubble strong {
+  font-weight: 600;
+}
+
+/* ── Input Bar ── */
+.chat-input-bar {
+  padding: var(--space-md) var(--space-2xl) var(--space-lg);
+  background: var(--bg-surface);
+  border-top: 1px solid var(--neutral-200);
+}
+
+.chat-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  max-width: 760px;
+  margin: 0 auto;
+  background: var(--bg-page);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  padding: 4px;
+}
+
+.chat-input-row:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.attach-btn, .send-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.attach-btn {
+  background: transparent;
+  color: var(--neutral-400);
+}
+
+.attach-btn:hover {
+  background: var(--neutral-200);
+  color: var(--neutral-500);
+}
+
+.send-btn {
+  background: var(--color-primary);
+  color: white;
+}
+
+.send-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.chat-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 10px 8px;
+  outline: none;
+  color: var(--neutral-900);
+}
+
+.chat-input::placeholder {
+  color: var(--neutral-400);
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="student-chat--empty.html" class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      ChatBridge
+    </a>
+    <span class="grade-badge">Grade 6-8</span>
+  </div>
+  <div class="topbar-right">
+    <a href="teacher-dashboard.html" class="topbar-menu-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+    <div class="user-avatar">SR</div>
+  </div>
+</header>
+
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <button class="new-chat-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Chat
+      </button>
+    </div>
+    <div class="convo-list">
+      <a href="#" class="convo-item active">
+        <div class="convo-title">Chess Practice</div>
+        <div class="convo-meta">Just now</div>
+      </a>
+      <a href="#" class="convo-item">
+        <div class="convo-title">Vocabulary Quiz — Chapter 7</div>
+        <div class="convo-meta">Yesterday</div>
+      </a>
+      <a href="#" class="convo-item">
+        <div class="convo-title">Gravity Simulation Help</div>
+        <div class="convo-meta">Mar 28</div>
+      </a>
+      <a href="#" class="convo-item">
+        <div class="convo-title">Essay Brainstorm — Civil Rights</div>
+        <div class="convo-meta">Mar 27</div>
+      </a>
+      <a href="#" class="convo-item">
+        <div class="convo-title">Fraction Practice</div>
+        <div class="convo-meta">Mar 25</div>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Chat Main -->
+  <main class="chat-main">
+    <div class="chat-messages">
+
+      <!-- Student message 1 -->
+      <div class="message student">
+        <div class="message-avatar">SR</div>
+        <div class="message-content">
+          <div class="message-bubble">Hey! Can you help me practice chess?</div>
+        </div>
+      </div>
+
+      <!-- AI message 1 -->
+      <div class="message ai">
+        <div class="message-avatar">CB</div>
+        <div class="message-content">
+          <div class="message-bubble">I'd love to help you practice chess! Let me set up a game for you.</div>
+          <div class="ai-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+            AI-generated
+          </div>
+        </div>
+      </div>
+
+      <!-- App Card — Chess (Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5) -->
+      <div class="app-card">
+        <div class="app-card-header">
+          <div class="app-icon">&#9816;</div>
+          <span class="app-name">Chess</span>
+          <span class="app-status active">Active</span>
+          <button class="app-collapse-btn" title="Collapse">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+        </div>
+        <div class="app-card-body">
+          <!-- Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5
+               Board from White's perspective (rank 8 at top)
+               a8=♜ b8=  c8=♝ d8=♛ e8=♚ f8=♝ g8=♞ h8=♜
+               a7=♟ b7=♟ c7=♟ d7=♟ e7=  f7=♟ g7=♟ h7=♟
+               a6=        ...all empty...
+               a5=  b5=♗  ...  e5=♟
+               a4=        e4=♙
+               a3=
+               a2=♙♙♙♙  f2=♙ g2=♙ h2=♙
+               a1=♖ b1=♘ c1=♗ d1=♕ e1=♔ f1=  g1=  h1=♖
+               Nc6 is on c6, Nf3 is on f3, Bb5 is on b5
+          -->
+          <div class="chess-board">
+            <!-- Rank 8 -->
+            <div class="chess-square light">&#9820;</div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light">&#9821;</div>
+            <div class="chess-square dark">&#9819;</div>
+            <div class="chess-square light">&#9818;</div>
+            <div class="chess-square dark">&#9821;</div>
+            <div class="chess-square light">&#9822;</div>
+            <div class="chess-square dark">&#9820;</div>
+            <!-- Rank 7 -->
+            <div class="chess-square dark">&#9823;</div>
+            <div class="chess-square light">&#9823;</div>
+            <div class="chess-square dark">&#9823;</div>
+            <div class="chess-square light">&#9823;</div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light">&#9823;</div>
+            <div class="chess-square dark">&#9823;</div>
+            <div class="chess-square light">&#9823;</div>
+            <!-- Rank 6 -->
+            <div class="chess-square light"></div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light">&#9822;</div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light"></div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light"></div>
+            <div class="chess-square dark"></div>
+            <!-- Rank 5 -->
+            <div class="chess-square dark"></div>
+            <div class="chess-square light">&#9815;</div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light"></div>
+            <div class="chess-square dark">&#9823;</div>
+            <div class="chess-square light"></div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light"></div>
+            <!-- Rank 4 -->
+            <div class="chess-square light"></div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light"></div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light">&#9817;</div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light"></div>
+            <div class="chess-square dark"></div>
+            <!-- Rank 3 -->
+            <div class="chess-square dark"></div>
+            <div class="chess-square light"></div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light"></div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light">&#9816;</div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light"></div>
+            <!-- Rank 2 -->
+            <div class="chess-square light">&#9817;</div>
+            <div class="chess-square dark">&#9817;</div>
+            <div class="chess-square light">&#9817;</div>
+            <div class="chess-square dark">&#9817;</div>
+            <div class="chess-square light"></div>
+            <div class="chess-square dark">&#9817;</div>
+            <div class="chess-square light">&#9817;</div>
+            <div class="chess-square dark">&#9817;</div>
+            <!-- Rank 1 -->
+            <div class="chess-square dark">&#9814;</div>
+            <div class="chess-square light">&#9816;</div>
+            <div class="chess-square dark">&#9815;</div>
+            <div class="chess-square light">&#9813;</div>
+            <div class="chess-square dark">&#9812;</div>
+            <div class="chess-square light"></div>
+            <div class="chess-square dark"></div>
+            <div class="chess-square light">&#9814;</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Student message 2 -->
+      <div class="message student">
+        <div class="message-avatar">SR</div>
+        <div class="message-content">
+          <div class="message-bubble">What should I do here?</div>
+        </div>
+      </div>
+
+      <!-- AI message 2 -->
+      <div class="message ai">
+        <div class="message-avatar">CB</div>
+        <div class="message-content">
+          <div class="message-bubble">
+            Looking at the board, you're in the <strong>Ruy Lopez</strong> opening. Black has a few solid options here:<br><br>
+            <strong>3...a6</strong> (the Morphy Defense) is the most popular — it challenges the bishop immediately.<br><br>
+            <strong>3...Nf6</strong> (Berlin Defense) is very solid but leads to quieter positions.<br><br>
+            I'd recommend <strong>3...a6</strong> if you want an active game!
+          </div>
+          <div class="ai-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+            AI-generated
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Input Bar -->
+    <div class="chat-input-bar">
+      <div class="chat-input-row">
+        <button class="attach-btn" title="Attach file">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>
+        </button>
+        <input class="chat-input" type="text" placeholder="Type a message...">
+        <button class="send-btn" title="Send message">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+</body>
+</html>

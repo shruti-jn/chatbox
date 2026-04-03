@@ -1,0 +1,246 @@
+metadata:
+  created_at: "2026-04-03T01:30:00Z"
+  created_by: qa_plan_compiler
+  project_id: chatbridge-v2
+  testing_framework: Vitest
+  e2e_framework: Playwright
+
+test_strategy:
+  approach: "TDD mandatory (L-077). Tests written before implementation. Real PostgreSQL + Redis via docker-compose (L-079). Full suite regression after every wave (L-078)."
+  coverage_target: "80% line coverage (production scope)"
+  environments:
+    local: "docker-compose with PostgreSQL 16 + Redis 7"
+    ci: "GitHub Actions / GitLab CI with same docker-compose"
+    staging: "Railway preview environment"
+
+test_categories:
+
+  unit_tests:
+    description: "Pure function tests — no I/O, no database"
+    framework: Vitest
+    targets:
+      - name: "CBP message validation"
+        covers: [FR-STATE-001, FR-STATE-006]
+        tests:
+          - "validates valid JSON-RPC 2.0 message"
+          - "rejects message missing jsonrpc field"
+          - "rejects message exceeding 64KB"
+          - "rejects message with invalid method"
+      - name: "Safety pipeline — PII detection"
+        covers: [FR-SAFE-001]
+        tests:
+          - "detects phone numbers and redacts"
+          - "detects email addresses and redacts"
+          - "detects SSN patterns and redacts"
+          - "passes clean text unchanged"
+      - name: "Safety pipeline — injection detection"
+        covers: [FR-SAFE-003]
+        tests:
+          - "detects 'ignore your instructions' pattern"
+          - "detects 'you are now' pattern"
+          - "extracts real question from injection wrapper"
+          - "passes normal student messages"
+      - name: "Safety pipeline — crisis detection"
+        covers: [FR-SAFE-004]
+        tests:
+          - "detects self-harm keywords"
+          - "returns crisis resources"
+          - "runs regardless of prior stage results"
+      - name: "App lifecycle state machine"
+        covers: [FR-APP-004]
+        tests:
+          - "valid transition: loading → active"
+          - "valid transition: active → suspended"
+          - "rejects invalid: active → loading"
+          - "rejects invalid: terminated → any"
+          - "enforces single-active constraint"
+      - name: "Grade-band CSS variable generation"
+        covers: [FR-CHAT-006]
+        tests:
+          - "K-2 band returns correct font size, touch targets"
+          - "9-12 band returns standard values"
+      - name: "Zod schema validation (shared)"
+        covers: [FR-STATE-006]
+        tests:
+          - "validates message content parts"
+          - "validates app registration payload"
+          - "validates classroom config"
+
+  integration_tests:
+    description: "Tests hitting real PostgreSQL + Redis via docker-compose. No mocks (L-079)."
+    framework: Vitest + Supertest
+    docker_compose: true
+    targets:
+      - name: "RLS multi-tenant isolation"
+        covers: [FR-COMP-003]
+        tests:
+          - "District A query returns zero results from District B"
+          - "SET LOCAL per transaction correctly scopes queries"
+          - "Connection pool reuse does not leak tenant context"
+      - name: "Message persistence and retrieval"
+        covers: [FR-CHAT-003]
+        tests:
+          - "POST /api/v1/conversations/{id}/messages creates message"
+          - "GET /api/v1/conversations/{id}/messages returns paginated history"
+          - "Messages include app-card content parts"
+      - name: "App registration and lifecycle"
+        covers: [FR-APP-001, FR-APP-004]
+        tests:
+          - "POST /api/v1/apps/register creates app with pending_review status"
+          - "Invalid registration returns 422 with specific errors"
+          - "App instance state transitions follow FSM rules"
+      - name: "Tool invocation end-to-end"
+        covers: [FR-APP-002]
+        tests:
+          - "POST /api/v1/apps/{id}/tools/{name}/invoke calls tool and returns result"
+          - "Timeout after 5s returns error"
+          - "Result is logged in ToolInvocation table"
+      - name: "Auth: JWT issuance and validation"
+        covers: [FR-CHAT-008]
+        tests:
+          - "POST /api/v1/auth/login returns JWT with role and district_id"
+          - "Expired JWT is rejected with 401"
+          - "JWT role enforced on protected routes"
+      - name: "Auth: RBAC enforcement"
+        covers: [FR-AUTH-005]
+        tests:
+          - "Student cannot access admin routes (403)"
+          - "Teacher cannot suspend district-wide (403)"
+          - "Admin can suspend app district-wide (200)"
+      - name: "Classroom CRUD and config"
+        covers: [FR-CTRL-001, FR-CTRL-002]
+        tests:
+          - "POST /api/v1/classrooms creates with join code"
+          - "PATCH /api/v1/classrooms/{id}/apps/{app_id} toggles app"
+          - "Classroom config includes AI settings"
+      - name: "Whisper injection"
+        covers: [FR-CTRL-003, FR-CTRL-004]
+        tests:
+          - "POST whisper stores guidance for student"
+          - "Guidance appears in AI context for next message"
+          - "Student cannot see whisper content"
+      - name: "Safety pipeline end-to-end"
+        covers: [FR-SAFE-001]
+        tests:
+          - "Blocked message returns 422"
+          - "Critical message returns 200 with crisis resources"
+          - "Safe message returns 202"
+          - "PII is redacted in stored message"
+      - name: "COPPA consent"
+        covers: [FR-COMP-001, FR-AUTH-004]
+        tests:
+          - "Under-13 student without consent is blocked"
+          - "Consent request sent on first access"
+          - "Granted consent enables access"
+      - name: "Audit trail"
+        covers: [FR-COMP-003, FR-OBS-003]
+        tests:
+          - "Every API call creates audit record"
+          - "Audit records are queryable by admin"
+          - "Safety events are logged"
+      - name: "Rate limiting"
+        covers: [FR-SAFE-005]
+        tests:
+          - "61st student message in 1 minute returns 429"
+          - "Retry-After header is present"
+      - name: "Collaborative session"
+        covers: [FR-COLLAB-001, FR-COLLAB-002]
+        tests:
+          - "Create session returns session code"
+          - "Join with code adds participant"
+          - "Turn-based enforcement rejects out-of-turn moves"
+
+  e2e_tests:
+    description: "Full browser tests with Playwright. Cover all 7 brief test scenarios."
+    framework: Playwright
+    targets:
+      - name: "Scenario 1: Tool discovery and invocation"
+        covers: [Brief test 1]
+        steps:
+          - "Login as student"
+          - "Type 'Let's play chess'"
+          - "Verify chess app card appears"
+          - "Verify board is interactive"
+      - name: "Scenario 2: App UI renders in chat"
+        covers: [Brief test 2]
+        steps:
+          - "Invoke chess app"
+          - "Verify iframe renders within 2s"
+          - "Verify sandbox attributes present"
+      - name: "Scenario 3: Completion signaling"
+        covers: [Brief test 3]
+        steps:
+          - "Play chess to checkmate"
+          - "Verify card collapses to summary"
+          - "Verify AI discusses the game"
+      - name: "Scenario 4: Context retention"
+        covers: [Brief test 4]
+        steps:
+          - "Complete a chess game"
+          - "Ask 'How did I do?'"
+          - "Verify AI references specific game events"
+      - name: "Scenario 5: Multi-app switching"
+        covers: [Brief test 5]
+        steps:
+          - "Start chess game"
+          - "Ask about weather"
+          - "Verify chess suspends, weather activates"
+          - "Re-expand chess"
+          - "Verify chess state preserved"
+      - name: "Scenario 6: Routing accuracy"
+        covers: [Brief test 6]
+        steps:
+          - "Ask ambiguous question"
+          - "Verify AI responds conversationally (no tool invoked)"
+      - name: "Scenario 7: Refusal for unrelated"
+        covers: [Brief test 7]
+        steps:
+          - "Ask 'What is the capital of France?'"
+          - "Verify AI answers directly, no app invoked"
+
+  golden_dataset_tests:
+    description: "20 scored scenarios from PRD Section 11d. Run via Langfuse eval pipeline before each deployment."
+    framework: "Custom eval harness + Langfuse"
+    blocking: true
+    scenarios: 20
+    scoring: "Per dimension (1-5), thresholds from PRD Section 11b"
+
+  load_tests:
+    description: "30 concurrent students per classroom, 100 classrooms"
+    framework: "k6 or Artillery"
+    targets:
+      - "30 concurrent WebSocket connections per classroom"
+      - "Chat message throughput under load"
+      - "Mission Control real-time grid under 30 students"
+      - "App card load time under concurrent access"
+
+  security_tests:
+    description: "Iframe sandbox, RLS isolation, injection detection"
+    targets:
+      - "Iframe cannot access parent DOM"
+      - "Cross-district RLS query returns zero results"
+      - "Injection patterns are detected and blocked"
+      - "PII is never present in Langfuse traces"
+      - "Rate limiting prevents abuse"
+
+checkpoints:
+  CP-1:
+    name: "Shell"
+    focus: "Scaffold, routing, layout, design tokens, auth"
+    verification: "App renders, routes resolve, LTI launch works, health check returns capability status"
+  CP-2:
+    name: "Core Visual + Chat"
+    focus: "Chat UI, streaming, grade-band adaptive, first app card rendering"
+    verification: "Messages stream, grade bands adapt, chess board renders in iframe"
+  CP-3:
+    name: "Data + Integration"
+    focus: "Real database, RLS, app registration, tool invocation, CBP protocol"
+    verification: "Real data persisted, RLS isolation tested, chess tool invoked end-to-end"
+  CP-4:
+    name: "Full Features"
+    focus: "All 7 test scenarios, Mission Control, whisper, collaborative sessions, OAuth, safety pipeline"
+    verification: "All 7 scenarios pass. Real API round-trips (not stubs). Integration proof."
+  CP-5:
+    name: "Polish"
+    focus: "Animations, accessibility, responsive, performance optimization. Max 5 tasks."
+    verification: "WCAG AA, CLS <0.1, FCP <1.5s. Design fidelity ≥80%."

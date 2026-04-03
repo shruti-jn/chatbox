@@ -1,6 +1,12 @@
 packages:
   - .
   - release/app
+  - packages/shared
+  - packages/backend
+  - packages/sdk
+  - packages/apps-chess
+  - packages/apps-spotify
+  - packages/apps-weather
 
 # Supply chain security: only install packages published at least 7 days ago
 minimumReleaseAge: 10080

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: App Resource Limit Warning — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .annotation strong { color: #111827; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--trigger { background: #FEF3C7; color: #92400E; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--state { background: #EEF2FF; color: #4F46E5; }
+    .label--exit { background: #ECFDF5; color: #059669; }
+    .label--error { background: #FEE2E2; color: #991B1B; }
+    .label--a11y { background: #F3E8FF; color: #7C3AED; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--alert { border-color: #EF4444; background: #FEF2F2; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>App Resource Limit Warning</h1>
+  <div class="screen-id">Screen: app-resource-limit | FR: FR-APP-005 | Personas: PER-001 (Student), PER-004 (Developer) | Journeys: JRN-001, JRN-006</div>
+
+  <!-- Layout Zones -->
+  <div class="section">
+    <h2>Layout Zones</h2>
+    <div class="zone-map">
+      <div class="zone zone--alert">
+        <div class="zone-number">1</div>
+        <strong>Resource Error Card (in chat thread — Student view)</strong> — Replaces the active app card. Amber/red error styling. Icon: gauge/warning. Message: "This app isn't responding properly. You can try reloading it or continue chatting." Two buttons: "Reload App" and "Dismiss". App name shown. No technical details exposed to student (memory MB counts, request rates are developer-facing only).
+      </div>
+      <div class="zone zone--primary">
+        <div class="zone-number">2</div>
+        <strong>Resource Limits Threshold States (in-card, progressive)</strong> — Three escalating states shown within the app card during normal operation:
+        <ol style="margin-top:8px; padding-left:20px; font-size:13px;">
+          <li><strong>Warning (80% of limit):</strong> Subtle amber indicator in app card corner. No user action needed.</li>
+          <li><strong>Critical (95% of limit):</strong> App card border turns amber. Small badge: "App running slow." Save progress button appears if app supports state save.</li>
+          <li><strong>Terminated (limit exceeded):</strong> Full error card shown (zone 1).</li>
+        </ol>
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">3</div>
+        <strong>Developer Debug View (developer sandbox only)</strong> — In sandbox environments, the error card expands to show: resource type exceeded (memory / network requests), current usage vs. limit (e.g., "52MB / 50MB memory"), timestamp, instance_id. A "View resource logs" button links to the developer console. This is never shown in student-facing production environments.
+      </div>
+    </div>
+  </div>
+
+  <!-- Trigger Conditions -->
+  <div class="section">
+    <h2>Trigger Conditions</h2>
+    <p class="annotation"><span class="label label--trigger">TRIGGER (Warning — 80%)</span> <strong>Server-side resource monitor detects 80% threshold:</strong> Memory usage > 40MB or request rate > 80/min. Platform sends <code>app_event</code> via WebSocket with type <code>resource_warning</code>. Client renders amber indicator on app card.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER (Critical — 95%)</span> <strong>Memory > 47.5MB or request rate > 95/min:</strong> Platform sends <code>app_event</code> with type <code>resource_critical</code>. App card border changes. "App running slow" badge appears.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER (Terminated)</span> <strong>Limit exceeded:</strong> Memory > 50MB or request rate > 100/min. Per AC-APP-005-01. RESOURCE_EXCEEDED event fires on FSM-002. Platform terminates the iframe immediately. App card transitions to error state. terminate_for_resources action: kills iframe, shows resource error message, logs event. Per FR-APP-005.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER (Size constraint)</span> <strong>Iframe dimensions:</strong> If an app attempts to resize its iframe beyond 600px width (desktop) or 400px (mobile), the platform clips it and sends a <code>resource_violation</code> log event. Not a termination — just enforcement. Developer sees the violation in sandbox logs.</p>
+  </div>
+
+  <!-- API Endpoints -->
+  <div class="section">
+    <h2>API Endpoints</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>WebSocket resource event (student):</strong> <code>WebSocket /ws/chat/{session_id}</code> receives <code>app_event</code> with types: <code>resource_warning</code>, <code>resource_critical</code>, <code>resource_terminated</code>. Each includes <code>instance_id</code> and (for developer sandbox) <code>resource_type</code> and <code>current_usage</code>.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Reload app (student action):</strong> <code>POST /api/v1/apps/{app_id}/tools/{tool_name}/invoke</code> with <code>conversation_id</code> — creates a new app instance. This is the same endpoint as initial invocation. A fresh instance starts with a clean state (terminated instance's state is logged but not restored).</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Get app events (developer):</strong> <code>GET /api/v1/apps/{app_id}/events</code> — Returns resource violations, health check failures, security incidents. Used in developer sandbox to debug. Per the API contract operationId: <code>getAppEvents</code>.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Resource log (server-side):</strong> Termination events are automatically logged internally. No client-initiated call. The log includes: instance_id, app_id, resource_type, usage_at_termination, conversation_id (for audit).</p>
+  </div>
+
+  <!-- State Transitions -->
+  <div class="section">
+    <h2>State Transitions (FSM-002: App Instance Lifecycle)</h2>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Normal operation → resource exceeded:</strong> From <code>active</code> state: RESOURCE_EXCEEDED event → <code>terminated</code>. terminate_for_resources action fires: kills iframe, shows resource error card, logs event. This is a terminal transition — the instance cannot be resumed.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Student clicks "Reload App":</strong> This creates a NEW instance — FSM-002 starts from <code>registered</code> → TOOL_INVOKED → <code>loading</code> → <code>active</code>. The old terminated instance remains in <code>terminated</code> state in the log.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Student clicks "Dismiss":</strong> DISMISS event on the error card instance → <code>terminated</code> (already there, no transition needed). The error card is removed from the conversation view. Conversation returns to plain chat.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Student conversation FSM-001:</strong> APP_ERROR event in FSM-001 (triggered by resource termination) → if in <code>app_embedded</code> state → transition to <code>active</code>. handle_app_error action fires: AI acknowledges the failure in the conversation.</p>
+  </div>
+
+  <!-- User Exit Paths -->
+  <div class="section">
+    <h2>User Exit Paths</h2>
+    <ul>
+      <li><strong>"Reload App":</strong> New app instance created via POST /invoke. Loading skeleton appears. App loads fresh state. Old error card is replaced by new loading card. Student loses in-progress state from the terminated session.</li>
+      <li><strong>"Dismiss":</strong> Error card is removed from view. Chat input is the active surface. The AI sends a message acknowledging the issue. Student continues chatting without the app.</li>
+      <li><strong>Ignore card and continue chatting:</strong> Student can type in the chat input at any time. The error card persists in the thread as a record. The AI is aware the app terminated and will not reference it as if it were still active.</li>
+      <li><strong>Session end:</strong> SESSION_END event. Error card persists in conversation history (it's a message in the thread, not a transient overlay).</li>
+    </ul>
+  </div>
+
+  <!-- Error Recovery -->
+  <div class="section">
+    <h2>Error Recovery</h2>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Reload fails (POST /invoke returns 4xx):</strong> Show inline error on the new loading card: "Could not reload [App Name]. Try again later." Error card replaces loading skeleton. Chat continues.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Reload fails (new instance also hits resource limit immediately):</strong> Same resource termination flow as before. After 2 consecutive immediate terminations, the error card shows: "This app keeps running into problems. It may need to be fixed by its developer. You can continue chatting." No more reload button shown.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>WebSocket unavailable during termination:</strong> The iframe is killed server-side. When student's WebSocket reconnects, the client queries session state and renders the error card retroactively. Student may have had a period where the app appeared frozen before the error card appeared.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Developer sandbox resource log unavailable:</strong> Developer sees "Resource logs temporarily unavailable" on the debug panel. The resource termination still occurred — the UI is a display failure only.</p>
+  </div>
+
+  <!-- Accessibility Notes -->
+  <div class="section">
+    <h2>Accessibility Notes</h2>
+    <ul>
+      <li>Resource error card uses <code>role="alert"</code> and is announced when it appears: "[App Name] stopped working. You can reload it or continue chatting."</li>
+      <li>Warning and critical indicators (amber dot, border color) use both color and a text label: "App running slow" is visible text, not just a color change. WCAG 1.4.1 compliance.</li>
+      <li>"Reload App" button has <code>aria-label="Reload [App Name]"</code>. "Dismiss" has <code>aria-label="Dismiss error and continue chatting"</code>.</li>
+      <li>After reload, focus moves to the new loading skeleton's region. Screen reader announces: "[App Name] is loading."</li>
+      <li>Developer debug panel (sandbox) collapses by default. Expandable via keyboard with a "Show resource details" toggle button.</li>
+    </ul>
+  </div>
+
+</body>
+</html>

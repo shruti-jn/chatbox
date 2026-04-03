@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: Break Reminder &amp; AI Disclosure — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .annotation strong { color: #111827; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--trigger { background: #FEF3C7; color: #92400E; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--state { background: #EEF2FF; color: #4F46E5; }
+    .label--exit { background: #ECFDF5; color: #059669; }
+    .label--error { background: #FEE2E2; color: #991B1B; }
+    .label--a11y { background: #F3E8FF; color: #7C3AED; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Break Reminder &amp; AI Disclosure</h1>
+  <div class="screen-id">Screen: break-reminder | FR: FR-SAFE-010 | Persona: PER-001 (Sam the Student) | Journeys: JRN-001</div>
+
+  <!-- Layout Zones -->
+  <div class="section">
+    <h2>Layout Zones</h2>
+    <div class="zone-map">
+      <div class="zone zone--primary">
+        <div class="zone-number">1</div>
+        <strong>AI Disclosure Banner (persistent, top of every session)</strong> — Shown at the start of every session and always visible in the top bar via a small "i" info icon. Text: "You're chatting with an AI, not a real person. Your teacher can see this conversation." Per EU AI Act Article 50 and California SB 243. The disclosure must be conspicuous, not buried.
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">2</div>
+        <strong>Break Reminder Card (inline, in chat thread)</strong> — Appears as a special chat card after 60 minutes of continuous use. Card style: friendly, non-alarming. Illustration: a simple eye/rest icon. Message: "You've been learning for an hour! Time to give your eyes a rest. Take a 5-minute break before continuing." Two options: "Take a Break" (pauses chat input, starts 5-min countdown) and "Continue Anyway" (dismisses card with a logged acknowledgment).
+      </div>
+      <div class="zone">
+        <div class="zone-number">3</div>
+        <strong>Break Countdown (post "Take a Break")</strong> — If student takes the break: chat input is disabled. A countdown timer shows "Break: 4:32 remaining." When timer ends: input re-enables, a gentle "Welcome back!" message appears. Student can click "I'm back early" to return before timer ends.
+      </div>
+    </div>
+  </div>
+
+  <!-- Trigger Conditions -->
+  <div class="section">
+    <h2>Trigger Conditions</h2>
+    <p class="annotation"><span class="label label--trigger">TRIGGER (AI Disclosure)</span> <strong>Session start:</strong> Every time a student opens the chat interface (new session or returning). The disclosure appears for 3 seconds as a top banner, then collapses to an "i" icon in the navigation bar. On first-ever login, a modal requires explicit acknowledgment ("Got it!") before the student can type.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER (Break Reminder)</span> <strong>60 minutes of continuous active use:</strong> Timer starts on first message of the session. Resets if student is idle for more than 10 minutes. "Active use" = at least one message sent in the last 10 minutes. Per AC-SAFE-010-01.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER (Break Reminder)</span> <strong>Subsequent reminders:</strong> If student clicks "Continue Anyway", reminder appears again after another 30 minutes of active use. If student takes the break, timer resets to 60 minutes after break completes.</p>
+  </div>
+
+  <!-- API Endpoints -->
+  <div class="section">
+    <h2>API Endpoints</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Session usage time:</strong> <code>GET /api/v1/sessions/{session_id}</code> — Includes <code>active_duration_minutes</code> computed field. Used on page load to determine if break reminder should appear immediately (e.g., student had 55 minutes of use and refreshed).</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Log break reminder event:</strong> <code>POST /api/v1/sessions/{session_id}/events</code> — Body: <code>{ "event": "break_reminder_shown" | "break_taken" | "break_dismissed" }</code>. Fire-and-forget. Used in analytics and compliance audit trail.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Log AI disclosure acknowledgment (first login only):</strong> <code>POST /api/v1/users/{user_id}/disclosure-acknowledged</code> — Records that student has seen and acknowledged the AI disclosure. Only called once per user lifetime. Required for California SB 243 audit.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>No endpoint for break countdown:</strong> Countdown is client-side only (JS timer). If page refreshes during break, <code>GET /sessions/{id}</code> returns break state and remaining time.</p>
+  </div>
+
+  <!-- State Transitions -->
+  <div class="section">
+    <h2>State Transitions</h2>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Student FSM-001:</strong> Break reminder is orthogonal to the conversation state machine. The conversation remains in <code>active</code> state during a break. The chat input is disabled on the client side only. No server-side state change.</p>
+    <p class="annotation"><span class="label label--state">TIMER</span> <strong>Client-side state machine (break flow):</strong></p>
+    <ul>
+      <li><code>tracking</code> → 60 min elapsed → <code>reminder_shown</code></li>
+      <li><code>reminder_shown</code> + "Take a Break" → <code>on_break</code> (5-min timer, input disabled)</li>
+      <li><code>reminder_shown</code> + "Continue Anyway" → <code>tracking</code> (reset to 30-min interval)</li>
+      <li><code>on_break</code> + timer expires → <code>tracking</code> (reset to 60-min interval)</li>
+      <li><code>on_break</code> + "I'm back early" → <code>tracking</code> (reset to 60-min interval)</li>
+    </ul>
+  </div>
+
+  <!-- User Exit Paths -->
+  <div class="section">
+    <h2>User Exit Paths</h2>
+    <ul>
+      <li><strong>"Take a Break":</strong> Disables chat input, shows 5-min countdown. When timer ends, input re-enables. Break event logged.</li>
+      <li><strong>"Continue Anyway":</strong> Dismisses reminder card. Reminder re-appears in 30 minutes. Dismissal logged for compliance audit.</li>
+      <li><strong>"I'm back early" (during break):</strong> Ends break early, re-enables input, resets 60-min timer.</li>
+      <li><strong>Close browser/tab (during break):</strong> Break state is lost — next session starts fresh with a new 60-min timer.</li>
+      <li><strong>Disclosure "i" icon (click):</strong> Opens a small popover: "You're talking with an AI assistant. Your teacher [Name] can see this conversation. You are not talking to a real person." Closes on click-outside or Escape.</li>
+    </ul>
+  </div>
+
+  <!-- Error Recovery -->
+  <div class="section">
+    <h2>Error Recovery</h2>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Session GET fails on page load:</strong> Client defaults to showing break reminder immediately if usage time is unknown (conservative approach — better to remind than to miss a required reminder).</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Break event log POST fails:</strong> Silently swallowed. Never retried in a way that blocks the UI. Break reminder UX is unaffected by log failure.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Disclosure acknowledgment POST fails:</strong> Retried silently 3 times. If all fail, the disclosure modal re-shows on next login (conservative — keeps showing until confirmed). The student can still use the platform in the meantime (non-blocking after first display).</p>
+  </div>
+
+  <!-- Accessibility Notes -->
+  <div class="section">
+    <h2>Accessibility Notes</h2>
+    <ul>
+      <li>AI Disclosure banner uses <code>role="status"</code> and <code>aria-live="polite"</code> on session start. Screen reader announces: "Notice: You are chatting with an AI, not a real person."</li>
+      <li>Break reminder card uses <code>role="alert"</code> (not assertive — it's not urgent). Announced once when it appears.</li>
+      <li>Countdown timer uses <code>aria-live="polite"</code> and updates every minute (not every second — to avoid excessive announcements). Reads: "Break: 4 minutes remaining."</li>
+      <li>Chat input disabled state: <code>aria-disabled="true"</code> and <code>aria-label="Chat is paused during your break. 4 minutes remaining."</code></li>
+      <li>Disclosure modal (first login): Focus is trapped inside. "Got it" is the only button. Keyboard accessible. Tab cycles through disclosure text and button.</li>
+    </ul>
+  </div>
+
+</body>
+</html>

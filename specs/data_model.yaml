@@ -1,0 +1,343 @@
+metadata:
+  created_at: "2026-04-03T01:00:00Z"
+  created_by: data_model_compiler
+  project_id: chatbridge-v2
+  orm: Prisma 6.x
+  database: PostgreSQL 16 with RLS
+
+entities:
+  # === Identity & Multi-Tenancy ===
+
+  District:
+    description: Tenant root. RLS boundary.
+    fields:
+      id: { type: uuid, primary: true }
+      name: { type: string, required: true }
+      config: { type: jsonb, description: "District-wide AI behavior defaults" }
+      created_at: { type: timestamp, default: now }
+      updated_at: { type: timestamp }
+    rls: true
+    rls_column: id
+    indexes: []
+
+  School:
+    description: School within a district.
+    fields:
+      id: { type: uuid, primary: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      name: { type: string, required: true }
+      created_at: { type: timestamp, default: now }
+    rls: true
+    rls_column: district_id
+    indexes:
+      - columns: [district_id]
+
+  User:
+    description: Student, teacher, or district admin.
+    fields:
+      id: { type: uuid, primary: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      school_id: { type: uuid, fk: School.id, nullable: true }
+      role: { type: enum, values: [student, teacher, district_admin], required: true }
+      display_name: { type: string, required: true }
+      external_id: { type: string, description: "LTI/SSO provider user ID", nullable: true }
+      grade_band: { type: enum, values: [k2, g35, g68, g912], nullable: true }
+      email_hash: { type: string, description: "Hashed email for dedup — never store plaintext", nullable: true }
+      created_at: { type: timestamp, default: now }
+      last_login_at: { type: timestamp, nullable: true }
+    rls: true
+    rls_column: district_id
+    indexes:
+      - columns: [district_id, role]
+      - columns: [external_id]
+        unique: true
+
+  # === Classroom & Config ===
+
+  Classroom:
+    description: Teacher-managed classroom with AI config and app curation.
+    fields:
+      id: { type: uuid, primary: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      school_id: { type: uuid, fk: School.id, nullable: true }
+      teacher_id: { type: uuid, fk: User.id, required: true }
+      name: { type: string, required: true }
+      join_code: { type: string, unique: true, required: true }
+      grade_band: { type: enum, values: [k2, g35, g68, g912], required: true }
+      ai_config: { type: jsonb, description: "{ mode: socratic|direct, subject: string, tone: string, complexity: string, async_guidance: string }" }
+      created_at: { type: timestamp, default: now }
+      updated_at: { type: timestamp }
+    rls: true
+    rls_column: district_id
+    indexes:
+      - columns: [teacher_id]
+      - columns: [join_code]
+        unique: true
+
+  ClassroomMembership:
+    description: Student enrolled in classroom.
+    fields:
+      id: { type: uuid, primary: true }
+      classroom_id: { type: uuid, fk: Classroom.id, required: true }
+      student_id: { type: uuid, fk: User.id, required: true }
+      joined_at: { type: timestamp, default: now }
+    rls: true
+    rls_column: "via Classroom.district_id"
+    indexes:
+      - columns: [classroom_id, student_id]
+        unique: true
+
+  # === Apps & Marketplace ===
+
+  App:
+    description: Registered third-party app. RLS-EXEMPT (platform-global).
+    fields:
+      id: { type: uuid, primary: true }
+      name: { type: string, required: true }
+      description: { type: string, required: true }
+      developer_id: { type: string, description: "Developer account identifier" }
+      tool_definitions: { type: jsonb, description: "MCP-compatible tool schemas" }
+      ui_manifest: { type: jsonb, description: "{ url, width, height, sandbox_attrs }" }
+      permissions: { type: jsonb, description: "Declared data access needs" }
+      compliance_metadata: { type: jsonb, description: "COPPA/FERPA declarations" }
+      interaction_model: { type: enum, values: [single_user, turn_based, concurrent], default: single_user }
+      review_status: { type: enum, values: [pending_review, approved, rejected, suspended], default: pending_review }
+      review_results: { type: jsonb, description: "Automated review pipeline results", nullable: true }
+      version: { type: string, required: true }
+      created_at: { type: timestamp, default: now }
+      updated_at: { type: timestamp }
+    rls: false
+    note: "RLS-EXEMPT. Apps are platform-global. District-specific approval via DistrictAppCatalog."
+    indexes:
+      - columns: [review_status]
+
+  DistrictAppCatalog:
+    description: District-level approval/rejection of apps.
+    fields:
+      id: { type: uuid, primary: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      app_id: { type: uuid, fk: App.id, required: true }
+      status: { type: enum, values: [approved, rejected, suspended], required: true }
+      approved_by: { type: uuid, fk: User.id, nullable: true }
+      approved_at: { type: timestamp, nullable: true }
+      rejection_reason: { type: string, nullable: true }
+    rls: true
+    rls_column: district_id
+    indexes:
+      - columns: [district_id, app_id]
+        unique: true
+
+  ClassroomAppConfig:
+    description: Per-classroom app enable/disable.
+    fields:
+      id: { type: uuid, primary: true }
+      classroom_id: { type: uuid, fk: Classroom.id, required: true }
+      app_id: { type: uuid, fk: App.id, required: true }
+      enabled: { type: boolean, default: true }
+      enabled_by: { type: uuid, fk: User.id }
+      enabled_at: { type: timestamp, default: now }
+    rls: true
+    rls_column: "via Classroom.district_id"
+    indexes:
+      - columns: [classroom_id, app_id]
+        unique: true
+
+  AppInstance:
+    description: Running app instance in a conversation.
+    fields:
+      id: { type: uuid, primary: true }
+      app_id: { type: uuid, fk: App.id, required: true }
+      conversation_id: { type: uuid, fk: Conversation.id, required: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      status: { type: enum, values: [loading, active, suspended, collapsed, terminated, error], default: loading }
+      state_snapshot: { type: jsonb, description: "Last known app state (e.g., FEN for chess)" }
+      created_at: { type: timestamp, default: now }
+      updated_at: { type: timestamp }
+      terminated_at: { type: timestamp, nullable: true }
+    rls: true
+    rls_column: district_id
+    indexes:
+      - columns: [conversation_id, status]
+      - columns: [app_id]
+
+  # === Conversations & Messages ===
+
+  Conversation:
+    description: Chat conversation thread.
+    fields:
+      id: { type: uuid, primary: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      classroom_id: { type: uuid, fk: Classroom.id, required: true }
+      student_id: { type: uuid, fk: User.id, required: true }
+      title: { type: string, nullable: true }
+      created_at: { type: timestamp, default: now }
+      updated_at: { type: timestamp }
+    rls: true
+    rls_column: district_id
+    indexes:
+      - columns: [classroom_id, student_id]
+      - columns: [district_id, updated_at]
+
+  Message:
+    description: Individual message in a conversation.
+    fields:
+      id: { type: uuid, primary: true }
+      conversation_id: { type: uuid, fk: Conversation.id, required: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      author_role: { type: enum, values: [student, assistant, system, teacher_whisper] }
+      content_parts: { type: jsonb, description: "Array of content parts: text, tool-call, tool-result, app-card" }
+      safety_verdict: { type: jsonb, description: "{ severity, category, pii_found, redacted_message }", nullable: true }
+      token_count: { type: integer, nullable: true }
+      created_at: { type: timestamp, default: now }
+    rls: true
+    rls_column: district_id
+    indexes:
+      - columns: [conversation_id, created_at]
+
+  # === Collaboration ===
+
+  CollaborativeSession:
+    description: Shared app session for multi-student interaction.
+    fields:
+      id: { type: uuid, primary: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      app_instance_id: { type: uuid, fk: AppInstance.id, required: true }
+      session_code: { type: string, unique: true, required: true }
+      interaction_model: { type: enum, values: [turn_based, concurrent], required: true }
+      status: { type: enum, values: [active, closed], default: active }
+      created_by: { type: uuid, fk: User.id, required: true }
+      created_at: { type: timestamp, default: now }
+      closed_at: { type: timestamp, nullable: true }
+    rls: true
+    rls_column: district_id
+    indexes:
+      - columns: [session_code]
+        unique: true
+
+  SessionParticipant:
+    description: Student in a collaborative session.
+    fields:
+      id: { type: uuid, primary: true }
+      session_id: { type: uuid, fk: CollaborativeSession.id, required: true }
+      user_id: { type: uuid, fk: User.id, required: true }
+      color_assignment: { type: string, description: "e.g., white/black for chess" }
+      turn_order: { type: integer }
+      joined_at: { type: timestamp, default: now }
+      disconnected_at: { type: timestamp, nullable: true }
+    rls: true
+    rls_column: "via CollaborativeSession.district_id"
+    indexes:
+      - columns: [session_id, user_id]
+        unique: true
+
+  # === Auth & Consent ===
+
+  OAuthToken:
+    description: Stored OAuth tokens for external apps (Spotify).
+    fields:
+      id: { type: uuid, primary: true }
+      user_id: { type: uuid, fk: User.id, required: true }
+      provider: { type: string, required: true, description: "e.g., spotify" }
+      access_token_encrypted: { type: string, required: true }
+      refresh_token_encrypted: { type: string, required: true }
+      expires_at: { type: timestamp, required: true }
+      scopes: { type: jsonb }
+      created_at: { type: timestamp, default: now }
+      updated_at: { type: timestamp }
+    rls: true
+    rls_column: "via User.district_id"
+    indexes:
+      - columns: [user_id, provider]
+        unique: true
+
+  ParentalConsent:
+    description: COPPA consent record for students under 13.
+    fields:
+      id: { type: uuid, primary: true }
+      student_id: { type: uuid, fk: User.id, required: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      parent_email_hash: { type: string, required: true }
+      consent_status: { type: enum, values: [pending, granted, denied, revoked], default: pending }
+      consent_date: { type: timestamp, nullable: true }
+      revoked_date: { type: timestamp, nullable: true }
+      created_at: { type: timestamp, default: now }
+    rls: true
+    rls_column: district_id
+    indexes:
+      - columns: [student_id]
+        unique: true
+
+  DataDeletionRequest:
+    description: COPPA/FERPA right-to-be-forgotten tracking.
+    fields:
+      id: { type: uuid, primary: true }
+      student_id: { type: uuid, fk: User.id, required: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      requested_by: { type: enum, values: [parent, district_admin] }
+      requested_at: { type: timestamp, default: now }
+      completed_at: { type: timestamp, nullable: true }
+      status: { type: enum, values: [pending, in_progress, completed], default: pending }
+    rls: true
+    rls_column: district_id
+
+  # === Observability & Audit ===
+
+  AuditEvent:
+    description: Immutable FERPA audit trail. Append-only.
+    fields:
+      id: { type: uuid, primary: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      user_id: { type: uuid, fk: User.id, required: true }
+      action: { type: string, required: true, description: "e.g., view_conversation, send_message, configure_classroom" }
+      resource_type: { type: string, required: true }
+      resource_id: { type: string, required: true }
+      metadata: { type: jsonb, nullable: true }
+      created_at: { type: timestamp, default: now }
+    rls: true
+    rls_column: district_id
+    note: "APPEND-ONLY. No updates or deletes."
+    indexes:
+      - columns: [district_id, created_at]
+      - columns: [user_id]
+      - columns: [resource_type, resource_id]
+
+  SafetyEvent:
+    description: Content safety pipeline events. Immutable.
+    fields:
+      id: { type: uuid, primary: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      user_id: { type: uuid, fk: User.id, required: true }
+      event_type: { type: enum, values: [pii_detected, injection_detected, content_blocked, crisis_detected, app_content_blocked] }
+      severity: { type: enum, values: [safe, warning, blocked, critical] }
+      message_context_redacted: { type: string, nullable: true }
+      action_taken: { type: string, required: true }
+      created_at: { type: timestamp, default: now }
+    rls: true
+    rls_column: district_id
+    note: "APPEND-ONLY."
+    indexes:
+      - columns: [district_id, created_at]
+      - columns: [severity]
+
+  ToolInvocation:
+    description: Log of every tool invocation for observability.
+    fields:
+      id: { type: uuid, primary: true }
+      district_id: { type: uuid, fk: District.id, required: true }
+      conversation_id: { type: uuid, fk: Conversation.id, required: true }
+      app_id: { type: uuid, fk: App.id, required: true }
+      tool_name: { type: string, required: true }
+      parameters: { type: jsonb }
+      result: { type: jsonb, nullable: true }
+      status: { type: enum, values: [success, error, timeout] }
+      latency_ms: { type: integer }
+      created_at: { type: timestamp, default: now }
+    rls: true
+    rls_column: district_id
+    indexes:
+      - columns: [app_id, created_at]
+      - columns: [conversation_id]
+
+entity_count: 19
+rls_protected_count: 17
+rls_exempt: [App]

@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatBridge — Teacher Whisper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+    :root {
+      /* --- Colors: Primary (Indigo) --- */
+      --color-primary: #4F46E5;
+      --color-primary-hover: #4338CA;
+      --color-primary-active: #3730A3;
+      --color-primary-disabled: #A5B4FC;
+      --color-primary-light: #EEF2FF;
+
+      /* --- Colors: Secondary (Teal) --- */
+      --color-secondary: #0D9488;
+      --color-secondary-hover: #0F766E;
+      --color-secondary-active: #115E59;
+      --color-secondary-disabled: #99F6E4;
+      --color-secondary-light: #F0FDFA;
+
+      /* --- Colors: Accent (Amber) --- */
+      --color-accent: #F59E0B;
+      --color-accent-hover: #D97706;
+      --color-accent-active: #B45309;
+
+      /* --- Colors: Semantic --- */
+      --color-success: #10B981;
+      --color-warning: #F59E0B;
+      --color-error: #EF4444;
+      --color-info: #3B82F6;
+
+      /* --- Colors: Neutral Scale (9 steps) --- */
+      --neutral-0: #FFFFFF;
+      --neutral-50: #F9FAFB;
+      --neutral-100: #F3F4F6;
+      --neutral-200: #E5E7EB;
+      --neutral-300: #D1D5DB;
+      --neutral-400: #9CA3AF;
+      --neutral-500: #6B7280;
+      --neutral-600: #374151;
+      --neutral-900: #111827;
+
+      /* --- Colors: Background Tiers --- */
+      --bg-page: #F9FAFB;
+      --bg-surface: #FFFFFF;
+      --bg-elevated: #FFFFFF; /* with shadow */
+
+      /* --- Chat Bubble Colors --- */
+      --bubble-student: #4F46E5;
+      --bubble-student-text: #FFFFFF;
+      --bubble-ai: #F3F4F6;
+      --bubble-ai-text: #111827;
+      --bubble-system: #E5E7EB;
+      --bubble-system-text: #6B7280;
+
+      /* --- Typography --- */
+      --font-heading: 'Inter', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --text-xs: 0.75rem;   /* 12px */
+      --text-sm: 0.875rem;  /* 14px */
+      --text-base: 1rem;    /* 16px */
+      --text-lg: 1.125rem;  /* 18px */
+      --text-xl: 1.25rem;   /* 20px */
+      --text-2xl: 1.5rem;   /* 24px */
+      --text-3xl: 1.875rem; /* 30px */
+
+      --weight-regular: 400;
+      --weight-medium: 500;
+      --weight-semibold: 600;
+      --weight-bold: 700;
+
+      --leading-tight: 1.25;
+      --leading-normal: 1.5;
+      --leading-relaxed: 1.75;
+
+      /* --- Spacing --- */
+      --space-unit: 4px;
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      --space-2xl: 48px;
+      --space-3xl: 64px;
+
+      /* --- Elevation --- */
+      --shadow-flat: none;
+      --shadow-raised: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-floating: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-overlay: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05);
+
+      /* --- Border Radius --- */
+      --radius-none: 0;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --radius-full: 9999px;
+
+      /* --- Motion --- */
+      --ease-micro: cubic-bezier(0, 0, 0.2, 1);
+      --ease-panel: cubic-bezier(0.4, 0, 0.2, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+      --duration-micro: 200ms;
+      --duration-panel: 300ms;
+      --duration-page: 400ms;
+      --duration-app-materialize: 500ms;
+      --duration-shimmer: 1.5s;
+    }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-page);
+  color: var(--neutral-900);
+  line-height: 1.5;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Top Bar ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 var(--space-lg);
+  background: var(--bg-surface); border-bottom: 1px solid var(--neutral-200);
+}
+.topbar-left { display: flex; align-items: center; gap: var(--space-lg); }
+.logo {
+  font-size: 18px; font-weight: 700; color: var(--color-primary);
+  text-decoration: none; display: flex; align-items: center; gap: var(--space-sm);
+}
+.logo svg { width: 24px; height: 24px; }
+.school-name {
+  font-size: 13px; font-weight: 500; color: var(--neutral-500);
+  padding-left: var(--space-lg); border-left: 1px solid var(--neutral-200);
+}
+.classroom-select {
+  font-family: var(--font-body); font-size: 13px; font-weight: 500;
+  color: var(--neutral-900); background: var(--bg-page);
+  border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  padding: 6px 12px; cursor: pointer;
+}
+.nav-links { display: flex; gap: var(--space-md); margin-left: var(--space-lg); }
+.nav-link {
+  font-size: 13px; color: var(--neutral-500); text-decoration: none;
+  padding: 4px 0; border-bottom: 2px solid transparent;
+}
+.nav-link.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 500; }
+.topbar-right { display: flex; align-items: center; gap: var(--space-md); }
+.teacher-name { font-size: 13px; font-weight: 500; color: var(--neutral-900); }
+.teacher-avatar {
+  width: 32px; height: 32px; border-radius: var(--radius-full);
+  background: var(--color-secondary); color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+}
+
+/* ── Split View Layout ── */
+.split-layout {
+  display: flex;
+  height: calc(100vh - 56px);
+}
+
+.split-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--neutral-400);
+  padding: 8px var(--space-md);
+  background: var(--bg-page);
+  border-bottom: 1px solid var(--neutral-200);
+  display: flex; align-items: center; gap: var(--space-sm);
+}
+
+.split-label .dot {
+  width: 6px; height: 6px; border-radius: var(--radius-full);
+}
+.split-label .dot.teacher { background: var(--color-secondary); }
+.split-label .dot.student { background: var(--color-primary); }
+
+/* ── Teacher Side ── */
+.teacher-side {
+  flex: 1;
+  display: flex; flex-direction: column;
+  border-right: 2px solid var(--neutral-200);
+}
+
+.teacher-panel {
+  flex: 1; display: flex; flex-direction: column;
+}
+
+/* Student card expanded in dashboard */
+.expanded-card {
+  margin: var(--space-lg);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+  overflow: hidden;
+  flex: 1;
+  display: flex; flex-direction: column;
+}
+
+.card-header {
+  display: flex; align-items: center; gap: var(--space-md);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--neutral-200);
+  background: var(--bg-page);
+}
+
+.card-avatar {
+  width: 40px; height: 40px; border-radius: var(--radius-full);
+  background: #6366F1; color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 600;
+}
+
+.card-name { font-size: 14px; font-weight: 600; }
+.card-activity { font-size: 12px; color: var(--neutral-500); }
+
+/* Messages in card */
+.card-messages {
+  flex: 1; overflow-y: auto; padding: var(--space-md);
+  display: flex; flex-direction: column; gap: var(--space-sm);
+}
+
+.card-msg {
+  padding: 10px 12px; border-radius: var(--radius-md);
+  font-size: 13px; line-height: 1.5;
+}
+.card-msg .msg-label {
+  font-size: 11px; font-weight: 600; color: var(--neutral-400);
+  margin-bottom: 4px; display: block;
+}
+.card-msg.student-msg { background: #EEF2FF; align-self: flex-end; max-width: 85%; }
+.card-msg.ai-msg { background: var(--bg-page); border: 1px solid var(--neutral-200); align-self: flex-start; max-width: 85%; }
+
+/* Active whisper indicator */
+.active-whisper {
+  margin: 0 var(--space-md);
+  padding: 10px 14px;
+  background: #EEF2FF;
+  border: 1px solid #C7D2FE;
+  border-radius: var(--radius-md);
+  font-size: 12px; color: var(--color-primary);
+  display: flex; align-items: center; gap: var(--space-sm);
+}
+
+.active-whisper-label {
+  font-weight: 600; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.03em; color: var(--color-primary);
+  margin-right: var(--space-xs);
+}
+
+.active-whisper-text {
+  flex: 1; font-size: 12px; color: var(--neutral-500);
+}
+
+.whisper-dismiss {
+  width: 20px; height: 20px; border: none; background: transparent;
+  border-radius: var(--radius-sm); cursor: pointer; color: var(--neutral-400);
+  display: flex; align-items: center; justify-content: center;
+}
+.whisper-dismiss:hover { background: #C7D2FE; color: var(--color-primary); }
+
+/* Whisper compose */
+.whisper-compose {
+  padding: var(--space-md);
+  border-top: 1px solid var(--neutral-200);
+  background: var(--bg-surface);
+}
+
+.whisper-label {
+  display: flex; align-items: center; gap: var(--space-sm);
+  font-size: 13px; font-weight: 600; color: var(--color-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.whisper-info-icon {
+  width: 16px; height: 16px; border-radius: var(--radius-full);
+  background: #EEF2FF; color: var(--color-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; cursor: help;
+}
+
+.whisper-tooltip {
+  font-size: 11px; font-weight: 400; color: var(--neutral-400);
+  margin-bottom: var(--space-sm); line-height: 1.4;
+}
+
+.whisper-textarea {
+  width: 100%; min-height: 72px; padding: 10px 12px;
+  border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  font-family: var(--font-body); font-size: 13px; line-height: 1.5;
+  color: var(--neutral-900); resize: vertical;
+  background: var(--bg-page);
+}
+.whisper-textarea:focus {
+  outline: none; border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+.whisper-textarea::placeholder { color: var(--neutral-400); }
+
+.whisper-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: var(--space-sm);
+}
+
+.char-count { font-size: 11px; color: var(--neutral-400); font-family: var(--font-mono); }
+
+.whisper-buttons { display: flex; gap: var(--space-sm); }
+
+.btn-send-whisper {
+  padding: 8px 16px; background: var(--color-primary); color: white;
+  border: none; border-radius: var(--radius-md);
+  font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.btn-send-whisper:hover { background: var(--color-primary-hover); }
+
+.btn-cancel-whisper {
+  padding: 8px 16px; background: transparent; color: var(--neutral-500);
+  border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.btn-cancel-whisper:hover { background: var(--bg-page); }
+
+/* ── Student Side ── */
+.student-side {
+  flex: 1;
+  display: flex; flex-direction: column;
+}
+
+.student-chat-area {
+  flex: 1; overflow-y: auto;
+  padding: var(--space-lg) var(--space-lg);
+}
+
+.s-message {
+  display: flex; gap: var(--space-md); margin-bottom: var(--space-lg);
+  max-width: 560px;
+}
+.s-message.student { flex-direction: row-reverse; margin-left: auto; }
+.s-message.ai { margin-right: auto; }
+
+.s-message-avatar {
+  width: 32px; height: 32px; border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; flex-shrink: 0;
+}
+.s-message.ai .s-message-avatar {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary)); color: white;
+}
+.s-message.student .s-message-avatar { background: #DBEAFE; color: #1E40AF; }
+
+.s-message-bubble {
+  display: inline-block; padding: 10px 14px;
+  border-radius: var(--radius-lg); font-size: 13px; line-height: 1.6; text-align: left;
+}
+.s-message.ai .s-message-bubble { background: var(--bg-page); border: 1px solid var(--neutral-200); }
+.s-message.student .s-message-bubble { background: var(--color-primary); color: white; }
+
+.s-ai-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; color: var(--neutral-400); margin-top: 4px;
+}
+
+/* Annotation callout on student side */
+.annotation {
+  max-width: 560px; margin: 0 auto var(--space-md);
+  padding: 8px 12px;
+  background: #FFFBEB;
+  border: 1px dashed #FDE68A;
+  border-radius: var(--radius-md);
+  font-size: 11px; color: #92400E;
+  display: flex; align-items: flex-start; gap: var(--space-sm);
+}
+.annotation svg { flex-shrink: 0; margin-top: 1px; }
+
+.student-input-bar {
+  padding: var(--space-sm) var(--space-lg) var(--space-md);
+  border-top: 1px solid var(--neutral-200); background: var(--bg-surface);
+}
+.student-input-row {
+  display: flex; align-items: center; gap: var(--space-sm);
+  background: var(--bg-page); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: 4px;
+}
+.s-chat-input {
+  flex: 1; border: none; background: transparent;
+  font-family: var(--font-body); font-size: 13px; padding: 8px;
+  outline: none; color: var(--neutral-900);
+}
+.s-chat-input::placeholder { color: var(--neutral-400); }
+.s-send-btn {
+  width: 32px; height: 32px; border: none; border-radius: var(--radius-md);
+  background: var(--color-primary); color: white; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="student-chat--empty.html" class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      ChatBridge
+    </a>
+    <span class="school-name">Lincoln Middle School</span>
+    <select class="classroom-select">
+      <option selected>Period 2 — Math</option>
+      <option>Period 3 — Science</option>
+    </select>
+    <nav class="nav-links">
+      <a href="teacher-dashboard.html" class="nav-link active">Mission Control</a>
+      <a href="teacher-config.html" class="nav-link">Settings</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <span class="teacher-name">Ms. Rodriguez</span>
+    <div class="teacher-avatar">MR</div>
+  </div>
+</header>
+
+<div class="split-layout">
+
+  <!-- Teacher Side -->
+  <div class="teacher-side">
+    <div class="split-label"><span class="dot teacher"></span> Teacher View — Mission Control</div>
+    <div class="teacher-panel">
+      <div class="expanded-card">
+        <div class="card-header">
+          <div class="card-avatar">AK</div>
+          <div>
+            <div class="card-name">Aisha K.</div>
+            <div class="card-activity">Chatting with AI — Quadratic equations</div>
+          </div>
+        </div>
+
+        <div class="card-messages">
+          <div class="card-msg student-msg">
+            <span class="msg-label">Aisha</span>
+            How do I solve x^2 + 5x + 6 = 0?
+          </div>
+          <div class="card-msg ai-msg">
+            <span class="msg-label">ChatBridge AI</span>
+            Great question! Instead of giving you the answer directly, let me guide you. What two numbers multiply to give 6 and add up to 5?
+          </div>
+          <div class="card-msg student-msg">
+            <span class="msg-label">Aisha</span>
+            Hmm... 2 and 3?
+          </div>
+          <div class="card-msg ai-msg">
+            <span class="msg-label">ChatBridge AI</span>
+            Exactly! So you can write x^2 + 5x + 6 as (x + 2)(x + 3) = 0. Now, what values of x make each factor equal to zero?
+          </div>
+        </div>
+
+        <div class="active-whisper">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+          <span class="active-whisper-label">Active Whisper:</span>
+          <span class="active-whisper-text">Guide toward discovery-based learning for quadratic equations</span>
+          <button class="whisper-dismiss" title="Remove whisper">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="whisper-compose">
+          <div class="whisper-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            Whisper to AI
+            <span class="whisper-info-icon" title="This guidance will shape how the AI responds to the student. The student will not see your whisper.">?</span>
+          </div>
+          <p class="whisper-tooltip">This guidance will shape how the AI responds to the student. The student will not see your whisper.</p>
+          <textarea class="whisper-textarea" placeholder="e.g., Guide the student toward discovering the Pythagorean theorem rather than giving the formula directly"></textarea>
+          <div class="whisper-footer">
+            <span class="char-count">0 / 500</span>
+            <div class="whisper-buttons">
+              <button class="btn-cancel-whisper">Cancel</button>
+              <button class="btn-send-whisper">Send Whisper</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Student Side -->
+  <div class="student-side">
+    <div class="split-label"><span class="dot student"></span> Student View — What Aisha Sees</div>
+    <div class="student-chat-area">
+      <div class="s-message student">
+        <div class="s-message-avatar">AK</div>
+        <div>
+          <div class="s-message-bubble">How do I solve x^2 + 5x + 6 = 0?</div>
+        </div>
+      </div>
+      <div class="s-message ai">
+        <div class="s-message-avatar">CB</div>
+        <div>
+          <div class="s-message-bubble">Great question! Instead of giving you the answer directly, let me guide you. What two numbers multiply to give 6 and add up to 5?</div>
+          <div class="s-ai-badge">AI-generated</div>
+        </div>
+      </div>
+      <div class="s-message student">
+        <div class="s-message-avatar">AK</div>
+        <div>
+          <div class="s-message-bubble">Hmm... 2 and 3?</div>
+        </div>
+      </div>
+      <div class="s-message ai">
+        <div class="s-message-avatar">CB</div>
+        <div>
+          <div class="s-message-bubble">Exactly! So you can write x^2 + 5x + 6 as (x + 2)(x + 3) = 0. Now, what values of x make each factor equal to zero?</div>
+          <div class="s-ai-badge">AI-generated</div>
+        </div>
+      </div>
+
+      <div class="annotation">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#92400E" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Mockup note: The AI's discovery-based approach above was shaped by the teacher's whisper. The student sees NO indication that a whisper influenced the response.
+      </div>
+    </div>
+    <div class="student-input-bar">
+      <div class="student-input-row">
+        <input class="s-chat-input" type="text" placeholder="Type a message...">
+        <button class="s-send-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

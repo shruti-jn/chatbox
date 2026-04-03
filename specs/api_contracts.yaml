@@ -1,0 +1,576 @@
+openapi: "3.1.0"
+info:
+  title: ChatBridge v2 API
+  version: "1.0.0"
+  description: "K-12 AI chat platform with third-party app integration. Fastify backend with auto-generated OpenAPI (L-001)."
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+paths:
+  # === Auth ===
+  /auth/lti/launch:
+    post:
+      summary: LTI 1.3 OIDC launch
+      description: Handles LTI 1.3 launch from Canvas/Schoology. Extracts role, district, issues JWT.
+      tags: [Auth]
+      operationId: ltiLaunch
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                id_token: { type: string }
+                state: { type: string }
+      responses:
+        "302": { description: "Redirect to frontend with JWT in cookie" }
+        "401": { description: "LTI verification failed" }
+      x-requirement: FR-AUTH-001
+      x-agent-hints: "Handle via ltijs library. Extract role + district_id from LTI claims."
+
+  /auth/login:
+    post:
+      summary: Platform JWT login
+      description: Fallback login when LTI is unavailable.
+      tags: [Auth]
+      operationId: platformLogin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: JWT issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  role: { type: string, enum: [student, teacher, district_admin] }
+        "401": { description: "Invalid credentials" }
+      x-requirement: FR-CHAT-008
+
+  /auth/oauth/spotify/authorize:
+    get:
+      summary: Initiate Spotify OAuth2 flow
+      tags: [Auth]
+      operationId: spotifyAuthorize
+      responses:
+        "302": { description: "Redirect to Spotify authorization page" }
+      x-requirement: FR-AUTH-003
+
+  /auth/oauth/spotify/callback:
+    post:
+      summary: Spotify OAuth2 callback
+      tags: [Auth]
+      operationId: spotifyCallback
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string }
+                state: { type: string }
+      responses:
+        "200": { description: "Token stored, popup can close" }
+        "400": { description: "OAuth error" }
+      x-requirement: FR-AUTH-003
+
+  /auth/oauth/spotify/refresh:
+    post:
+      summary: Refresh Spotify token
+      tags: [Auth]
+      operationId: spotifyRefresh
+      responses:
+        "200": { description: "New access token" }
+        "401": { description: "Refresh failed — re-auth needed" }
+      x-requirement: FR-SPOT-003
+
+  # === Conversations ===
+  /conversations/{conversationId}/messages:
+    post:
+      summary: Send a message
+      description: Student sends message. Triggers safety pipeline → AI response → optional tool invocation.
+      tags: [Chat]
+      operationId: sendMessage
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, maxLength: 4000 }
+      responses:
+        "202": { description: "Accepted for async processing (safe/warning)" }
+        "200": { description: "Crisis resources returned (critical severity)" }
+        "422": { description: "Message blocked by safety pipeline" }
+        "429": { description: "Rate limit exceeded" }
+      x-requirement: FR-CHAT-001
+      x-agent-hints: "Run 4-stage safety pipeline before AI. Stream response via WebSocket."
+
+    get:
+      summary: Get conversation history
+      description: Paginated message history including app cards.
+      tags: [Chat]
+      operationId: getMessages
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: before
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Message list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages: { type: array }
+                  has_more: { type: boolean }
+      x-requirement: FR-CHAT-003
+
+  # === Apps ===
+  /apps/register:
+    post:
+      summary: Register a third-party app
+      description: Developer registers app with tool definitions, UI manifest, permissions, compliance metadata.
+      tags: [Apps]
+      operationId: registerApp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, description, tool_definitions, ui_manifest, permissions, compliance_metadata]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                tool_definitions: { type: object, description: "MCP-compatible tool schemas" }
+                ui_manifest: { type: object, properties: { url: { type: string }, width: { type: integer }, height: { type: integer } } }
+                permissions: { type: object }
+                compliance_metadata: { type: object }
+                interaction_model: { type: string, enum: [single_user, turn_based, concurrent] }
+      responses:
+        "201":
+          description: App registered with pending_review status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  app_id: { type: string, format: uuid }
+                  status: { type: string, enum: [pending_review] }
+        "422": { description: "Validation errors" }
+      x-requirement: FR-APP-001
+
+  /apps/{appId}/tools/{toolName}/invoke:
+    post:
+      summary: Invoke an app tool
+      description: AI-initiated tool invocation. Routes through backend, never direct iframe↔LLM.
+      tags: [Apps]
+      operationId: invokeAppTool
+      parameters:
+        - name: appId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: toolName
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parameters: { type: object }
+                conversation_id: { type: string, format: uuid }
+      responses:
+        "200": { description: "Tool result" }
+        "404": { description: "App or tool not found" }
+        "408": { description: "Tool execution timeout (>5s)" }
+        "422": { description: "Invalid parameters" }
+      x-requirement: FR-APP-002
+
+  /apps/{appId}/commands:
+    post:
+      summary: Dispatch CBP command to app iframe
+      description: Backend → Redis Pub/Sub → WebSocket → iframe. PII stripped before dispatch.
+      tags: [Apps, CBP]
+      operationId: dispatchCommand
+      parameters:
+        - name: appId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [instance_id, command, params]
+              properties:
+                instance_id: { type: string, format: uuid }
+                command: { type: string }
+                params: { type: object }
+      responses:
+        "200": { description: "Command dispatched" }
+        "404": { description: "Instance not found" }
+        "409": { description: "Instance not active" }
+      x-requirement: FR-STATE-004
+
+  /apps/instances/{instanceId}/state:
+    put:
+      summary: Update app instance state
+      description: App sends state update via CBP. Validated, safety-checked, persisted.
+      tags: [Apps, CBP]
+      operationId: updateAppState
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state: { type: object }
+      responses:
+        "200": { description: "State persisted" }
+        "422": { description: "Safety check failed" }
+      x-requirement: FR-STATE-001
+
+    get:
+      summary: Get app instance state
+      description: Retrieve last known state for reconnection.
+      tags: [Apps]
+      operationId: getAppState
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: App state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instance_id: { type: string }
+                  status: { type: string }
+                  state: { type: object }
+      x-requirement: FR-STATE-003
+
+  /apps/{appId}/submit-review:
+    post:
+      summary: Submit app for automated review
+      tags: [Apps]
+      operationId: submitForReview
+      responses:
+        "202": { description: "Review queued" }
+      x-requirement: FR-SAFE-007
+
+  /apps/{appId}/review-results:
+    get:
+      summary: Get automated review results
+      tags: [Apps]
+      operationId: getReviewResults
+      responses:
+        "200": { description: "Review results with per-check pass/fail" }
+      x-requirement: FR-SAFE-007
+
+  # === Classrooms ===
+  /classrooms:
+    post:
+      summary: Create classroom
+      tags: [Classrooms]
+      operationId: createClassroom
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, grade_band, ai_config]
+              properties:
+                name: { type: string }
+                grade_band: { type: string, enum: [k2, g35, g68, g912] }
+                ai_config: { type: object }
+      responses:
+        "201": { description: "Classroom created with join code" }
+      x-requirement: FR-CTRL-001
+
+  /classrooms/{classroomId}/config:
+    get:
+      summary: Get classroom config (grade band, AI settings)
+      tags: [Classrooms]
+      operationId: getClassroomConfig
+      responses:
+        "200": { description: "Classroom config including grade_band and ai_config" }
+      x-requirement: FR-CHAT-006
+
+    patch:
+      summary: Update classroom config
+      tags: [Classrooms]
+      operationId: updateClassroomConfig
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ai_config: { type: object }
+                async_guidance: { type: string }
+      responses:
+        "200": { description: "Config updated" }
+      x-requirement: FR-CTRL-004
+
+  /classrooms/{classroomId}/apps:
+    get:
+      summary: List apps for classroom (from district catalog)
+      tags: [Classrooms]
+      operationId: listClassroomApps
+      responses:
+        "200": { description: "App list with enabled status" }
+      x-requirement: FR-CTRL-002
+
+  /classrooms/{classroomId}/apps/{appId}:
+    patch:
+      summary: Toggle app enabled/disabled for classroom
+      tags: [Classrooms]
+      operationId: toggleClassroomApp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200": { description: "App toggled" }
+      x-requirement: FR-CTRL-002
+
+  /classrooms/{classroomId}/students/{studentId}/whisper:
+    post:
+      summary: Send teacher whisper for specific student
+      tags: [Classrooms]
+      operationId: sendWhisper
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [guidance]
+              properties:
+                guidance: { type: string }
+      responses:
+        "200": { description: "Whisper stored for next AI response" }
+      x-requirement: FR-CTRL-003
+
+  /classrooms/{classroomId}/analytics:
+    get:
+      summary: Learning analytics for classroom
+      tags: [Classrooms]
+      operationId: getAnalytics
+      parameters:
+        - name: start_date
+          in: query
+          schema: { type: string, format: date }
+        - name: end_date
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200": { description: "Per-student engagement, per-app usage, outcome trends" }
+      x-requirement: FR-CTRL-007
+
+  # === Collaboration ===
+  /collaborative-sessions:
+    post:
+      summary: Create collaborative session
+      tags: [Collaboration]
+      operationId: createSession
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [app_id, interaction_model]
+              properties:
+                app_id: { type: string, format: uuid }
+                interaction_model: { type: string, enum: [turn_based, concurrent] }
+      responses:
+        "201": { description: "Session created with code" }
+      x-requirement: FR-COLLAB-001
+
+  /collaborative-sessions/{code}/join:
+    post:
+      summary: Join collaborative session
+      tags: [Collaboration]
+      operationId: joinSession
+      responses:
+        "200": { description: "Joined with participant info" }
+        "404": { description: "Session not found" }
+        "409": { description: "Session full or closed" }
+      x-requirement: FR-COLLAB-001
+
+  # === Admin ===
+  /admin/apps/{appId}/suspend:
+    post:
+      summary: Suspend app district-wide
+      tags: [Admin]
+      operationId: suspendApp
+      responses:
+        "200": { description: "App suspended, instances terminated, teachers notified" }
+        "403": { description: "Requires district_admin role" }
+      x-requirement: FR-CTRL-008
+
+  /admin/safety-events:
+    get:
+      summary: Safety event audit trail
+      tags: [Admin]
+      operationId: getSafetyEvents
+      parameters:
+        - name: district_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: start_date
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200": { description: "Paginated safety events" }
+      x-requirement: FR-OBS-003
+
+  /admin/audit-trail:
+    get:
+      summary: FERPA audit trail
+      tags: [Admin]
+      operationId: getAuditTrail
+      parameters:
+        - name: student_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: "Paginated audit events" }
+      x-requirement: FR-COMP-003
+
+  /admin/tool-invocations:
+    get:
+      summary: Tool invocation log
+      tags: [Admin]
+      operationId: getToolInvocations
+      parameters:
+        - name: app_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: "Paginated tool invocation history" }
+      x-requirement: FR-OBS-002
+
+  # === Consent ===
+  /consent/request:
+    post:
+      summary: Send parental consent request
+      tags: [Consent]
+      operationId: requestConsent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [student_id, parent_email]
+              properties:
+                student_id: { type: string, format: uuid }
+                parent_email: { type: string, format: email }
+      responses:
+        "200": { description: "Consent request sent" }
+      x-requirement: FR-COMP-001
+
+  /consent/delete-request:
+    post:
+      summary: Request student data deletion
+      tags: [Consent]
+      operationId: requestDeletion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [student_id]
+              properties:
+                student_id: { type: string, format: uuid }
+      responses:
+        "200": { description: "Deletion request accepted, completes within 30 days" }
+      x-requirement: FR-COMP-002
+
+  # === Health ===
+  /health:
+    get:
+      summary: Health check (capability-aware per L-002)
+      tags: [Health]
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [healthy, degraded, unhealthy] }
+                  capabilities:
+                    type: object
+                    properties:
+                      database: { type: string }
+                      redis: { type: string }
+                      anthropic_api: { type: string }
+                      langfuse: { type: string }
+                      registered_apps: { type: object }
+      x-requirement: "L-002 (health checks must report capability status)"
+
+websocket_endpoints:
+  /ws/chat:
+    description: "Student chat — streaming AI responses, app state updates, typing indicators"
+    auth: "JWT in query param ?token="
+    messages_in: [message, typing_indicator, app_state_update]
+    messages_out: [ai_stream_token, ai_complete, tool_invocation, app_card_render, suggestion_chips]
+    x-requirement: FR-CHAT-002
+
+  /ws/mission-control:
+    description: "Teacher monitoring — real-time student grid, safety alerts, whisper confirmation"
+    auth: "JWT in query param ?token= (teacher role required)"
+    messages_out: [student_status_update, safety_alert, app_state_broadcast, whisper_confirmation]
+    x-requirement: FR-CTRL-005
+
+  /ws/collab/{sessionId}:
+    description: "Collaborative session — state sync, turn indicators, participant updates"
+    auth: "JWT in query param ?token="
+    messages_in: [player_action]
+    messages_out: [state_update, turn_indicator, participant_joined, participant_left, session_closed]
+    x-requirement: FR-COLLAB-003

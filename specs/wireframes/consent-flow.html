@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: Consent Flow — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--hierarchy { background: #EEF2FF; color: #4F46E5; }
+    .label--interaction { background: #ECFDF5; color: #059669; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--responsive { background: #FEE2E2; color: #991B1B; }
+    .label--persona { background: #F3E8FF; color: #7C3AED; }
+    .label--legal { background: #FEF2F2; color: #991B1B; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    .zone--legal { border-color: #EF4444; background: #FEF2F2; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Parental Consent Flow</h1>
+  <div class="screen-id">Screen: consent-flow | Persona: Parent/Guardian (not a primary persona, but COPPA-required actor) | Regulatory: COPPA 2025, FERPA</div>
+
+  <!-- Information Hierarchy -->
+  <div class="section">
+    <h2>Information Hierarchy</h2>
+    <div class="zone-map">
+      <div class="zone zone--primary">
+        <div class="zone-number">1</div>
+        <strong>Context Header (top)</strong> — Who invited the child, which class, which school. Parents need immediate context: "Why am I seeing this?" The teacher name and school name establish trust.
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">2</div>
+        <strong>What We Collect / What We Don't (center)</strong> — This is the COPPA-required disclosure. Must be written in plain language (6th-grade reading level). The "We do NOT collect" section is as important as what we do collect.
+      </div>
+      <div class="zone zone--legal">
+        <div class="zone-number">3</div>
+        <strong>Per-App Consent Toggles</strong> — Parents can approve or deny individual apps. This granular consent exceeds COPPA minimum requirements but builds trust. Teachers see which apps a parent approved.
+      </div>
+      <div class="zone">
+        <div class="zone-number">4</div>
+        <strong>Your Rights + Action Buttons (bottom)</strong> — Rights summary (withdraw, delete, review) followed by the primary "I Approve" button and secondary deny option.
+      </div>
+    </div>
+  </div>
+
+  <!-- Focal Point -->
+  <div class="section">
+    <h2>Focal Point</h2>
+    <p class="annotation"><span class="label label--hierarchy">FOCAL</span> <strong>The context header</strong> ("Ms. Rodriguez has invited your child...") is the focal point. It immediately answers the parent's question: "What is this and why am I here?" The parent must read the full page before the "I Approve" button is accessible.</p>
+    <p class="annotation"><strong>Above-the-fold:</strong> Context header + "What ChatBridge Does" section visible without scrolling. The approval button is intentionally below the fold to encourage reading.</p>
+  </div>
+
+  <!-- Banned Dominance Patterns -->
+  <div class="section">
+    <h2>Banned Dominance Patterns</h2>
+    <ul>
+      <li>No dark patterns: the "I Do Not Approve" option must be clearly visible, not hidden</li>
+      <li>No pre-checked toggles — all app toggles default to "on" (opt-out) per FTC guidance for school-mediated consent, but the toggle must be clearly visible and easy to change</li>
+      <li>No marketing language — this is a legal consent form, not a sales page</li>
+      <li>No countdown timers, urgency language, or "limited time" framing</li>
+      <li>The approve button must not appear before the rights section</li>
+    </ul>
+  </div>
+
+  <!-- Interactive State Annotations -->
+  <div class="section">
+    <h2>Interactive States</h2>
+    <p class="annotation"><span class="label label--interaction">CLICK</span> <strong>"I Approve" button:</strong> Submits consent with per-app toggle state. Shows confirmation screen: "Thank you. [Child's name] can now use ChatBridge in Ms. Rodriguez's class." Includes link to modify consent later.</p>
+    <p class="annotation"><span class="label label--interaction">CLICK</span> <strong>"I Do Not Approve" link:</strong> Shows confirmation: "Are you sure? Your child will not be able to use ChatBridge." On confirm, records denial. Teacher is notified that the student lacks consent.</p>
+    <p class="annotation"><span class="label label--interaction">TOGGLE</span> <strong>App consent toggles:</strong> Toggle on = green (approved). Toggle off = gray (denied). Parent can approve ChatBridge overall but deny specific apps. Toggles include accessible aria-checked state.</p>
+    <p class="annotation"><span class="label label--interaction">CLICK</span> <strong>Info icons on data items:</strong> Tooltip or expandable text with more detail about what is collected and how it's used. Example: "Chat messages are stored encrypted and only visible to your child's teacher."</p>
+    <p class="annotation"><span class="label label--legal">LEGAL</span> <strong>Consent record:</strong> The exact timestamp, IP address, consent choices (per-app), and the version of the consent form shown are logged as a COPPA audit trail.</p>
+  </div>
+
+  <!-- API Integration Annotations -->
+  <div class="section">
+    <h2>API Integration Annotations</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Load consent form:</strong> <code>GET /api/v1/consent/{consent_token}</code> — the token from the email link. Returns: child's classroom, teacher name, school name, enabled apps for that classroom, and the consent form version.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Submit consent:</strong> <code>POST /api/v1/consent/{consent_token}/submit</code> — body: <code>{ "approved": true, "app_consents": [{ "app_id": "chess", "approved": true }, ...], "form_version": "2.1" }</code>.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Deny consent:</strong> <code>POST /api/v1/consent/{consent_token}/deny</code> — records denial.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Token validation:</strong> If the consent token is expired or already used, show: "This consent link has expired or was already used. Please contact [school name] to request a new link."</p>
+  </div>
+
+  <!-- Responsive Behavior -->
+  <div class="section">
+    <h2>Responsive Behavior</h2>
+    <p class="annotation"><span class="label label--responsive">MOBILE 375px</span> Card goes full-width with 16px horizontal padding. This is the PRIMARY viewport — parents receive consent links on their phones. All text must be readable at mobile viewport. Toggle targets are 44px+ for touch. Approve button is full-width and 48px tall for easy thumb tap.</p>
+    <p class="annotation"><span class="label label--responsive">DESKTOP 1280px</span> Card is 600px max-width, centered. Parents may also open the link on a laptop.</p>
+  </div>
+
+  <!-- Persona Fit -->
+  <div class="section">
+    <h2>Persona Fit</h2>
+    <p class="annotation"><span class="label label--persona">PERSONA</span> Parents are not a primary product persona but are a critical trust gate. They receive this form cold — via email, with no prior context about ChatBridge. The form must immediately establish: (1) who is asking (teacher + school), (2) what it is, (3) what data is collected, (4) what rights they have. Parents typically have 2-3 minutes of attention for a school consent form. Plain language is not optional — legal jargon causes abandonment. The "We do NOT collect" section proactively addresses the fears parents have about AI tools for children.</p>
+  </div>
+
+</body>
+</html>

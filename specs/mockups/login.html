@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatBridge — Log In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* --- Colors: Primary (Indigo) --- */
+      --color-primary: #4F46E5;
+      --color-primary-hover: #4338CA;
+      --color-primary-active: #3730A3;
+      --color-primary-disabled: #A5B4FC;
+      --color-primary-light: #EEF2FF;
+
+      /* --- Colors: Secondary (Teal) --- */
+      --color-secondary: #0D9488;
+      --color-secondary-hover: #0F766E;
+      --color-secondary-active: #115E59;
+      --color-secondary-disabled: #99F6E4;
+      --color-secondary-light: #F0FDFA;
+
+      /* --- Colors: Accent (Amber) --- */
+      --color-accent: #F59E0B;
+      --color-accent-hover: #D97706;
+      --color-accent-active: #B45309;
+
+      /* --- Colors: Semantic --- */
+      --color-success: #10B981;
+      --color-warning: #F59E0B;
+      --color-error: #EF4444;
+      --color-info: #3B82F6;
+
+      /* --- Colors: Neutral Scale (9 steps) --- */
+      --neutral-0: #FFFFFF;
+      --neutral-50: #F9FAFB;
+      --neutral-100: #F3F4F6;
+      --neutral-200: #E5E7EB;
+      --neutral-300: #D1D5DB;
+      --neutral-400: #9CA3AF;
+      --neutral-500: #6B7280;
+      --neutral-600: #374151;
+      --neutral-900: #111827;
+
+      /* --- Colors: Background Tiers --- */
+      --bg-page: #F9FAFB;
+      --bg-surface: #FFFFFF;
+      --bg-elevated: #FFFFFF; /* with shadow */
+
+      /* --- Chat Bubble Colors --- */
+      --bubble-student: #4F46E5;
+      --bubble-student-text: #FFFFFF;
+      --bubble-ai: #F3F4F6;
+      --bubble-ai-text: #111827;
+      --bubble-system: #E5E7EB;
+      --bubble-system-text: #6B7280;
+
+      /* --- Typography --- */
+      --font-heading: 'Inter', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --text-xs: 0.75rem;   /* 12px */
+      --text-sm: 0.875rem;  /* 14px */
+      --text-base: 1rem;    /* 16px */
+      --text-lg: 1.125rem;  /* 18px */
+      --text-xl: 1.25rem;   /* 20px */
+      --text-2xl: 1.5rem;   /* 24px */
+      --text-3xl: 1.875rem; /* 30px */
+
+      --weight-regular: 400;
+      --weight-medium: 500;
+      --weight-semibold: 600;
+      --weight-bold: 700;
+
+      --leading-tight: 1.25;
+      --leading-normal: 1.5;
+      --leading-relaxed: 1.75;
+
+      /* --- Spacing --- */
+      --space-unit: 4px;
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      --space-2xl: 48px;
+      --space-3xl: 64px;
+
+      /* --- Elevation --- */
+      --shadow-flat: none;
+      --shadow-raised: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-floating: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-overlay: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05);
+
+      /* --- Border Radius --- */
+      --radius-none: 0;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --radius-full: 9999px;
+
+      /* --- Motion --- */
+      --ease-micro: cubic-bezier(0, 0, 0.2, 1);
+      --ease-panel: cubic-bezier(0.4, 0, 0.2, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+      --duration-micro: 200ms;
+      --duration-panel: 300ms;
+      --duration-page: 400ms;
+      --duration-app-materialize: 500ms;
+      --duration-shimmer: 1.5s;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      color: var(--neutral-900);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(160deg, #EEF2FF 0%, #F9FAFB 40%, #FFFFFF 100%);
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--bg-surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-overlay);
+      padding: 40px var(--space-xl);
+      text-align: center;
+    }
+
+    /* Logo */
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-md);
+    }
+
+    .logo svg {
+      width: 40px;
+      height: 40px;
+    }
+
+    .logo-text {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--color-primary);
+    }
+
+    .tagline {
+      font-size: 15px;
+      color: var(--neutral-500);
+      margin-bottom: var(--space-xl);
+    }
+
+    /* SSO Buttons */
+    .sso-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: var(--space-lg);
+    }
+
+    .sso-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      width: 100%;
+      padding: 12px var(--space-md);
+      border-radius: var(--radius-md);
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s;
+      text-decoration: none;
+      background: var(--bg-surface);
+    }
+
+    .sso-btn:hover {
+      box-shadow: var(--shadow-floating);
+    }
+
+    .sso-btn--clever {
+      border: 2px solid #4A76E0;
+      color: #4A76E0;
+    }
+
+    .sso-btn--clever:hover {
+      background: #F0F4FE;
+    }
+
+    .sso-btn--clever .sso-icon {
+      width: 22px;
+      height: 22px;
+      background: #4A76E0;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .sso-btn--classlink {
+      border: 2px solid #00A651;
+      color: #00A651;
+    }
+
+    .sso-btn--classlink:hover {
+      background: #ECFDF5;
+    }
+
+    .sso-btn--classlink .sso-icon {
+      width: 22px;
+      height: 22px;
+      background: #00A651;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .sso-btn--google {
+      border: 2px solid var(--neutral-200);
+      color: var(--neutral-900);
+    }
+
+    .sso-btn--google:hover {
+      background: #F9FAFB;
+      border-color: #D1D5DB;
+    }
+
+    .sso-btn--google .sso-icon {
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Divider */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      margin-bottom: var(--space-lg);
+    }
+
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background: var(--neutral-200);
+    }
+
+    .divider-text {
+      font-size: 13px;
+      color: var(--neutral-400);
+      font-weight: 500;
+    }
+
+    /* Email Link */
+    .email-link {
+      display: block;
+      color: var(--color-primary);
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      margin-bottom: var(--space-xl);
+      transition: color 0.15s;
+    }
+
+    .email-link:hover {
+      color: var(--color-primary-hover);
+      text-decoration: underline;
+    }
+
+    /* Compliance Footer */
+    .compliance {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      font-size: 12px;
+      color: var(--neutral-400);
+      padding-top: var(--space-md);
+      border-top: 1px solid var(--neutral-200);
+    }
+
+    .compliance svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-card">
+    <!-- Logo -->
+    <div class="logo">
+      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="8" width="15" height="14" rx="4" fill="#4F46E5"/>
+        <rect x="22" y="8" width="15" height="14" rx="4" fill="#4F46E5" opacity="0.6"/>
+        <path d="M18 15 L22 15" stroke="#4F46E5" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M8 24 L8 30 L14 27" fill="#4F46E5" opacity="0.4"/>
+        <circle cx="9" cy="14" r="1.5" fill="white"/>
+        <circle cx="14" cy="14" r="1.5" fill="white"/>
+        <circle cx="28" cy="14" r="1.5" fill="white" opacity="0.8"/>
+        <circle cx="33" cy="14" r="1.5" fill="white" opacity="0.8"/>
+      </svg>
+      <span class="logo-text">ChatBridge</span>
+    </div>
+
+    <p class="tagline">AI-powered learning, teacher-controlled</p>
+
+    <!-- SSO Buttons -->
+    <div class="sso-buttons">
+      <button class="sso-btn sso-btn--clever">
+        <span class="sso-icon">C</span>
+        Log in with Clever
+      </button>
+
+      <button class="sso-btn sso-btn--classlink">
+        <span class="sso-icon">CL</span>
+        Log in with ClassLink
+      </button>
+
+      <button class="sso-btn sso-btn--google">
+        <span class="sso-icon">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+            <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+          </svg>
+        </span>
+        Log in with Google
+      </button>
+    </div>
+
+    <!-- Divider -->
+    <div class="divider">
+      <div class="divider-line"></div>
+      <span class="divider-text">or</span>
+      <div class="divider-line"></div>
+    </div>
+
+    <!-- Email Login -->
+    <a href="#" class="email-link">Teacher email login</a>
+
+    <!-- Compliance -->
+    <div class="compliance">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 1L2 4v4c0 3.5 2.5 6.4 6 7 3.5-.6 6-3.5 6-7V4L8 1z" fill="#9CA3AF" opacity="0.3"/>
+        <path d="M8 1L2 4v4c0 3.5 2.5 6.4 6 7 3.5-.6 6-3.5 6-7V4L8 1z" stroke="#9CA3AF" stroke-width="1.2" fill="none"/>
+        <path d="M5.5 8L7 9.5L10.5 6" stroke="#9CA3AF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      COPPA &amp; FERPA Compliant
+    </div>
+  </div>
+
+</body>
+</html>

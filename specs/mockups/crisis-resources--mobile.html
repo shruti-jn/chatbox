@@ -1,0 +1,355 @@
+<!-- Mobile variant (375px) of crisis-resources.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatBridge — Crisis Resources</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --color-primary: #4F46E5;
+  --color-primary-hover: #4338CA;
+  --color-primary-active: #3730A3;
+  --color-primary-disabled: #A5B4FC;
+  --color-primary-light: #EEF2FF;
+  --color-secondary: #0D9488;
+  --color-secondary-hover: #0F766E;
+  --color-secondary-active: #115E59;
+  --color-secondary-disabled: #99F6E4;
+  --color-secondary-light: #F0FDFA;
+  --color-accent: #F59E0B;
+  --color-accent-hover: #D97706;
+  --color-accent-active: #B45309;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+  --neutral-0: #FFFFFF;
+  --neutral-50: #F9FAFB;
+  --neutral-100: #F3F4F6;
+  --neutral-200: #E5E7EB;
+  --neutral-300: #D1D5DB;
+  --neutral-400: #9CA3AF;
+  --neutral-500: #6B7280;
+  --neutral-600: #374151;
+  --neutral-900: #111827;
+  --bg-page: #F9FAFB;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  /* Legacy aliases */
+  --color-bg-page: #F9FAFB;
+  --color-bg-surface: #FFFFFF;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+  --color-text-muted: #9CA3AF;
+  --color-border: #E5E7EB;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: var(--font-sans);
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* ── Top Bar (mobile) ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 52px; padding: 0 var(--space-md);
+  background: var(--color-bg-surface); border-bottom: 1px solid var(--color-border);
+  position: relative; z-index: 10;
+}
+
+.topbar-left { display: flex; align-items: center; gap: var(--space-sm); }
+
+.logo {
+  font-size: 17px; font-weight: 700; color: var(--color-primary);
+  text-decoration: none; display: flex; align-items: center; gap: 6px;
+}
+.logo svg { width: 20px; height: 20px; }
+
+.grade-badge {
+  font-size: 11px; font-weight: 500; color: var(--color-text-secondary);
+  background: var(--color-bg-page); padding: 3px 8px;
+  border-radius: var(--radius-full); border: 1px solid var(--color-border);
+}
+
+.topbar-right { display: flex; align-items: center; }
+
+.user-avatar {
+  width: 36px; height: 36px; border-radius: var(--radius-full);
+  background: var(--color-primary); color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+}
+
+/* ── Background chat (dimmed) ── */
+.chat-bg {
+  height: calc(100vh - 52px);
+  overflow: hidden;
+  filter: blur(1px);
+  opacity: 0.4;
+  padding: var(--space-md);
+}
+
+/* ── Crisis Full-Screen Overlay ── */
+/* On mobile during a crisis, the overlay takes the FULL screen for urgent clarity */
+.crisis-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: flex-end; /* slide up from bottom on mobile */
+  justify-content: center;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ── Crisis Sheet — bottom-anchored on mobile ── */
+.crisis-card {
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 440px;
+  padding: var(--space-lg) var(--space-lg) calc(var(--space-xl) + env(safe-area-inset-bottom));
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Pull handle */
+.crisis-card::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  margin: 0 auto var(--space-lg);
+}
+
+.crisis-header {
+  display: flex; align-items: center; gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.crisis-icon {
+  width: 48px; height: 48px; border-radius: var(--radius-full);
+  background: #FEE2E2; color: var(--color-error);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+
+.crisis-heading {
+  font-size: 20px; font-weight: 700; color: var(--color-text-primary);
+}
+
+.crisis-resources {
+  display: flex; flex-direction: column; gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+/* ── Resources: touch-friendly large tap targets ── */
+.crisis-resource {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-page);
+  text-decoration: none;
+  display: block;
+  min-height: 64px;
+}
+
+.crisis-resource.primary {
+  border-color: var(--color-error);
+  background: #FEF2F2;
+}
+
+.resource-name {
+  font-size: 14px; font-weight: 600; color: var(--color-text-primary);
+}
+
+.resource-action {
+  font-size: 20px; font-weight: 700; color: var(--color-error);
+  margin-top: 4px;
+}
+
+.crisis-resource:not(.primary) .resource-name {
+  font-size: 13px;
+}
+
+.crisis-resource:not(.primary) .resource-action {
+  font-size: 16px; font-weight: 600; color: var(--color-text-primary);
+  margin-top: 4px;
+}
+
+/* ── Call / Text buttons (prominent on mobile) ── */
+.resource-cta {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.cta-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-decoration: none;
+  min-height: 44px;
+}
+
+.cta-btn.call {
+  background: var(--color-error);
+  color: white;
+}
+
+.cta-btn.text-msg {
+  background: transparent;
+  color: var(--color-error);
+  border: 1.5px solid var(--color-error);
+}
+
+.crisis-teacher-notice {
+  font-size: 14px; color: var(--color-text-secondary);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  background: #EEF2FF;
+  border-radius: var(--radius-md);
+  display: flex; align-items: flex-start; gap: var(--space-sm);
+}
+
+.crisis-teacher-notice svg { flex-shrink: 0; margin-top: 2px; }
+
+/* ── Dismiss button — full width, prominent tap target ── */
+.crisis-dismiss-btn {
+  width: 100%; padding: 16px;
+  background: transparent; color: var(--color-text-secondary);
+  border: 2px solid var(--color-border); border-radius: var(--radius-md);
+  font-family: var(--font-sans); font-size: 16px; font-weight: 500;
+  cursor: pointer; margin-bottom: var(--space-md);
+  min-height: 52px;
+}
+
+.crisis-note {
+  font-size: 12px; color: var(--color-text-muted); line-height: 1.5;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="#" class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      ChatBridge
+    </a>
+    <span class="grade-badge">6-8</span>
+  </div>
+  <div class="topbar-right">
+    <div class="user-avatar">MT</div>
+  </div>
+</header>
+
+<!-- Dimmed chat background -->
+<div class="chat-bg">
+  <div style="padding: 12px; background: #FEF2F2; border-radius: 12px; border: 1px solid #FECACA; font-size: 14px; color: #991B1B; margin-bottom: 12px;">I just feel like nothing matters anymore</div>
+  <div style="padding: 12px; background: #F3F4F6; border-radius: 12px; font-size: 14px; color: #374151;">I hear you, and I want you to know that what you're feeling matters. Let me connect you with some people who can help.</div>
+</div>
+
+<!-- Crisis Resources Overlay — bottom sheet on mobile -->
+<div class="crisis-overlay">
+  <div class="crisis-card">
+    <div class="crisis-header">
+      <div class="crisis-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <h1 class="crisis-heading">We're Here to Help</h1>
+    </div>
+
+    <div class="crisis-resources">
+      <!-- Primary resource — 988 with call/text CTAs -->
+      <div class="crisis-resource primary">
+        <div class="resource-name">988 Suicide &amp; Crisis Lifeline</div>
+        <div class="resource-action">988</div>
+        <div class="resource-cta">
+          <a href="tel:988" class="cta-btn call">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            Call 988
+          </a>
+          <a href="sms:988" class="cta-btn text-msg">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Text 988
+          </a>
+        </div>
+      </div>
+
+      <div class="crisis-resource">
+        <div class="resource-name">Crisis Text Line</div>
+        <div class="resource-action">Text HOME to 741741</div>
+        <div class="resource-cta">
+          <a href="sms:741741?body=HOME" class="cta-btn text-msg" style="flex: none; width: 100%;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Open Text App
+          </a>
+        </div>
+      </div>
+
+      <div class="crisis-resource">
+        <div class="resource-name">If you're in immediate danger</div>
+        <div class="resource-action">Call 911</div>
+        <div class="resource-cta">
+          <a href="tel:911" class="cta-btn call" style="flex: none; width: 100%;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            Call 911
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="crisis-teacher-notice">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Your teacher has been notified and will check in with you.
+    </div>
+
+    <button class="crisis-dismiss-btn">I'm OK</button>
+
+    <p class="crisis-note">This message appeared because our safety system detected something concerning. If this was a mistake, tap "I'm OK" and continue chatting.</p>
+  </div>
+</div>
+
+</body>
+</html>

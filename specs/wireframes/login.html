@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: Login — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--hierarchy { background: #EEF2FF; color: #4F46E5; }
+    .label--interaction { background: #ECFDF5; color: #059669; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--responsive { background: #FEE2E2; color: #991B1B; }
+    .label--persona { background: #F3E8FF; color: #7C3AED; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Login (SSO)</h1>
+  <div class="screen-id">Screen: login | Personas: All (PER-001 through PER-003) | Entry point for all user types</div>
+
+  <!-- Information Hierarchy -->
+  <div class="section">
+    <h2>Information Hierarchy</h2>
+    <div class="zone-map">
+      <div class="zone zone--primary">
+        <div class="zone-number">1</div>
+        <strong>SSO Buttons (center)</strong> — Three large, full-width buttons: Clever, ClassLink, Google. These are the primary action surface. Most users (students) will click Clever or ClassLink because their school provisions them.
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">2</div>
+        <strong>Brand Identity (above buttons)</strong> — ChatBridge logo + tagline. Establishes trust and recognition. Brief — not a marketing pitch.
+      </div>
+      <div class="zone">
+        <div class="zone-number">3</div>
+        <strong>Teacher Email Login (below buttons)</strong> — Secondary path for teachers who don't use SSO. De-emphasized as text link because 90%+ of users authenticate via SSO.
+      </div>
+      <div class="zone">
+        <div class="zone-number">4</div>
+        <strong>Compliance Badge (footer)</strong> — COPPA/FERPA compliance indicator. Subtle but visible — builds trust for teachers and admins who are evaluating the platform.
+      </div>
+    </div>
+  </div>
+
+  <!-- Focal Point -->
+  <div class="section">
+    <h2>Focal Point</h2>
+    <p class="annotation"><span class="label label--hierarchy">FOCAL</span> <strong>The SSO buttons</strong> own the first 3 seconds. The user should be able to identify their SSO provider and click within 2 seconds. The entire card fits on one screen with no scrolling at any viewport size.</p>
+  </div>
+
+  <!-- Banned Dominance Patterns -->
+  <div class="section">
+    <h2>Banned Dominance Patterns</h2>
+    <ul>
+      <li>No marketing content, feature lists, or testimonials on the login page</li>
+      <li>No hero image or illustration dominating the viewport</li>
+      <li>No username/password form as the primary path — SSO is the primary authentication method</li>
+      <li>No district selection dropdown — the SSO provider handles tenant routing</li>
+    </ul>
+  </div>
+
+  <!-- Interactive State Annotations -->
+  <div class="section">
+    <h2>Interactive States</h2>
+    <p class="annotation"><span class="label label--interaction">CLICK</span> <strong>Clever button:</strong> Redirects to Clever OAuth flow. Shows loading spinner on button while redirect initiates. On Clever callback, routes to appropriate dashboard based on user role (student -> chat, teacher -> dashboard, admin -> catalog).</p>
+    <p class="annotation"><span class="label label--interaction">CLICK</span> <strong>ClassLink button:</strong> Same flow as Clever but with ClassLink OAuth.</p>
+    <p class="annotation"><span class="label label--interaction">CLICK</span> <strong>Google button:</strong> Google OAuth flow. Restricted to Google Workspace for Education accounts only — personal Gmail is rejected with error message.</p>
+    <p class="annotation"><span class="label label--interaction">CLICK</span> <strong>Teacher email login:</strong> Expands to show email input + "Send magic link" button. No password — magic link only for security.</p>
+    <p class="annotation"><span class="label label--interaction">ERROR</span> <strong>SSO failure:</strong> If SSO provider returns error, show inline error banner: "Clever login failed. Please try again or contact your school's IT department." No redirect to a separate error page.</p>
+    <p class="annotation"><span class="label label--interaction">HOVER</span> <strong>SSO buttons:</strong> Subtle shadow elevation. Border color intensifies. Cursor: pointer.</p>
+  </div>
+
+  <!-- API Integration Annotations -->
+  <div class="section">
+    <h2>API Integration Annotations</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Clever SSO:</strong> <code>GET /api/v1/auth/clever/redirect</code> — initiates OAuth flow. Callback: <code>GET /api/v1/auth/clever/callback?code={code}</code> — exchanges code for tokens, creates session, returns JWT + user role.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>ClassLink SSO:</strong> <code>GET /api/v1/auth/classlink/redirect</code> and <code>GET /api/v1/auth/classlink/callback</code> — same pattern as Clever.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Google SSO:</strong> <code>GET /api/v1/auth/google/redirect</code> and <code>GET /api/v1/auth/google/callback</code> — validates domain is Workspace for Education.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Magic link:</strong> <code>POST /api/v1/auth/magic-link</code> — body: <code>{ "email": "teacher@school.edu" }</code>. Sends email with one-time login link.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Role routing:</strong> After auth, <code>GET /api/v1/auth/me</code> returns user role. Frontend routes: student -> <code>/chat</code>, teacher -> <code>/dashboard</code>, admin -> <code>/admin/catalog</code>.</p>
+  </div>
+
+  <!-- Responsive Behavior -->
+  <div class="section">
+    <h2>Responsive Behavior</h2>
+    <p class="annotation"><span class="label label--responsive">MOBILE 375px</span> Card goes full-width with 16px margin. SSO buttons remain full-width. Font sizes scale down slightly. The card is vertically centered and fits on screen without scrolling.</p>
+    <p class="annotation"><span class="label label--responsive">DESKTOP 1280px</span> Card is 400px max-width, centered horizontally and vertically. Generous whitespace around the card.</p>
+  </div>
+
+  <!-- Persona Fit -->
+  <div class="section">
+    <h2>Persona Fit</h2>
+    <p class="annotation"><span class="label label--persona">PERSONA</span> This screen serves all user types but is optimized for students (primary users). Students on shared Chromebooks need to log in quickly at the start of a 30-minute class period — every second on the login screen is lost learning time. SSO buttons are large (44px+ touch target) and labeled with provider names students recognize from other school tools. The compliance badge is for teachers/admins evaluating the platform — students ignore it, which is correct.</p>
+  </div>
+
+</body>
+</html>

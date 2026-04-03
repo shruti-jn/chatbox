@@ -1,0 +1,288 @@
+{
+  "metadata": {
+    "created_at": "2026-04-02T22:30:00Z",
+    "created_by": "prd_generate",
+    "created_by_model": "claude-opus-4-6[1m]",
+    "template_version": "v0.1",
+    "discovery_version": "v1.0",
+    "clarifications_version": "v0.1",
+    "scope_phase": "production",
+    "archetype": ["integration", "workflow", "hybrid"]
+  },
+  "project_id": "chatbridge-v2",
+  "artifact_version": "1.0.0",
+  "problem_statement": {
+    "summary": "TutorMeAI must evolve from chatbot to platform: third-party apps inside chat with teacher control and child safety. No K-12 AI platform combines governance AND extensibility. SchoolAI has governance (5/5) but no extensibility (1/5). OpenAI has extensibility (5/5) but no K-12 governance (2/5). ChatBridge v2 occupies the white space.",
+    "evidence": [
+      "85% of teachers and 86% of students used AI in 2024-2025",
+      "K-12 AI market: $539.7M (2025), $13.6B by 2035 (38.1% CAGR)",
+      "OpenAI Apps SDK (Nov 2025) validates apps-in-chat, lacks K-12 safety",
+      "96% of school apps share student data with third parties",
+      "Students tab-switch 10-15 tools, losing 2-4 hours/week",
+      "COPPA 2025 compliance deadline April 22, 2026",
+      "MCP: 97M monthly downloads by March 2026"
+    ],
+    "impact_if_unsolved": "TutorMeAI becomes commodity chatbot. Districts consolidate on whichever platform first offers AI chat + apps + safety."
+  },
+  "personas": [
+    {
+      "id": "PER-001", "name": "Sam the Student", "role": "K-12 student (ages 5-18)", "tier": "primary",
+      "jtbd": ["Get help with concepts", "Practice via interactive apps", "Ask follow-ups about app interactions", "Continue sessions across visits"],
+      "pain_points": ["Tab-switches 10-15 tools losing context", "Generic AI gives answers not guidance", "No interactive experiences in AI chat", "Age-inappropriate interfaces"],
+      "journeys": ["JRN-001", "JRN-002"]
+    },
+    {
+      "id": "PER-002", "name": "Ms. Torres the Teacher", "role": "Classroom teacher configuring AI, managing apps, monitoring via Mission Control", "tier": "primary",
+      "jtbd": ["Configure AI behavior per classroom", "Curate app catalog per classroom", "Monitor students real-time", "Inject whisper guidance", "Set async config", "Review analytics"],
+      "pain_points": ["No visibility into AI/app content", "Can't shape AI for pedagogy", "Managing 10-15 platforms", "Delayed safety alerts", "No real-time guidance"],
+      "journeys": ["JRN-003", "JRN-004"]
+    },
+    {
+      "id": "PER-003", "name": "Dr. Patel the District Admin", "role": "District admin managing app catalog, compliance, analytics", "tier": "secondary",
+      "jtbd": ["Maintain vetted app catalog", "Enforce district policies", "Review aggregate analytics", "Ensure COPPA/FERPA compliance"],
+      "pain_points": ["96% of apps share data", "121+ state privacy laws", "No aggregate AI view", "6+ month procurement cycles"],
+      "journeys": ["JRN-005"]
+    },
+    {
+      "id": "PER-004", "name": "Alex the App Developer", "role": "Third-party developer building apps via CBP/SDK", "tier": "tertiary",
+      "jtbd": ["Register app and define tools", "Render UI in chat", "Send/receive state updates", "Test in sandbox"],
+      "pain_points": ["No K-12 AI developer SDK exists", "COPPA/FERPA compliance complex", "No distribution channel"],
+      "journeys": ["JRN-006"]
+    }
+  ],
+  "user_journeys": [
+    {
+      "id": "JRN-001", "persona_id": "PER-001", "name": "Student Chat-to-App Session",
+      "trigger": "Student logs in and asks a question or requests an activity",
+      "steps": [
+        {"step": 1, "action": "Student logs in via LTI SSO or platform JWT", "decision_point": false, "branches": []},
+        {"step": 2, "action": "Student sees conversation history and classroom context", "decision_point": false, "branches": []},
+        {"step": 3, "action": "Student types message or taps suggestion chip", "decision_point": false, "branches": []},
+        {"step": 4, "action": "AI identifies clear intent to invoke app", "decision_point": false, "branches": []},
+        {"step": 5, "action": "AI responds with text and invokes app tool", "decision_point": false, "branches": []},
+        {"step": 6, "action": "Tool invocation visualization appears", "decision_point": false, "branches": []},
+        {"step": 7, "action": "App card renders inline: loading → interactive (<2s)", "decision_point": false, "branches": []},
+        {"step": 8, "action": "Student interacts with app", "decision_point": false, "branches": []},
+        {"step": 9, "action": "App sends state updates via CBP", "decision_point": false, "branches": []},
+        {"step": 10, "action": "AI responds to app state contextually", "decision_point": false, "branches": []},
+        {"step": 11, "action": "Student decides next action", "decision_point": true, "branches": ["Follow-up: AI analyzes state", "Continue: repeat 8-10", "End: card collapses, conversation continues"]}
+      ],
+      "success_outcome": "Seamless session — feels like one product",
+      "failure_outcomes": ["App fails to load (error+retry)", "Wrong app (dismiss+correct)", "Crash (collapse+acknowledge)", "Can't interpret state (admit limitation)"],
+      "requirements": ["FR-CHAT-001","FR-CHAT-002","FR-CHAT-003","FR-CHAT-004","FR-CHAT-005","FR-CHAT-006","FR-CHAT-007","FR-CHAT-008","FR-APP-001","FR-APP-002","FR-APP-003","FR-APP-004","FR-APP-005","FR-APP-006","FR-APP-007","FR-APP-008","FR-STATE-001","FR-STATE-002","FR-STATE-003","FR-STATE-004","FR-STATE-005","FR-STATE-006","FR-AI-001","FR-AI-002","FR-AI-003","FR-AI-004","FR-AI-005","FR-AI-006"]
+    },
+    {
+      "id": "JRN-002", "persona_id": "PER-001", "name": "Student Collaborative App Session",
+      "trigger": "Teacher assigns group activity or student initiates",
+      "steps": [
+        {"step": 1, "action": "Create shared instance with session code", "decision_point": false, "branches": []},
+        {"step": 2, "action": "Students join", "decision_point": false, "branches": []},
+        {"step": 3, "action": "All see same state real-time", "decision_point": false, "branches": []},
+        {"step": 4, "action": "Turn-based enforcement", "decision_point": false, "branches": []},
+        {"step": 5, "action": "AI observes and comments", "decision_point": false, "branches": []},
+        {"step": 6, "action": "Session ends on completion or teacher close", "decision_point": false, "branches": []}
+      ],
+      "success_outcome": "Multiple students interact with same app, AI facilitates",
+      "failure_outcomes": ["Sync fails (stale warning)", "Teacher force-closes (session ended)"],
+      "requirements": ["FR-COLLAB-001","FR-COLLAB-002","FR-COLLAB-003","FR-COLLAB-004","FR-COLLAB-005","FR-CHESS-004","FR-STATE-003"]
+    },
+    {
+      "id": "JRN-003", "persona_id": "PER-002", "name": "Teacher Classroom Config and Monitoring",
+      "trigger": "Teacher creates or modifies classroom",
+      "steps": [
+        {"step": 1, "action": "Login to Mission Control", "decision_point": false, "branches": []},
+        {"step": 2, "action": "Create/select classroom", "decision_point": false, "branches": []},
+        {"step": 3, "action": "Configure AI behavior", "decision_point": false, "branches": []},
+        {"step": 4, "action": "Browse app catalog, enable/disable", "decision_point": false, "branches": []},
+        {"step": 5, "action": "Share join code", "decision_point": false, "branches": []},
+        {"step": 6, "action": "Monitor real-time grid (30 students)", "decision_point": false, "branches": []},
+        {"step": 7, "action": "Handle alerts or intervene", "decision_point": true, "branches": ["Safety alert: review+action", "Struggling: whisper", "Normal: periodic review"]}
+      ],
+      "success_outcome": "Classroom configured <5min, apps <3 clicks, real-time monitoring with whisper",
+      "failure_outcomes": ["Empty catalog (contact admin)", "Config confusing (presets)", "Disconnect (reconnection indicator)"],
+      "requirements": ["FR-CTRL-001","FR-CTRL-002","FR-CTRL-003","FR-CTRL-004","FR-CTRL-005","FR-CTRL-006","FR-CTRL-007","FR-CTRL-008","FR-SAFE-004","FR-SAFE-005","FR-SAFE-006","FR-CHAT-008","FR-AUTH-001"]
+    },
+    {
+      "id": "JRN-004", "persona_id": "PER-002", "name": "Teacher Reviews Learning Analytics",
+      "trigger": "Teacher wants to understand progress",
+      "steps": [
+        {"step": 1, "action": "Navigate to Analytics", "decision_point": false, "branches": []},
+        {"step": 2, "action": "Select classroom and date range", "decision_point": false, "branches": []},
+        {"step": 3, "action": "View per-student, per-app metrics", "decision_point": false, "branches": []},
+        {"step": 4, "action": "Adjust config or plan whispers", "decision_point": true, "branches": ["Adjust AI config", "Plan whisper for next session"]}
+      ],
+      "success_outcome": "Clear progress picture without manual tracking",
+      "failure_outcomes": ["Insufficient data (threshold message)", "Slow query (loading, <3s)"],
+      "requirements": ["FR-CTRL-007","FR-CTRL-008"]
+    },
+    {
+      "id": "JRN-005", "persona_id": "PER-003", "name": "District Admin Manages App Catalog",
+      "trigger": "New app submitted or policy update needed",
+      "steps": [
+        {"step": 1, "action": "Login to admin portal", "decision_point": false, "branches": []},
+        {"step": 2, "action": "Review automated review results", "decision_point": false, "branches": []},
+        {"step": 3, "action": "Approve or reject", "decision_point": true, "branches": ["Approve: enters catalog", "Reject: denied with reason"]},
+        {"step": 4, "action": "Configure district defaults", "decision_point": false, "branches": []},
+        {"step": 5, "action": "Review aggregate analytics", "decision_point": false, "branches": []},
+        {"step": 6, "action": "Handle compliance concern", "decision_point": true, "branches": ["Suspend app district-wide"]}
+      ],
+      "success_outcome": "Vetted compliant catalog with aggregate visibility",
+      "failure_outcomes": ["Review incomplete (shows passed/failed checks)", "Analytics slow (pagination)"],
+      "requirements": ["FR-SAFE-007","FR-SAFE-008","FR-CTRL-008","FR-AUTH-005","FR-COMP-001","FR-COMP-002","FR-COMP-003","FR-COMP-004","FR-OBS-001","FR-OBS-002","FR-OBS-003"]
+    },
+    {
+      "id": "JRN-006", "persona_id": "PER-004", "name": "Developer Integrates an App",
+      "trigger": "Developer wants to build an app",
+      "steps": [
+        {"step": 1, "action": "Read SDK docs", "decision_point": false, "branches": []},
+        {"step": 2, "action": "Register app via API", "decision_point": false, "branches": []},
+        {"step": 3, "action": "Implement CBP protocol", "decision_point": false, "branches": []},
+        {"step": 4, "action": "Build app card UI", "decision_point": false, "branches": []},
+        {"step": 5, "action": "Test in sandbox", "decision_point": false, "branches": []},
+        {"step": 6, "action": "Submit for automated review", "decision_point": false, "branches": []},
+        {"step": 7, "action": "Review result", "decision_point": true, "branches": ["Pass: enters catalog pipeline", "Fail: specific violations shown"]}
+      ],
+      "success_outcome": "Working app in under 4 hours using SDK docs",
+      "failure_outcomes": ["Fails security (specific violations)", "Exceeds limits (throttle+warn)", "UI broken (preview+debug)"],
+      "requirements": ["FR-APP-001","FR-APP-002","FR-APP-003","FR-APP-004","FR-SAFE-007","FR-SAFE-008","FR-STATE-001","FR-STATE-006"]
+    }
+  ],
+  "functional_requirements_summary": {
+    "total_count": 69,
+    "domains": {
+      "CHAT": {"count": 8, "ids": ["FR-CHAT-001","FR-CHAT-002","FR-CHAT-003","FR-CHAT-004","FR-CHAT-005","FR-CHAT-006","FR-CHAT-007","FR-CHAT-008"]},
+      "APP": {"count": 8, "ids": ["FR-APP-001","FR-APP-002","FR-APP-003","FR-APP-004","FR-APP-005","FR-APP-006","FR-APP-007","FR-APP-008"]},
+      "STATE": {"count": 6, "ids": ["FR-STATE-001","FR-STATE-002","FR-STATE-003","FR-STATE-004","FR-STATE-005","FR-STATE-006"]},
+      "SAFE": {"count": 8, "ids": ["FR-SAFE-001","FR-SAFE-002","FR-SAFE-003","FR-SAFE-004","FR-SAFE-005","FR-SAFE-006","FR-SAFE-007","FR-SAFE-008"]},
+      "AUTH": {"count": 5, "ids": ["FR-AUTH-001","FR-AUTH-002","FR-AUTH-003","FR-AUTH-004","FR-AUTH-005"]},
+      "AI": {"count": 6, "ids": ["FR-AI-001","FR-AI-002","FR-AI-003","FR-AI-004","FR-AI-005","FR-AI-006"]},
+      "CTRL": {"count": 8, "ids": ["FR-CTRL-001","FR-CTRL-002","FR-CTRL-003","FR-CTRL-004","FR-CTRL-005","FR-CTRL-006","FR-CTRL-007","FR-CTRL-008"]},
+      "COLLAB": {"count": 5, "ids": ["FR-COLLAB-001","FR-COLLAB-002","FR-COLLAB-003","FR-COLLAB-004","FR-COLLAB-005"]},
+      "CHESS": {"count": 4, "ids": ["FR-CHESS-001","FR-CHESS-002","FR-CHESS-003","FR-CHESS-004"]},
+      "SPOT": {"count": 3, "ids": ["FR-SPOT-001","FR-SPOT-002","FR-SPOT-003"]},
+      "WTHR": {"count": 3, "ids": ["FR-WTHR-001","FR-WTHR-002","FR-WTHR-003"]},
+      "OBS": {"count": 3, "ids": ["FR-OBS-001","FR-OBS-002","FR-OBS-003"]},
+      "COMP": {"count": 4, "ids": ["FR-COMP-001","FR-COMP-002","FR-COMP-003","FR-COMP-004"]},
+      "INFRA": {"count": 3, "ids": ["FR-INFRA-001","FR-INFRA-002","FR-INFRA-003"]}
+    },
+    "priority_breakdown": {
+      "must": 58,
+      "should": 8,
+      "could": 3,
+      "wont": 0
+    },
+    "note": "Full FR details with EARS statements and Given/When/Then acceptance criteria are in prd.md. This JSON provides the index and traceability structure for downstream agents."
+  },
+  "non_functional_requirements": [
+    {"id": "NFR-PERF-001", "category": "performance", "statement": "First AI token within 1 second", "target": "<1s p95", "measurement_method": "Langfuse latency percentiles"},
+    {"id": "NFR-PERF-002", "category": "performance", "statement": "App card interactive within 2 seconds", "target": "<2s p95", "measurement_method": "Render event timing"},
+    {"id": "NFR-PERF-003", "category": "performance", "statement": "Typing indicator within 200ms", "target": "<200ms", "measurement_method": "Client timing"},
+    {"id": "NFR-PERF-004", "category": "performance", "statement": "WebSocket relay within 100ms", "target": "<100ms", "measurement_method": "Pub/Sub to client timing"},
+    {"id": "NFR-REL-001", "category": "reliability", "statement": "99% monthly uptime", "target": "99%", "measurement_method": "Uptime monitoring"},
+    {"id": "NFR-SEC-001", "category": "security", "statement": "Iframe sandbox enforcement", "target": "Zero DOM violations", "measurement_method": "CSP reports + audit"},
+    {"id": "NFR-SEC-002", "category": "security", "statement": "Rate limiting per role", "target": "Zero unthrottled abuse", "measurement_method": "429 rate metrics"},
+    {"id": "NFR-USAB-001", "category": "usability", "statement": "Loading indicators for all async ops >200ms", "target": "100% coverage", "measurement_method": "UI audit"},
+    {"id": "NFR-ACC-001", "category": "usability", "statement": "WCAG 2.1 AA compliance", "target": "Zero violations", "measurement_method": "axe-core + manual"},
+    {"id": "NFR-OBS-001", "category": "maintainability", "statement": "100% LLM calls traced, no PII", "target": "100% coverage, 0 PII", "measurement_method": "Trace count audit"},
+    {"id": "NFR-COMP-001", "category": "security", "statement": "COPPA 2025 + FERPA compliance, US residency", "target": "Zero violations", "measurement_method": "Annual audit"},
+    {"id": "NFR-SCAL-001", "category": "performance", "statement": "30 students/classroom, 100 classrooms/district", "target": "Concurrent support", "measurement_method": "Load testing"}
+  ],
+  "differentiation": {
+    "market_position": "Intersection of K-12 governance and third-party app extensibility — no competitor holds both",
+    "table_stakes": ["Real-time AI chat with streaming", "FERPA/COPPA compliance", "Teacher auth + classroom config", "3+ app integrations", "Content safety", "LTI 1.3"],
+    "standout_features": [
+      {"id": "WOW-001", "name": "AI-Aware App State (Chess Demo)", "user_pain_addressed": "No interactive AI experiences; AI unaware of app context", "why_it_impresses": "AI analyzes actual board position mid-game. Zero competitors.", "market_gap_reference": "OpenAI Apps SDK: tool invocation but not state awareness", "ai_native": true},
+      {"id": "WOW-002", "name": "Teacher App Curation with Governance", "user_pain_addressed": "No teacher control over AI app access", "why_it_impresses": "Per-classroom toggles + district approval pipeline", "market_gap_reference": "No competitor has teacher-level app curation", "ai_native": false},
+      {"id": "WOW-003", "name": "ChatBridge Bridge Protocol (CBP)", "user_pain_addressed": "No child-safe AI app communication standard", "why_it_impresses": "Open MCP extension for K-12 safety", "market_gap_reference": "MCP has zero K-12 safety extensions", "ai_native": true},
+      {"id": "WOW-004", "name": "Real-Time Teacher Whisper", "user_pain_addressed": "Can't guide AI mid-conversation", "why_it_impresses": "Teacher injects guidance invisible to student", "market_gap_reference": "SchoolAI: monitoring but no guidance injection", "ai_native": true},
+      {"id": "WOW-005", "name": "4-Stage Safety Pipeline", "user_pain_addressed": "96% of school apps share data", "why_it_impresses": "Deepest K-12 AI safety: PII→injection→LLM→crisis", "market_gap_reference": "Competitors use 1-2 layers", "ai_native": true}
+    ],
+    "signature_experience": "Chess Demo: 'let's play chess' → board appears → play → 'what should I do?' → AI analyzes actual position → game ends → AI discusses. Teacher sees everything in Mission Control.",
+    "generic_build_traps": ["Chat wrapper with function calling", "Single-prompt safety", "Proprietary API not extending MCP", "Skipping teacher governance", "80 built-in tools instead of platform"]
+  },
+  "ai_native_experience": {
+    "core_workflows": [
+      {"workflow": "Chat response", "ai_role": "Generate contextual, grade-appropriate responses", "why_ai_is_core": "Product IS the AI", "human_override": "Teacher whisper + config", "trust_signals": ["Streaming shows generation", "Config visible to teacher"]},
+      {"workflow": "Tool routing", "ai_role": "Identify app from natural language", "why_ai_is_core": "NL discovery requires intent understanding", "human_override": "Conservative: explicit intent only", "trust_signals": ["AI explains actions"]},
+      {"workflow": "State analysis", "ai_role": "Reason about live app state", "why_ai_is_core": "Connects conversation to content", "human_override": "Student follow-ups", "trust_signals": ["Cites specific positions/data"]},
+      {"workflow": "Safety classification", "ai_role": "Classify every message", "why_ai_is_core": "200K+ daily messages", "human_override": "Teacher alerts + override", "trust_signals": ["Classification in audit trail"]},
+      {"workflow": "Suggestion generation", "ai_role": "Context-aware next actions", "why_ai_is_core": "Reduces cognitive load", "human_override": "Student can ignore", "trust_signals": ["Clearly labeled, never auto-executed"]}
+    ],
+    "anti_bolt_on_rationale": "Remove the LLM and there is no product: no chat, no routing, no analysis, no safety, no suggestions. Every core workflow passes through AI."
+  },
+  "scope": {
+    "in_scope": ["AI chat with streaming", "Third-party apps via CBP", "Sandboxed iframes", "Mission Control", "District admin portal", "LTI 1.3", "Collaborative sessions", "COPPA/FERPA", "4-stage safety", "4 grade bands", "Automated app review", "Langfuse observability", "Developer SDK", "Railway deployment"],
+    "out_of_scope": [
+      {"item": "Offline mode", "rationale": "Fundamentally online product"},
+      {"item": "Google Classroom LTI", "rationale": "Doesn't support LTI; V2"},
+      {"item": "Mobile native", "rationale": "Web + Electron V1; Capacitor V2"},
+      {"item": "Marketplace billing", "rationale": "V1 platform-owned; V2"},
+      {"item": "Multi-language UI", "rationale": "English V1"},
+      {"item": "Video/voice chat", "rationale": "Text only V1"}
+    ],
+    "deferred": [
+      {"item": "Google Classroom API", "target_phase": "V2"},
+      {"item": "Marketplace billing", "target_phase": "V2"},
+      {"item": "Mobile Capacitor", "target_phase": "V2"},
+      {"item": "i18n", "target_phase": "V2"},
+      {"item": "ML-powered analytics", "target_phase": "V2"},
+      {"item": "Multi-model routing", "target_phase": "V2"}
+    ],
+    "agent_boundaries": {
+      "always": ["Tool invocation on clear intent", "Safety classification", "Token refresh", "Rate limiting", "App lifecycle transitions"],
+      "ask_first": ["District-wide suspension", "Data deletion", "Classroom config changes", "App catalog approvals"],
+      "never": ["Bypass safety pipeline", "Share student data unauthorized", "Allow parent DOM access", "Store PII in traces", "Downgrade from US residency"]
+    }
+  },
+  "success_metrics": [
+    {"name": "Test scenario 1: Tool discovery", "target": "Pass", "measurement_method": "'Let's play chess' triggers chess", "frequency": "Per release"},
+    {"name": "Test scenario 2: UI rendering", "target": "Pass", "measurement_method": "App card inline <2s", "frequency": "Per release"},
+    {"name": "Test scenario 3: Completion signaling", "target": "Pass", "measurement_method": "Game end → collapse → AI discusses", "frequency": "Per release"},
+    {"name": "Test scenario 4: Context retention", "target": "Pass", "measurement_method": "AI remembers app results", "frequency": "Per release"},
+    {"name": "Test scenario 5: Multi-app switching", "target": "Pass", "measurement_method": "Suspend/resume preserved", "frequency": "Per release"},
+    {"name": "Test scenario 6: Routing accuracy", "target": "Pass", "measurement_method": "Correct app for unambiguous", "frequency": "Per release"},
+    {"name": "Test scenario 7: Refusal", "target": "Pass", "measurement_method": "No tools for unrelated", "frequency": "Per release"},
+    {"name": "Chess lifecycle", "target": "Full game with analysis", "measurement_method": "E2E test", "frequency": "Per release"},
+    {"name": "Spotify OAuth", "target": "Real playlist created", "measurement_method": "Integration test", "frequency": "Per release"},
+    {"name": "Mission Control", "target": "30 students real-time", "measurement_method": "Load test", "frequency": "Per release"},
+    {"name": "Safety pipeline", "target": "4 stages on every message", "measurement_method": "Audit trail", "frequency": "Per release"},
+    {"name": "RLS isolation", "target": "Zero cross-district leakage", "measurement_method": "Security test", "frequency": "Per release"},
+    {"name": "LTI SSO", "target": "Canvas/Schoology launch", "measurement_method": "Integration test", "frequency": "Per release"},
+    {"name": "Langfuse coverage", "target": "100% traces", "measurement_method": "Trace audit", "frequency": "Weekly"},
+    {"name": "App review pipeline", "target": "5 stages functional", "measurement_method": "Pipeline tests", "frequency": "Per release"}
+  ],
+  "risks": [
+    {"description": "Canvas/Schoology add MCP AI features (IgniteAgent)", "likelihood": "medium", "impact": "high", "mitigation": "Ship fast; differentiate on safety depth"},
+    {"description": "LLM hallucination on tool routing", "likelihood": "medium", "impact": "medium", "mitigation": "Conservative routing + golden dataset eval"},
+    {"description": "COPPA 2025 compliance complexity", "likelihood": "high", "impact": "high", "mitigation": "Architecture-first; legal review"},
+    {"description": "Chatbox fork diverges from upstream", "likelihood": "medium", "impact": "low", "mitigation": "Minimize core changes; plugin as separate layer"},
+    {"description": "OAuth in iframe restrictions", "likelihood": "medium", "impact": "medium", "mitigation": "Popup pattern, not redirect"},
+    {"description": "Safety false positives frustrate students", "likelihood": "medium", "impact": "medium", "mitigation": "Grade-band thresholds + teacher override"}
+  ],
+  "test_data_requirements": {
+    "scenarios": ["20 golden dataset scenarios from AI Infrastructure section", "5 chess positions (opening/midgame/endgame/check/stalemate)", "3 playlist requests", "5 cities for weather", "10 safety edge cases", "Cross-district RLS tests"],
+    "data_sources": ["chess.js for FEN generation", "Spotify API sandbox", "OpenWeatherMap API", "Custom safety test harness"],
+    "verification_method": "Automated golden dataset scoring via Langfuse eval + manual 7-scenario E2E per release + load test 30 concurrent",
+    "edge_case_coverage": ["Multi-language injection", "Borderline content", "Token expiry mid-session", "Simultaneous app invocations", "Network disconnection during collaborative session"]
+  },
+  "traceability_index": {
+    "persona_to_journeys": {
+      "PER-001": ["JRN-001", "JRN-002"],
+      "PER-002": ["JRN-003", "JRN-004"],
+      "PER-003": ["JRN-005"],
+      "PER-004": ["JRN-006"]
+    },
+    "journey_to_requirements": {
+      "JRN-001": ["FR-CHAT-001","FR-CHAT-002","FR-CHAT-003","FR-CHAT-004","FR-CHAT-005","FR-CHAT-006","FR-CHAT-007","FR-CHAT-008","FR-APP-001","FR-APP-002","FR-APP-003","FR-APP-004","FR-APP-005","FR-APP-006","FR-APP-007","FR-APP-008","FR-STATE-001","FR-STATE-002","FR-STATE-003","FR-STATE-004","FR-STATE-005","FR-STATE-006","FR-AI-001","FR-AI-002","FR-AI-003","FR-AI-004","FR-AI-005","FR-AI-006","FR-SAFE-001","FR-SAFE-002","FR-SAFE-003","FR-SAFE-004","FR-SAFE-005","FR-SAFE-006","FR-SAFE-008","FR-AUTH-003","FR-AUTH-004","FR-CHESS-001","FR-CHESS-002","FR-CHESS-003","FR-SPOT-001","FR-SPOT-002","FR-SPOT-003","FR-WTHR-001","FR-WTHR-002","FR-WTHR-003","FR-OBS-001","FR-INFRA-001","FR-INFRA-002","FR-INFRA-003"],
+      "JRN-002": ["FR-COLLAB-001","FR-COLLAB-002","FR-COLLAB-003","FR-COLLAB-004","FR-COLLAB-005","FR-CHESS-004","FR-STATE-003","FR-CHAT-005"],
+      "JRN-003": ["FR-CTRL-001","FR-CTRL-002","FR-CTRL-003","FR-CTRL-004","FR-CTRL-005","FR-CTRL-006","FR-CTRL-007","FR-CTRL-008","FR-SAFE-004","FR-SAFE-005","FR-SAFE-006","FR-CHAT-008","FR-AUTH-001","FR-AUTH-002"],
+      "JRN-004": ["FR-CTRL-007","FR-CTRL-008"],
+      "JRN-005": ["FR-SAFE-007","FR-SAFE-008","FR-CTRL-008","FR-AUTH-004","FR-AUTH-005","FR-COMP-001","FR-COMP-002","FR-COMP-003","FR-COMP-004","FR-OBS-001","FR-OBS-002","FR-OBS-003"],
+      "JRN-006": ["FR-APP-001","FR-APP-002","FR-APP-003","FR-APP-004","FR-SAFE-007","FR-SAFE-008","FR-STATE-001","FR-STATE-006"]
+    },
+    "orphaned_personas": [],
+    "orphaned_requirements": [],
+    "orphaned_journeys": []
+  },
+  "approval_status": "draft"
+}

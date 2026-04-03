@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: Teacher Whisper — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .annotation strong { color: #111827; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--trigger { background: #FEF3C7; color: #92400E; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--state { background: #EEF2FF; color: #4F46E5; }
+    .label--exit { background: #ECFDF5; color: #059669; }
+    .label--error { background: #FEE2E2; color: #991B1B; }
+    .label--a11y { background: #F3E8FF; color: #7C3AED; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Teacher Whisper</h1>
+  <div class="screen-id">Screen: teacher-whisper | FR: FR-MON-005 | Persona: PER-002 (Ms. Torres the Teacher) | Journeys: JRN-003</div>
+
+  <!-- Layout Zones -->
+  <div class="section">
+    <h2>Layout Zones</h2>
+    <div class="zone-map">
+      <div class="zone zone--primary">
+        <div class="zone-number">1</div>
+        <strong>Whisper Compose Panel (modal or slide-out)</strong> — Target student name and current topic at top. Text area for whisper (max 500 chars, char counter shown). Placeholder text: "e.g., Guide the student toward the photosynthesis equation without giving the answer." Expiry selector: "Active for next 1 / 3 / 5 AI responses" (dropdown). Send button. Cancel button.
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">2</div>
+        <strong>Student Conversation Preview (context pane)</strong> — Last 5 messages of the student's conversation shown read-only at reduced size. Helps teacher compose a relevant whisper. Not interactive.
+      </div>
+      <div class="zone">
+        <div class="zone-number">3</div>
+        <strong>Active Whispers List (below compose)</strong> — Any whispers currently active for this student. Each row: whisper text preview, remaining responses, "Cancel whisper" button. Empty state: "No active whispers for this student."
+      </div>
+    </div>
+  </div>
+
+  <!-- Trigger Conditions -->
+  <div class="section">
+    <h2>Trigger Conditions</h2>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>From teacher-dashboard:</strong> Teacher clicks the "Whisper" button on a student card (visible on hover). The conversation_id is passed as context.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>From safety-alert-detail:</strong> Teacher selects "Send Whisper" as their intervention action. Pre-populates with the alert's conversation_id.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>From student conversation slide-out:</strong> Teacher is reviewing a transcript and clicks the "Whisper" icon in the action bar.</p>
+  </div>
+
+  <!-- API Endpoints -->
+  <div class="section">
+    <h2>API Endpoints</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Load active whispers:</strong> <code>GET /api/v1/conversations/{conversation_id}/whispers?active=true</code> — Returns whispers currently in the AI's context for this student. Used to populate the active whispers list. Called on panel open.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Load conversation context:</strong> <code>GET /api/v1/conversations/{conversation_id}/messages?limit=5&order=desc</code> — Last 5 messages for the context preview pane.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Send whisper:</strong> <code>POST /api/v1/conversations/{conversation_id}/whisper</code> — Body: <code>{ "whisper_text": "...", "expires_after_minutes": 15 }</code>. Returns <code>{ "whisper_id": "uuid" }</code>. The whisper is included in the AI's context assembly for the next N responses. Student never sees it.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Cancel whisper:</strong> <code>DELETE /api/v1/conversations/{conversation_id}/whispers/{whisper_id}</code> — Removes a whisper from active context immediately.</p>
+  </div>
+
+  <!-- State Transitions -->
+  <div class="section">
+    <h2>State Transitions (FSM-006: Teacher Intervention Flow)</h2>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Entry:</strong> Teacher is in <code>reviewing</code> state (or <code>monitoring</code> state if whisper initiated from dashboard).</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>On send:</strong> SEND_WHISPER event fires → transition to <code>intervened</code>. The log_intervention action records the whisper action in the audit trail.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Student conversation (FSM-001):</strong> No immediate state change to the student's session. The whisper is included passively in the next AI context assembly. The student's conversation remains in <code>active</code> state.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>On cancel (discard):</strong> No event fired. Teacher returns to prior state (monitoring or reviewing) without state change.</p>
+  </div>
+
+  <!-- User Exit Paths -->
+  <div class="section">
+    <h2>User Exit Paths</h2>
+    <ul>
+      <li><strong>Send Whisper (submit):</strong> POST fires → success toast "Whisper sent — AI will incorporate this in its next response" → panel closes → returns to invoking screen (dashboard or alert detail).</li>
+      <li><strong>Cancel button:</strong> Closes panel without sending. Returns to invoking screen. No API call.</li>
+      <li><strong>Escape key:</strong> Same as Cancel. If text has been typed, shows "Discard whisper?" confirmation before closing.</li>
+      <li><strong>Click outside panel (if modal):</strong> Same as Escape — discard confirmation if text present.</li>
+      <li><strong>Cancel active whisper (from list):</strong> DELETE fires → whisper row removed from list. Teacher remains on this panel to compose a new one or close.</li>
+    </ul>
+  </div>
+
+  <!-- Error Recovery -->
+  <div class="section">
+    <h2>Error Recovery</h2>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>POST fails (network/5xx):</strong> Inline error below the text area: "Whisper could not be sent. Try again." Retry button. Whisper text is preserved in the form.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>POST fails (400 — text too long):</strong> Client-side validation prevents submission above 500 chars. If server returns 400, show "Whisper text exceeds maximum length (500 characters)."</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>GET active whispers fails:</strong> Show "Could not load active whispers" with a retry link. The compose area remains functional so the teacher can still send a new whisper.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>DELETE cancel-whisper fails:</strong> Show inline error on the whisper row: "Could not cancel — try again." Whisper row remains visible.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Student session ended before send:</strong> Server returns 404 on the conversation. Show "This student's session has ended. Whisper not delivered." Offer to return to dashboard.</p>
+  </div>
+
+  <!-- Accessibility Notes -->
+  <div class="section">
+    <h2>Accessibility Notes</h2>
+    <ul>
+      <li>Panel is a modal dialog with <code>role="dialog"</code>, <code>aria-modal="true"</code>, and <code>aria-labelledby</code> pointing to the panel heading.</li>
+      <li>Focus is trapped inside the modal while open. On close, focus returns to the element that opened it (whisper button on student card).</li>
+      <li>Character counter is announced via <code>aria-live="polite"</code> as teacher types. Reads: "340 of 500 characters used."</li>
+      <li>Send button is disabled and <code>aria-disabled="true"</code> when text area is empty.</li>
+      <li>Active whispers list uses <code>role="list"</code>. Each cancel button has <code>aria-label="Cancel whisper: [first 30 chars of whisper text]"</code>.</li>
+    </ul>
+  </div>
+
+</body>
+</html>

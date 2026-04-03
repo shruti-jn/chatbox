@@ -1,0 +1,205 @@
+metadata:
+  created_at: "2026-04-03T01:15:00Z"
+  created_by: workflow_fsm_compiler
+  project_id: chatbridge-v2
+
+state_machines:
+
+  app_instance_lifecycle:
+    description: "Third-party app instance lifecycle within a conversation"
+    requirement_ids: [FR-APP-004, FR-APP-006]
+    states:
+      loading: { description: "Iframe loading, skeleton visible", entry_action: "create_instance, render_skeleton" }
+      active: { description: "App interactive, single active constraint", entry_action: "show_interactive, notify_ai" }
+      suspended: { description: "Another app activated, card collapsed to thumbnail", entry_action: "collapse_to_thumbnail, preserve_state" }
+      collapsed: { description: "App completed, card shows summary", entry_action: "show_summary, pass_data_to_ai" }
+      terminated: { description: "Forcefully ended (admin, error, resource limit)", entry_action: "cleanup, show_message" }
+      error: { description: "App unresponsive or crashed", entry_action: "show_error_with_retry, notify_ai, log_event" }
+    initial_state: loading
+    transitions:
+      - from: loading
+        to: active
+        trigger: iframe_content_ready
+        guard: "load completes within 2s"
+        action: show_interactive_content
+      - from: loading
+        to: error
+        trigger: iframe_load_failed
+        guard: "load timeout >2s OR error event"
+        action: show_error_state
+      - from: active
+        to: suspended
+        trigger: another_app_invoked
+        guard: "single-active constraint (CLR-005)"
+        action: collapse_to_thumbnail
+      - from: active
+        to: collapsed
+        trigger: app_signals_completion
+        guard: "CBP completion message valid"
+        action: collapse_to_summary
+      - from: active
+        to: error
+        trigger: app_unresponsive
+        guard: "heartbeat timeout >5s"
+        action: show_error
+      - from: active
+        to: terminated
+        trigger: admin_suspend_or_resource_violation
+        guard: "admin action OR resource monitor violation"
+        action: force_close
+      - from: suspended
+        to: active
+        trigger: user_reexpands_card
+        guard: "tap on collapsed card"
+        action: restore_state
+      - from: suspended
+        to: terminated
+        trigger: session_ends_or_admin_suspends
+        guard: "session close OR admin action"
+        action: cleanup
+      - from: error
+        to: loading
+        trigger: user_clicks_retry
+        guard: "retry attempt"
+        action: reinitialize_iframe
+      - from: error
+        to: terminated
+        trigger: error_persists
+        guard: "error state >30s"
+        action: permanent_error
+      - from: collapsed
+        to: active
+        trigger: user_reexpands
+        guard: "tap on summary card"
+        action: restore_or_restart
+    invalid_transitions:
+      - { from: active, to: loading, reason: "Cannot go back to loading from active" }
+      - { from: terminated, to: any, reason: "Terminal state — no transitions out" }
+      - { from: collapsed, to: suspended, reason: "Completed apps cannot be suspended" }
+      - { from: error, to: active, reason: "Must go through loading (retry)" }
+      - { from: error, to: suspended, reason: "Errored apps cannot be suspended" }
+
+  coppa_consent_flow:
+    description: "Parental consent lifecycle for students under 13"
+    requirement_ids: [FR-AUTH-004, FR-COMP-001]
+    states:
+      pending: { description: "Consent request sent to parent", entry_action: "send_email_to_parent" }
+      granted: { description: "Parent approved — student can use platform", entry_action: "enable_student_access" }
+      denied: { description: "Parent denied — student blocked", entry_action: "block_student_access" }
+      revoked: { description: "Parent revoked previously granted consent", entry_action: "block_access, trigger_data_deletion" }
+    initial_state: pending
+    transitions:
+      - from: pending
+        to: granted
+        trigger: parent_approves
+        guard: "valid verification (email link click or signed form)"
+        action: enable_access
+      - from: pending
+        to: denied
+        trigger: parent_denies
+        guard: "explicit denial"
+        action: block_access
+      - from: granted
+        to: revoked
+        trigger: parent_revokes
+        guard: "valid revocation request"
+        action: block_access_and_schedule_deletion
+      - from: denied
+        to: granted
+        trigger: parent_reconsiders
+        guard: "new consent verification"
+        action: enable_access
+    invalid_transitions:
+      - { from: revoked, to: granted, reason: "Must go through new consent flow (pending→granted)" }
+
+  app_review_pipeline:
+    description: "Automated app review lifecycle"
+    requirement_ids: [FR-SAFE-007]
+    states:
+      pending_review: { description: "App submitted, awaiting automated review" }
+      reviewing: { description: "Automated pipeline running" }
+      approved: { description: "All checks passed — available for district catalogs" }
+      rejected: { description: "One or more checks failed — developer notified" }
+      suspended: { description: "Previously approved app suspended by admin" }
+    initial_state: pending_review
+    transitions:
+      - from: pending_review
+        to: reviewing
+        trigger: review_started
+        guard: "automated pipeline triggered"
+        action: run_5_stage_review
+      - from: reviewing
+        to: approved
+        trigger: all_checks_pass
+        guard: "schema + security + safety + accessibility + performance all pass"
+        action: mark_available
+      - from: reviewing
+        to: rejected
+        trigger: any_check_fails
+        guard: "at least one check failed"
+        action: notify_developer_with_details
+      - from: approved
+        to: suspended
+        trigger: admin_suspends
+        guard: "district admin or platform admin action"
+        action: remove_from_catalogs
+      - from: rejected
+        to: pending_review
+        trigger: developer_resubmits
+        guard: "updated app bundle submitted"
+        action: queue_for_review
+      - from: suspended
+        to: approved
+        trigger: admin_reinstates
+        guard: "admin lifts suspension"
+        action: restore_to_catalogs
+
+  collaborative_session:
+    description: "Multi-student shared app session lifecycle"
+    requirement_ids: [FR-COLLAB-001, FR-COLLAB-005]
+    states:
+      waiting: { description: "Session created, waiting for participants" }
+      active: { description: "Participants joined, app running" }
+      closed: { description: "Session ended" }
+    initial_state: waiting
+    transitions:
+      - from: waiting
+        to: active
+        trigger: minimum_participants_joined
+        guard: "at least 2 participants"
+        action: start_app_instance
+      - from: active
+        to: closed
+        trigger: activity_completes_or_teacher_closes
+        guard: "game over OR teacher action OR all disconnected >5min"
+        action: save_summary
+      - from: waiting
+        to: closed
+        trigger: timeout_or_teacher_cancels
+        guard: "no participants joined within 10min OR teacher cancels"
+        action: cleanup
+
+  conversation_lifecycle:
+    description: "Student conversation lifecycle"
+    states:
+      idle: { description: "No active conversation" }
+      active: { description: "Student engaged in conversation" }
+      app_active: { description: "Conversation with active app" }
+      ended: { description: "Session closed" }
+    initial_state: idle
+    transitions:
+      - from: idle
+        to: active
+        trigger: student_sends_first_message
+      - from: active
+        to: app_active
+        trigger: ai_invokes_app
+      - from: app_active
+        to: active
+        trigger: app_completes_or_terminates
+      - from: active
+        to: ended
+        trigger: student_closes_or_timeout
+      - from: app_active
+        to: ended
+        trigger: student_closes_or_timeout

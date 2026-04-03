@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: COPPA Consent Gating — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .annotation strong { color: #111827; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--trigger { background: #FEF3C7; color: #92400E; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--state { background: #EEF2FF; color: #4F46E5; }
+    .label--exit { background: #ECFDF5; color: #059669; }
+    .label--error { background: #FEE2E2; color: #991B1B; }
+    .label--a11y { background: #F3E8FF; color: #7C3AED; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--alert { border-color: #EF4444; background: #FEF2F2; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>COPPA Consent Gating</h1>
+  <div class="screen-id">Screen: consent-gated | FR: FR-SAFE-004 | Persona: PER-001 (Student under 13) | Journeys: JRN-003, JRN-005</div>
+
+  <!-- Layout Zones -->
+  <div class="section">
+    <h2>Layout Zones</h2>
+    <div class="zone-map">
+      <div class="zone zone--alert">
+        <div class="zone-number">1</div>
+        <strong>Access Blocked Banner (full-screen gate — student view)</strong> — Shown instead of the normal chat interface when consent is pending or denied. Message: "Your parent or guardian needs to approve your access to [Platform Name]." Student-facing language is simple and non-alarming. Shows: the parent's email (partially obscured: "An email was sent to j***@example.com"), estimated wait time ("Your parent received an email. Once they approve, you'll be able to start."), and a "Need help?" link.
+      </div>
+      <div class="zone zone--primary">
+        <div class="zone-number">2</div>
+        <strong>Consent Status Indicator</strong> — Visual status tracker (not interactive): Step 1: "Email sent to parent" (completed). Step 2: "Parent verifies identity" (pending). Step 3: "You're all set!" (locked). Updates in real time via WebSocket push when parent completes consent.
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">3</div>
+        <strong>Parent Consent Flow (parent's browser — separate URL)</strong> — Parents receive an email with a link. Clicking opens a page (no login required at start) with: plain-language explanation of what data is collected, how it's used, who can see it. Identity verification step (text-plus or knowledge-based auth). "Grant Access" and "Deny Access" buttons. Legal footer: links to Privacy Policy and COPPA rights notice.
+      </div>
+      <div class="zone">
+        <div class="zone-number">4</div>
+        <strong>Supplementary App Consent (conditional)</strong> — When a teacher enables a new app for a K-5 classroom, a separate consent notice appears for just that app. Uses the same parent flow but scoped to the specific app: "Ms. Torres has enabled [App Name] for your child's class. This app [description]. Data collected: [app-specific list]."
+      </div>
+    </div>
+  </div>
+
+  <!-- Trigger Conditions -->
+  <div class="section">
+    <h2>Trigger Conditions</h2>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>Student added to K-5 classroom:</strong> Teacher adds students to a classroom with grade band K-2 or 3-5. The system detects that the grade band includes students who may be under 13. Per AC-SAFE-004-01: COPPA consent workflow is initiated automatically. Parents receive email within 5 minutes of student being added.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>Student attempts to log in without consent:</strong> SSO callback returns 403 with <code>{ "error": "consent_required", "consent_id": "uuid" }</code>. The student is redirected to this gating screen instead of the chat interface. Per <code>ssoCallback</code> API error codes.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>New app enabled (supplementary consent):</strong> Teacher enables a new app that processes student data. Per AC-SAFE-004-02: supplementary consent notification sent to parents. Students in that classroom who are under 13 see the app as "locked" until parent approves for that specific app.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>Consent revoked:</strong> Parent revokes consent (FSM-004 → <code>revoked</code>). Student's active session receives a WebSocket <code>system_notification</code>: "Your access has been changed. Please speak to your teacher." Student is redirected to this gating screen.</p>
+  </div>
+
+  <!-- API Endpoints -->
+  <div class="section">
+    <h2>API Endpoints</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Check consent status (student):</strong> <code>GET /api/v1/consent/{consent_id}/status</code> — Returns <code>{ "status": "pending" | "granted" | "denied" | "revoked", "parent_email_masked": "j***@..." }</code>. Called on page load to render the correct state.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Parent consent submission:</strong> <code>POST /api/v1/consent/verify</code> — Body: <code>{ "consent_id": "uuid", "decision": "granted" | "denied", "verification_token": "..." }</code>. Per FSM-004 VERIFICATION_SUCCESS / CONSENT_DENIED events. If granted: student access is unlocked. If denied: student is locked out.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>WebSocket consent granted push (student):</strong> When parent grants consent, server pushes <code>system_notification</code> with type <code>consent_granted</code> to the student's waiting screen. Student is automatically redirected to the chat interface — no page refresh needed.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Resend parent notification:</strong> <code>POST /api/v1/consent/{consent_id}/resend</code> — Allows teacher or admin to resend the parent email. Rate-limited: max once per 24 hours. Shown to teacher in Mission Control for students awaiting consent.</p>
+  </div>
+
+  <!-- State Transitions -->
+  <div class="section">
+    <h2>State Transitions (FSM-004: COPPA Consent Flow)</h2>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Initial:</strong> <code>pending</code> → INITIATE_CONSENT event → <code>notified</code>. send_notification action emails parent.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Parent responds:</strong> PARENT_RESPONDS event → <code>verified</code>. Parent is on the verification page.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Verification outcomes:</strong></p>
+    <ul>
+      <li>VERIFICATION_SUCCESS → <code>granted</code>. grant_consent action fires. Student access unlocked. WebSocket push to student.</li>
+      <li>VERIFICATION_FAILED → back to <code>notified</code>. Parent can retry (max 3 attempts).</li>
+      <li>CONSENT_DENIED → <code>denied</code>. lock_student action fires. Student sees denied state on gating screen.</li>
+    </ul>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Timeout:</strong> 7 days with no response → <code>denied</code> (treated as denial). REMINDER_SENT at 48h (stays in <code>notified</code>).</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Re-entry:</strong> From <code>denied</code> or <code>revoked</code>: RESUBMIT event → back to <code>pending</code>. The consent cycle can repeat.</p>
+  </div>
+
+  <!-- User Exit Paths -->
+  <div class="section">
+    <h2>User Exit Paths</h2>
+    <ul>
+      <li><strong>Consent granted (parent action):</strong> Student's gating screen auto-redirects to chat interface via WebSocket push. No student action needed.</li>
+      <li><strong>Log out button (student):</strong> Student can log out of the gating screen. Consent remains pending. Next login shows the same gating screen.</li>
+      <li><strong>"Need help?" link:</strong> Opens a static help page explaining the consent process. Links to district contact info. Opens in new tab.</li>
+      <li><strong>Parent: Grant Access (consent flow):</strong> POST /consent/verify with decision=granted. Parent sees confirmation: "Your child can now access the platform." Parent's browser stays on confirmation page.</li>
+      <li><strong>Parent: Deny Access (consent flow):</strong> POST /consent/verify with decision=denied. Parent sees: "Access has been denied. Your child will see a message to speak with their teacher. You can change this at any time." Parent's browser stays on confirmation page.</li>
+    </ul>
+  </div>
+
+  <!-- Error Recovery -->
+  <div class="section">
+    <h2>Error Recovery</h2>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>SSO callback 403 (unexpected):</strong> If the gating screen itself fails to load (GET /consent fails), show a generic: "We're having trouble loading your account. Please ask your teacher for help." Do not expose consent_id to student.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>WebSocket not available (student waiting screen):</strong> Student must manually refresh the page to check if consent has been granted. Show: "Your page will update automatically when your parent approves. You can also refresh to check."</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Parent verification fails 3 times:</strong> Form shows "Too many failed verification attempts. Contact your district administrator for assistance." Consent remains in <code>notified</code> state. Admin can manually trigger a new verification link.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Parent link expired (7-day timeout → denied):</strong> Parent clicks old link and sees: "This consent request has expired. Please contact your child's teacher to restart the process." Resend is not available to parent directly — only teacher/admin can trigger resend.</p>
+  </div>
+
+  <!-- Accessibility Notes -->
+  <div class="section">
+    <h2>Accessibility Notes</h2>
+    <ul>
+      <li>Student gating screen uses simple, grade-appropriate language. K-2 reading level for K-5 students. Avoid legal jargon.</li>
+      <li>Status tracker (steps 1-3) uses <code>role="list"</code> with each step as a <code>role="listitem"</code>. Completed steps have <code>aria-label="Step 1: Email sent to parent — completed"</code>.</li>
+      <li>Parent consent form: all data collection items are disclosed in a scannable list (not a wall of text). Checkboxes for explicit consent are optional (consent is a single decision, not per-item).</li>
+      <li>Parent "Grant Access" button uses <code>aria-label="Grant [Platform Name] access for my child"</code> to be unambiguous.</li>
+      <li>Parent "Deny Access" button is secondary priority (smaller, but fully accessible). Screen reader reads both buttons before the user commits.</li>
+      <li>WebSocket-triggered redirect announces to screen reader via <code>aria-live="assertive"</code>: "Your parent has approved access. Redirecting to your classroom now."</li>
+    </ul>
+  </div>
+
+</body>
+</html>

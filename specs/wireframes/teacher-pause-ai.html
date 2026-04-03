@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: Teacher Pause AI — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .annotation strong { color: #111827; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--trigger { background: #FEF3C7; color: #92400E; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--state { background: #EEF2FF; color: #4F46E5; }
+    .label--exit { background: #ECFDF5; color: #059669; }
+    .label--error { background: #FEE2E2; color: #991B1B; }
+    .label--a11y { background: #F3E8FF; color: #7C3AED; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--alert { border-color: #EF4444; background: #FEF2F2; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Teacher Pause AI</h1>
+  <div class="screen-id">Screen: teacher-pause-ai | FR: FR-MON-004 | Persona: PER-002 (Ms. Torres the Teacher) | Journeys: JRN-003</div>
+
+  <!-- Layout Zones -->
+  <div class="section">
+    <h2>Layout Zones</h2>
+    <div class="zone-map">
+      <div class="zone zone--alert">
+        <div class="zone-number">1</div>
+        <strong>Confirmation Dialog (modal)</strong> — Student name and current topic. Pause action description: "The AI will stop responding to [Student Name]. They will see 'Your teacher has paused the AI — they'll be with you shortly.' You can send them a direct message while paused." Two primary buttons: "Pause AI" (destructive action, amber) and "Cancel". Optional: checkbox "Also send a direct message now" (expands inline input).
+      </div>
+      <div class="zone zone--primary">
+        <div class="zone-number">2</div>
+        <strong>Student Context Summary (above buttons)</strong> — Last message the student sent (truncated to 2 lines), AI response status (responding / idle), active app indicator if any. Gives teacher confidence they are pausing the right student.
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">3</div>
+        <strong>Resume Control (post-pause, replaces Pause button)</strong> — After pause is confirmed, the dashboard student card shows a "Paused" badge and a "Resume AI" button. This same control is surfaced inline on the student card and in the slide-out panel. Timer showing how long AI has been paused.
+      </div>
+    </div>
+  </div>
+
+  <!-- Trigger Conditions -->
+  <div class="section">
+    <h2>Trigger Conditions</h2>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>From teacher-dashboard:</strong> Teacher clicks the "Pause AI" button on a student card's hover menu or from the slide-out conversation panel.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>From safety-alert-detail:</strong> Teacher selects "Pause AI for this student" as an intervention action. Skips to confirmation dialog with alert context pre-filled.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>Precondition check:</strong> If the student's AI is already paused, the button is replaced with "Resume AI" — this screen is not shown for an already-paused student.</p>
+  </div>
+
+  <!-- API Endpoints -->
+  <div class="section">
+    <h2>API Endpoints</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Pause AI:</strong> <code>POST /api/v1/conversations/{conversation_id}/pause</code> — No request body required. Response: <code>{ "paused": true, "paused_at": "ISO8601" }</code>. Side effects: sets <code>ai_paused=true</code>, sends WebSocket <code>system_notification</code> to the student with the pause message.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Resume AI:</strong> <code>POST /api/v1/conversations/{conversation_id}/resume</code> — Called when teacher clicks "Resume AI". Response: <code>{ "paused": false }</code>. Clears the pause notification from the student's chat.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Optional direct message with pause:</strong> If teacher checks "Send a message too", the form includes a message field. On confirm, two calls fire sequentially: <code>POST /pause</code> then <code>POST /conversations/{id}/teacher-message</code>.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>WebSocket (student side):</strong> Student receives <code>system_notification</code> event on <code>/ws/chat/{session_id}</code>. No polling required.</p>
+  </div>
+
+  <!-- State Transitions -->
+  <div class="section">
+    <h2>State Transitions</h2>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Teacher FSM-006:</strong> PAUSE_AI event from <code>reviewing</code> → <code>intervened</code>. log_intervention action records pause in audit trail. Teacher then follows RETURN_TO_MONITORING back to dashboard.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Student FSM-001:</strong> TEACHER_PAUSE event on the student's conversation. Transition from <code>active</code> (or <code>app_embedded</code>) → <code>paused</code>. Entry action: show_pause_notification to student via WebSocket.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Resume:</strong> TEACHER_RESUME event on FSM-001 → <code>paused</code> back to <code>active</code>. The resume_ai action calls <code>POST /conversations/{id}/resume</code> and removes the pause notification.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Student behavior while paused:</strong> Student can still type in the chat input. Messages are stored but AI does not respond. Teacher messages can still be received. FSM-001 paused state allows TEACHER_MESSAGE events.</p>
+  </div>
+
+  <!-- User Exit Paths -->
+  <div class="section">
+    <h2>User Exit Paths</h2>
+    <ul>
+      <li><strong>Confirm "Pause AI":</strong> POST fires → dialog closes → student card shows "Paused" badge → teacher returns to dashboard.</li>
+      <li><strong>Cancel button:</strong> Dialog closes. No API call. Returns to invoking context (dashboard or alert detail).</li>
+      <li><strong>Escape key:</strong> Same as Cancel.</li>
+      <li><strong>Resume AI (post-pause, from dashboard card):</strong> POST /resume fires → "Paused" badge removed from student card → student's chat input re-activates.</li>
+    </ul>
+  </div>
+
+  <!-- Error Recovery -->
+  <div class="section">
+    <h2>Error Recovery</h2>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>POST /pause fails (5xx):</strong> Show inline error in dialog: "Could not pause AI. Try again." Dialog stays open. Student is NOT notified of a failed pause.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>POST /pause fails (404 — conversation ended):</strong> "This student's session has ended. No action needed." Dialog closes and card is refreshed to show offline status.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>WebSocket disconnect (student side):</strong> If the student's WS is down, pause flag is set server-side. When WS reconnects, the client queries session state and renders pause notification retroactively.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>POST /resume fails:</strong> Inline error on the student card's resume button. "Resume failed — try again." AI remains paused. Student remains in paused state.</p>
+  </div>
+
+  <!-- Accessibility Notes -->
+  <div class="section">
+    <h2>Accessibility Notes</h2>
+    <ul>
+      <li>Confirmation dialog has <code>role="alertdialog"</code> (since it requires immediate attention) with <code>aria-labelledby</code> and <code>aria-describedby</code>.</li>
+      <li>Focus moves to dialog on open. Focus is trapped inside. On close, returns to trigger button.</li>
+      <li>"Pause AI" button uses <code>aria-label="Pause AI for [Student Name]"</code> to avoid ambiguity on the dashboard where multiple cards are present.</li>
+      <li>"Paused" badge on student card has <code>aria-label="AI paused — [X] minutes ago"</code>.</li>
+      <li>Resume button on student card has <code>aria-label="Resume AI for [Student Name]"</code>.</li>
+    </ul>
+  </div>
+
+</body>
+</html>

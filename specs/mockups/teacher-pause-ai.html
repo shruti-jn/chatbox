@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatBridge — Pause AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+    :root {
+      /* --- Colors: Primary (Indigo) --- */
+      --color-primary: #4F46E5;
+      --color-primary-hover: #4338CA;
+      --color-primary-active: #3730A3;
+      --color-primary-disabled: #A5B4FC;
+      --color-primary-light: #EEF2FF;
+
+      /* --- Colors: Secondary (Teal) --- */
+      --color-secondary: #0D9488;
+      --color-secondary-hover: #0F766E;
+      --color-secondary-active: #115E59;
+      --color-secondary-disabled: #99F6E4;
+      --color-secondary-light: #F0FDFA;
+
+      /* --- Colors: Accent (Amber) --- */
+      --color-accent: #F59E0B;
+      --color-accent-hover: #D97706;
+      --color-accent-active: #B45309;
+
+      /* --- Colors: Semantic --- */
+      --color-success: #10B981;
+      --color-warning: #F59E0B;
+      --color-error: #EF4444;
+      --color-info: #3B82F6;
+
+      /* --- Colors: Neutral Scale (9 steps) --- */
+      --neutral-0: #FFFFFF;
+      --neutral-50: #F9FAFB;
+      --neutral-100: #F3F4F6;
+      --neutral-200: #E5E7EB;
+      --neutral-300: #D1D5DB;
+      --neutral-400: #9CA3AF;
+      --neutral-500: #6B7280;
+      --neutral-600: #374151;
+      --neutral-900: #111827;
+
+      /* --- Colors: Background Tiers --- */
+      --bg-page: #F9FAFB;
+      --bg-surface: #FFFFFF;
+      --bg-elevated: #FFFFFF; /* with shadow */
+
+      /* --- Chat Bubble Colors --- */
+      --bubble-student: #4F46E5;
+      --bubble-student-text: #FFFFFF;
+      --bubble-ai: #F3F4F6;
+      --bubble-ai-text: #111827;
+      --bubble-system: #E5E7EB;
+      --bubble-system-text: #6B7280;
+
+      /* --- Typography --- */
+      --font-heading: 'Inter', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --text-xs: 0.75rem;   /* 12px */
+      --text-sm: 0.875rem;  /* 14px */
+      --text-base: 1rem;    /* 16px */
+      --text-lg: 1.125rem;  /* 18px */
+      --text-xl: 1.25rem;   /* 20px */
+      --text-2xl: 1.5rem;   /* 24px */
+      --text-3xl: 1.875rem; /* 30px */
+
+      --weight-regular: 400;
+      --weight-medium: 500;
+      --weight-semibold: 600;
+      --weight-bold: 700;
+
+      --leading-tight: 1.25;
+      --leading-normal: 1.5;
+      --leading-relaxed: 1.75;
+
+      /* --- Spacing --- */
+      --space-unit: 4px;
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      --space-2xl: 48px;
+      --space-3xl: 64px;
+
+      /* --- Elevation --- */
+      --shadow-flat: none;
+      --shadow-raised: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-floating: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-overlay: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05);
+
+      /* --- Border Radius --- */
+      --radius-none: 0;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --radius-full: 9999px;
+
+      /* --- Motion --- */
+      --ease-micro: cubic-bezier(0, 0, 0.2, 1);
+      --ease-panel: cubic-bezier(0.4, 0, 0.2, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+      --duration-micro: 200ms;
+      --duration-panel: 300ms;
+      --duration-page: 400ms;
+      --duration-app-materialize: 500ms;
+      --duration-shimmer: 1.5s;
+    }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-page);
+  color: var(--neutral-900);
+  line-height: 1.5;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Top Bar ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 var(--space-lg);
+  background: var(--bg-surface); border-bottom: 1px solid var(--neutral-200);
+}
+.topbar-left { display: flex; align-items: center; gap: var(--space-lg); }
+.logo {
+  font-size: 18px; font-weight: 700; color: var(--color-primary);
+  text-decoration: none; display: flex; align-items: center; gap: var(--space-sm);
+}
+.logo svg { width: 24px; height: 24px; }
+.school-name {
+  font-size: 13px; font-weight: 500; color: var(--neutral-500);
+  padding-left: var(--space-lg); border-left: 1px solid var(--neutral-200);
+}
+.nav-links { display: flex; gap: var(--space-md); margin-left: var(--space-lg); }
+.nav-link {
+  font-size: 13px; color: var(--neutral-500); text-decoration: none;
+  padding: 4px 0; border-bottom: 2px solid transparent;
+}
+.nav-link.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 500; }
+.topbar-right { display: flex; align-items: center; gap: var(--space-md); }
+.teacher-name { font-size: 13px; font-weight: 500; color: var(--neutral-900); }
+.teacher-avatar {
+  width: 32px; height: 32px; border-radius: var(--radius-full);
+  background: var(--color-secondary); color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+}
+
+/* ── Split View ── */
+.split-layout {
+  display: flex;
+  height: calc(100vh - 56px);
+}
+
+.split-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--neutral-400);
+  padding: 8px var(--space-md);
+  background: var(--bg-page);
+  border-bottom: 1px solid var(--neutral-200);
+  display: flex; align-items: center; gap: var(--space-sm);
+}
+.split-label .dot {
+  width: 6px; height: 6px; border-radius: var(--radius-full);
+}
+.split-label .dot.teacher { background: var(--color-secondary); }
+.split-label .dot.student { background: var(--color-primary); }
+
+/* ── Teacher Side ── */
+.teacher-side {
+  flex: 1;
+  display: flex; flex-direction: column;
+  border-right: 2px solid var(--neutral-200);
+  position: relative;
+}
+
+.teacher-content {
+  flex: 1; padding: var(--space-lg); overflow-y: auto;
+}
+
+/* Mini student grid */
+.mini-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-sm);
+}
+.mini-card {
+  background: var(--bg-surface); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md); padding: 10px 12px;
+  display: flex; align-items: center; gap: var(--space-sm);
+}
+.mini-card.selected { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(79,70,229,0.15); }
+.mini-avatar {
+  width: 28px; height: 28px; border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 600; color: white; flex-shrink: 0;
+}
+.mini-name { font-size: 12px; font-weight: 500; }
+.mini-status { font-size: 10px; color: var(--neutral-400); }
+
+/* Confirmation dialog overlay */
+.confirm-overlay {
+  position: absolute; inset: 0; z-index: 10;
+  background: rgba(249, 250, 251, 0.85);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.confirm-dialog {
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
+  max-width: 400px; width: 100%;
+  padding: var(--space-xl);
+}
+
+.confirm-icon {
+  width: 48px; height: 48px; border-radius: var(--radius-full);
+  background: #FEF3C7; color: #D97706;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: var(--space-md);
+}
+
+.confirm-title {
+  font-size: 18px; font-weight: 700; color: var(--neutral-900);
+  margin-bottom: var(--space-sm);
+}
+
+.confirm-message {
+  font-size: 14px; color: var(--neutral-500); line-height: 1.6;
+  margin-bottom: var(--space-lg);
+}
+
+.confirm-buttons {
+  display: flex; gap: var(--space-sm);
+}
+
+.btn-pause {
+  flex: 1; padding: 12px;
+  background: #F59E0B; color: white; border: none;
+  border-radius: var(--radius-md); font-family: var(--font-body);
+  font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.btn-pause:hover { background: #D97706; }
+
+.btn-cancel {
+  padding: 12px 20px;
+  background: transparent; color: var(--neutral-500);
+  border: 1px solid var(--neutral-200); border-radius: var(--radius-md);
+  font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer;
+}
+.btn-cancel:hover { background: var(--bg-page); }
+
+/* ── Student Side ── */
+.student-side {
+  flex: 1;
+  display: flex; flex-direction: column;
+}
+
+/* Pause banner */
+.pause-banner {
+  padding: 12px var(--space-lg);
+  background: #FEF3C7;
+  border-bottom: 1px solid #FDE68A;
+  display: flex; align-items: center; gap: var(--space-sm);
+  font-size: 13px; font-weight: 500; color: #92400E;
+}
+.pause-banner svg { flex-shrink: 0; }
+
+.student-chat-area {
+  flex: 1; overflow-y: auto; padding: var(--space-lg);
+}
+
+.s-message {
+  display: flex; gap: var(--space-md); margin-bottom: var(--space-lg);
+  max-width: 560px;
+}
+.s-message.student { flex-direction: row-reverse; margin-left: auto; }
+.s-message.ai { margin-right: auto; }
+
+.s-message-avatar {
+  width: 32px; height: 32px; border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; flex-shrink: 0;
+}
+.s-message.ai .s-message-avatar {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary)); color: white;
+}
+.s-message.student .s-message-avatar { background: #DBEAFE; color: #1E40AF; }
+
+.s-message-bubble {
+  display: inline-block; padding: 10px 14px;
+  border-radius: var(--radius-lg); font-size: 13px; line-height: 1.6; text-align: left;
+}
+.s-message.ai .s-message-bubble { background: var(--bg-page); border: 1px solid var(--neutral-200); }
+.s-message.student .s-message-bubble { background: var(--color-primary); color: white; }
+.s-ai-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; color: var(--neutral-400); margin-top: 4px;
+}
+
+/* Disabled input */
+.student-input-bar {
+  padding: var(--space-sm) var(--space-lg) var(--space-md);
+  border-top: 1px solid var(--neutral-200); background: var(--bg-surface);
+}
+.student-input-row {
+  display: flex; align-items: center; gap: var(--space-sm);
+  background: #F3F4F6; border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: 4px;
+  opacity: 0.6;
+}
+.s-chat-input {
+  flex: 1; border: none; background: transparent;
+  font-family: var(--font-body); font-size: 13px; padding: 8px;
+  outline: none; color: var(--neutral-400); cursor: not-allowed;
+}
+.s-send-btn {
+  width: 32px; height: 32px; border: none; border-radius: var(--radius-md);
+  background: var(--neutral-400); color: white; cursor: not-allowed;
+  display: flex; align-items: center; justify-content: center;
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="student-chat--empty.html" class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      ChatBridge
+    </a>
+    <span class="school-name">Lincoln Middle School</span>
+    <nav class="nav-links">
+      <a href="teacher-dashboard.html" class="nav-link active">Mission Control</a>
+      <a href="teacher-config.html" class="nav-link">Settings</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <span class="teacher-name">Ms. Rodriguez</span>
+    <div class="teacher-avatar">MR</div>
+  </div>
+</header>
+
+<div class="split-layout">
+
+  <!-- Teacher Side -->
+  <div class="teacher-side">
+    <div class="split-label"><span class="dot teacher"></span> Teacher View — Mission Control</div>
+    <div class="teacher-content">
+      <div class="mini-grid">
+        <div class="mini-card">
+          <div class="mini-avatar" style="background:#6366F1;">AK</div>
+          <div><div class="mini-name">Aisha K.</div><div class="mini-status">Chatting</div></div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-avatar" style="background:#0D9488;">MT</div>
+          <div><div class="mini-name">Marcus T.</div><div class="mini-status">Chess</div></div>
+        </div>
+        <div class="mini-card selected">
+          <div class="mini-avatar" style="background:#8B5CF6;">SL</div>
+          <div><div class="mini-name">Sofia L.</div><div class="mini-status">Chatting</div></div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-avatar" style="background:#EC4899;">ES</div>
+          <div><div class="mini-name">Emma S.</div><div class="mini-status">Chatting</div></div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-avatar" style="background:#3B82F6;">LN</div>
+          <div><div class="mini-name">Liam N.</div><div class="mini-status">Chess</div></div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-avatar" style="background:#F97316;">IC</div>
+          <div><div class="mini-name">Isabella C.</div><div class="mini-status">Idle</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirmation Dialog -->
+    <div class="confirm-overlay">
+      <div class="confirm-dialog">
+        <div class="confirm-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </div>
+        <h2 class="confirm-title">Pause AI for Sofia L.?</h2>
+        <p class="confirm-message">The student will see a message that you've paused the AI. They can still read their conversation history.</p>
+        <div class="confirm-buttons">
+          <button class="btn-pause">Pause AI</button>
+          <button class="btn-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Student Side -->
+  <div class="student-side">
+    <div class="split-label"><span class="dot student"></span> Student View — What Sofia Sees</div>
+
+    <div class="pause-banner">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#92400E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      Your teacher has paused the AI assistant — they'll be with you shortly.
+    </div>
+
+    <div class="student-chat-area">
+      <div class="s-message student">
+        <div class="s-message-avatar">SL</div>
+        <div>
+          <div class="s-message-bubble">Can you explain how gravity works on different planets?</div>
+        </div>
+      </div>
+      <div class="s-message ai">
+        <div class="s-message-avatar">CB</div>
+        <div>
+          <div class="s-message-bubble">Great question! Gravity depends on two things: the mass of the planet and your distance from its center. A planet with more mass pulls harder. For example, Jupiter has about 2.5 times Earth's gravity, so you'd weigh 2.5 times more there!</div>
+          <div class="s-ai-badge">AI-generated</div>
+        </div>
+      </div>
+      <div class="s-message student">
+        <div class="s-message-avatar">SL</div>
+        <div>
+          <div class="s-message-bubble">What about on the Moon?</div>
+        </div>
+      </div>
+      <div class="s-message ai">
+        <div class="s-message-avatar">CB</div>
+        <div>
+          <div class="s-message-bubble">The Moon's gravity is about 1/6th of Earth's. So if you weigh 120 pounds on Earth, you'd weigh only about 20 pounds on the Moon. That's why astronauts could bounce around so easily!</div>
+          <div class="s-ai-badge">AI-generated</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="student-input-bar">
+      <div class="student-input-row">
+        <input class="s-chat-input" type="text" placeholder="Chat is paused by your teacher..." disabled>
+        <button class="s-send-btn" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,286 @@
+{
+  "metadata": {
+    "created_at": "2026-04-03T00:30:00Z",
+    "created_by": "activated_overlays_compiler",
+    "created_by_model": "claude-opus-4-6[1m]",
+    "project_profile_version": "1.0.0",
+    "project_id": "chatbridge-v2"
+  },
+  "base_architecture": {
+    "primary_archetype": "integration",
+    "secondary_archetypes": ["real-time", "regulatory", "event-driven", "workflow"],
+    "architectural_implication": "Integration archetype drives contract-first design centered on CBP and MCP tool definitions. Real-time requires WebSocket + Redis Pub/Sub. Regulatory demands compliance-by-architecture. Event-driven shapes collaborative sessions and cascade notifications."
+  },
+  "activated_overlays": [
+    {
+      "id": "overlay_001",
+      "name": "authentication",
+      "category": "cross_cutting_concern",
+      "activation_condition": "FR-AUTH-001 (LTI 1.3 SSO), FR-AUTH-003 (OAuth2 for Spotify), FR-CHAT-008 (platform auth)",
+      "justification": "K-12 SSO via LTI is mandatory for district adoption. OAuth2 for external app auth (Spotify). Platform JWT for session management.",
+      "required": true,
+      "technology_choice": {
+        "technology": "LTI 1.3 OIDC (ltijs) + JWT (jsonwebtoken) + OAuth2 (per-app)",
+        "rationale": "ltijs handles LTI 1.3 launch, role extraction, grade passback. JWT for session tokens with role + tenant_id. OAuth2 popup for Spotify."
+      },
+      "compliance_rules": [
+        {"rule": "JWT must include tenant_id (district_id) for RLS context", "framework": "FERPA", "severity": "critical"},
+        {"rule": "Session timeout after 8 hours (school day)", "framework": "COPPA", "severity": "high"},
+        {"rule": "OAuth tokens encrypted at rest", "framework": "COPPA", "severity": "high"}
+      ],
+      "banned_patterns": [
+        {"pattern": "Storing user passwords in database", "reason": "All auth via SSO/LTI. No password management."},
+        {"pattern": "JWT without expiration", "reason": "COPPA/FERPA session timeout requirement"},
+        {"pattern": "OAuth redirect within iframe", "reason": "Use popup pattern — redirect breaks sandbox isolation"}
+      ],
+      "configuration_keys": ["LTI_PLATFORM_ID", "LTI_CLIENT_ID", "LTI_DEPLOYMENT_ID", "LTI_KEYSET_URL", "JWT_SECRET_KEY", "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"]
+    },
+    {
+      "id": "overlay_002",
+      "name": "authorization",
+      "category": "cross_cutting_concern",
+      "activation_condition": "FR-AUTH-005 (RBAC: student/teacher/admin)",
+      "justification": "Teacher authority is core product principle. Students cannot access Mission Control. Teachers cannot suspend district-wide. Admins scoped to own district.",
+      "required": true,
+      "technology_choice": {
+        "technology": "RBAC with JWT claims + Fastify decorators/hooks",
+        "rationale": "Three fixed roles with well-defined permission boundaries. Fastify preHandler hooks validate role per route."
+      },
+      "compliance_rules": [
+        {"rule": "Every API endpoint must validate caller role", "framework": "architectural", "severity": "critical"},
+        {"rule": "District admins scoped to own district via RLS", "framework": "FERPA", "severity": "critical"}
+      ],
+      "banned_patterns": [
+        {"pattern": "Role check in business logic instead of middleware", "reason": "Inconsistent enforcement. Role checks must be in route-level hooks."},
+        {"pattern": "Hardcoded role strings without enum", "reason": "Type safety. Use TypeScript enum or Zod literal union."}
+      ]
+    },
+    {
+      "id": "overlay_003",
+      "name": "multi_tenant_isolation",
+      "category": "compliance",
+      "activation_condition": "FR-COMP-003 (FERPA audit), project_profile.compliance_constraints (FERPA required)",
+      "justification": "10K+ districts. FERPA requires zero cross-district data leakage. Database-level enforcement prevents application bugs from leaking data.",
+      "required": true,
+      "technology_choice": {
+        "technology": "PostgreSQL 16 Row-Level Security with SET LOCAL per-transaction via Prisma middleware",
+        "rationale": "SET LOCAL (not SET) prevents connection pool contamination. Prisma $executeRaw in transaction middleware."
+      },
+      "compliance_rules": [
+        {"rule": "SET LOCAL app.tenant_id per transaction, not per session", "framework": "FERPA", "severity": "critical"},
+        {"rule": "App table is RLS-exempt (platform-global). DistrictAppCatalog is RLS-protected.", "framework": "architectural", "severity": "high"},
+        {"rule": "Every tenant-scoped table has RLS policy", "framework": "FERPA", "severity": "critical"}
+      ],
+      "banned_patterns": [
+        {"pattern": "SET (session-scoped) instead of SET LOCAL (transaction-scoped)", "reason": "Connection pool reuse causes cross-tenant data leakage"},
+        {"pattern": "Application-layer WHERE clause as sole isolation mechanism", "reason": "Single bug = FERPA violation. Database enforcement is mandatory."}
+      ]
+    },
+    {
+      "id": "overlay_004",
+      "name": "content_safety_pipeline",
+      "category": "compliance",
+      "activation_condition": "FR-SAFE-001 through FR-SAFE-008",
+      "justification": "K-12 platform serving children. 4-stage pipeline: PII → injection → LLM classification → crisis detection. Every message crossing trust boundaries must be classified.",
+      "required": true,
+      "technology_choice": {
+        "technology": "Regex (PII, injection) + Claude Sonnet (classification) + keyword scan (crisis)",
+        "rationale": "Sequential pipeline: PII (<50ms) → injection (<20ms) → LLM (<500ms) → crisis (<10ms). Total <600ms."
+      },
+      "compliance_rules": [
+        {"rule": "Crisis detection ALWAYS runs regardless of prior stage verdicts", "framework": "child safety", "severity": "critical"},
+        {"rule": "PII stripped before message reaches LLM", "framework": "COPPA", "severity": "critical"},
+        {"rule": "All safety events logged to immutable audit trail", "framework": "COPPA/FERPA", "severity": "critical"}
+      ],
+      "banned_patterns": [
+        {"pattern": "Single-prompt safety check", "reason": "Insufficient for K-12. Multi-layer defense required."},
+        {"pattern": "Skipping safety pipeline for 'trusted' inputs", "reason": "All inputs are untrusted. No exceptions."},
+        {"pattern": "Blocking crisis detection based on prior stage results", "reason": "Crisis must always be detected — cannot be masked by earlier block."}
+      ]
+    },
+    {
+      "id": "overlay_005",
+      "name": "real_time_streaming",
+      "category": "performance",
+      "activation_condition": "NFR-PERF-004 (<100ms WebSocket relay), FR-CTRL-005 (Mission Control), FR-COLLAB-003 (collaborative sync)",
+      "justification": "Mission Control needs real-time student monitoring. Collaborative sessions need sub-200ms state sync. CBP command relay needs WebSocket delivery.",
+      "required": true,
+      "technology_choice": {
+        "technology": "@fastify/websocket + Redis Pub/Sub (ioredis) + per-classroom channels",
+        "rationale": "Multi-worker Node.js needs cross-worker broadcast. Redis Pub/Sub channels per classroom keep broadcast targeted."
+      },
+      "compliance_rules": [
+        {"rule": "WebSocket auth via query param JWT (browsers can't set headers on WS)", "framework": "architectural", "severity": "high"},
+        {"rule": "Auto-reconnect with exponential backoff on client disconnect", "framework": "reliability", "severity": "high"}
+      ],
+      "banned_patterns": [
+        {"pattern": "Polling for real-time data", "reason": "Latency and resource waste. WebSocket required."},
+        {"pattern": "In-memory connection manager without Redis", "reason": "Doesn't scale across workers. Must use Redis Pub/Sub."}
+      ]
+    },
+    {
+      "id": "overlay_006",
+      "name": "iframe_sandboxing",
+      "category": "compliance",
+      "activation_condition": "FR-APP-003 (iframe rendering), FR-APP-007 (resource limits), FR-STATE-005 (origin validation)",
+      "justification": "Third-party app isolation for child safety. Browser-native sandboxing prevents DOM access, navigation, form submission.",
+      "required": true,
+      "technology_choice": {
+        "technology": "iframe sandbox attributes + CSP frame-ancestors + postMessage origin validation + 64KB message limit",
+        "rationale": "Browser-native isolation. No custom runtime needed. Well-understood security model."
+      },
+      "compliance_rules": [
+        {"rule": "sandbox='allow-scripts' only — no allow-same-origin unless explicitly approved", "framework": "COPPA", "severity": "critical"},
+        {"rule": "All postMessage origins validated against allowlist before processing", "framework": "architectural", "severity": "critical"},
+        {"rule": "Message size checked before JSON parse (64KB limit)", "framework": "security", "severity": "high"}
+      ],
+      "banned_patterns": [
+        {"pattern": "allow-same-origin on untrusted iframes", "reason": "Allows iframe to access parent DOM and cookies"},
+        {"pattern": "Processing postMessage without origin check", "reason": "Allows message injection from any origin"},
+        {"pattern": "Direct iframe-to-LLM communication", "reason": "All tool invocations must route through backend (FR-STATE-004)"}
+      ]
+    },
+    {
+      "id": "overlay_007",
+      "name": "observability",
+      "category": "operational",
+      "activation_condition": "FR-OBS-001 through FR-OBS-003, NFR-OBS-001",
+      "justification": "AI-native Level 3 product. 100% LLM trace coverage required. Self-hosted Langfuse for COPPA compliance.",
+      "required": true,
+      "technology_choice": {
+        "technology": "Langfuse self-hosted (Docker on Railway) + structured logging (pino via Fastify)",
+        "rationale": "Langfuse self-hosted ensures US data residency. Pino is Fastify's default logger. Pseudonymous user IDs — no PII in traces."
+      },
+      "compliance_rules": [
+        {"rule": "No PII in Langfuse traces — pseudonymous user_id only", "framework": "COPPA/FERPA", "severity": "critical"},
+        {"rule": "Never block user-facing requests on observability failures", "framework": "reliability", "severity": "high"},
+        {"rule": "All LLM calls traced with parent-child span structure", "framework": "architectural", "severity": "high"}
+      ],
+      "banned_patterns": [
+        {"pattern": "Student names/emails in trace metadata", "reason": "COPPA/FERPA violation"},
+        {"pattern": "Synchronous Langfuse calls in request path", "reason": "Observability failure would block users"},
+        {"pattern": "Cloud-hosted observability without US data residency", "reason": "COPPA data residency requirement"}
+      ]
+    },
+    {
+      "id": "overlay_008",
+      "name": "rate_limiting",
+      "category": "cross_cutting_concern",
+      "activation_condition": "FR-SAFE-005 (students 60/min, teachers 120/min, apps 100/min)",
+      "justification": "Prevent abuse, protect LLM costs, enforce fair usage per role.",
+      "required": true,
+      "technology_choice": {
+        "technology": "Redis-backed sliding window rate limiter + @fastify/rate-limit",
+        "rationale": "Redis provides distributed rate limiting across workers. Fastify plugin handles per-route configuration."
+      }
+    },
+    {
+      "id": "overlay_009",
+      "name": "audit_logging",
+      "category": "compliance",
+      "activation_condition": "FR-COMP-003 (FERPA audit trails), FR-OBS-003 (safety event audit)",
+      "justification": "FERPA requires audit trails for all access to student records. COPPA requires safety event tracking.",
+      "required": true,
+      "technology_choice": {
+        "technology": "Immutable audit_events table in PostgreSQL + Fastify onResponse hook",
+        "rationale": "Append-only table for compliance. Fastify hook captures every API call with user_id, action, resource, timestamp."
+      },
+      "compliance_rules": [
+        {"rule": "Audit records are append-only — no updates or deletes", "framework": "FERPA", "severity": "critical"},
+        {"rule": "Every API call logged with: who, what, when, tenant_id", "framework": "FERPA", "severity": "high"}
+      ]
+    },
+    {
+      "id": "overlay_010",
+      "name": "encryption",
+      "category": "compliance",
+      "activation_condition": "FR-COMP-004 (US data residency), COPPA/FERPA data protection",
+      "justification": "Student data must be encrypted in transit and at rest.",
+      "required": true,
+      "technology_choice": {
+        "technology": "TLS 1.3 (in transit) + PostgreSQL encryption at rest (Railway managed) + AES-256 for OAuth tokens",
+        "rationale": "Railway manages TLS termination and disk encryption. Application-level encryption for sensitive tokens."
+      }
+    },
+    {
+      "id": "overlay_011",
+      "name": "health_checks",
+      "category": "operational",
+      "activation_condition": "NFR-REL-001 (99% uptime), L-002 (health must report capability status)",
+      "justification": "Health checks must report product capability, not just infrastructure connectivity. If chess app is degraded, status = degraded.",
+      "required": true,
+      "technology_choice": {
+        "technology": "Fastify health check route + capability probes for each subsystem",
+        "rationale": "Per L-002: health endpoint tests actual functionality. Probes for DB, Redis, Anthropic API, each registered app."
+      },
+      "compliance_rules": [
+        {"rule": "Health check must distinguish infrastructure vs product capability status", "framework": "L-002", "severity": "high"},
+        {"rule": "If any critical capability is down, overall status = degraded, not healthy", "framework": "L-002", "severity": "high"}
+      ]
+    },
+    {
+      "id": "overlay_012",
+      "name": "graceful_degradation",
+      "category": "operational",
+      "activation_condition": "FR-INFRA-001 (Redis failure), FR-INFRA-002 (PostgreSQL failure), FR-INFRA-003 (WebSocket failure), FR-CHAT-007 (app failure)",
+      "justification": "Every external dependency has a defined failure mode and fallback behavior.",
+      "required": true,
+      "technology_choice": {
+        "technology": "Circuit breaker pattern + fallback behaviors per component",
+        "rationale": "Each subsystem has defined degradation: Redis down → disable real-time, keep chat. App down → collapse card, AI acknowledges."
+      }
+    },
+    {
+      "id": "overlay_013",
+      "name": "workflow_state_machine",
+      "category": "domain_specific",
+      "activation_condition": "FR-APP-004 (app lifecycle FSM), FR-AUTH-004 (COPPA consent flow), FR-SAFE-007 (app review pipeline)",
+      "justification": "Multiple lifecycle state machines require formal transition rules, guards, and invalid transition handling.",
+      "required": true,
+      "technology_choice": {
+        "technology": "XState or custom TypeScript state machine with Zod-validated transitions",
+        "rationale": "XState provides formal state machine with guards and actions. Alternative: lightweight custom implementation with Zod for transition validation."
+      }
+    },
+    {
+      "id": "overlay_014",
+      "name": "secrets_management",
+      "category": "operational",
+      "activation_condition": "Multiple API keys (Anthropic, Spotify, OpenWeatherMap, LTI, Langfuse, JWT secret)",
+      "justification": "Sensitive credentials must be externalized and never committed to code.",
+      "required": true,
+      "technology_choice": {
+        "technology": "Railway environment variables + .env files for local dev",
+        "rationale": "Railway natively supports environment variables per service. No need for external secrets manager at V1 scale."
+      },
+      "banned_patterns": [
+        {"pattern": "API keys in source code or config files committed to git", "reason": "Security 101"},
+        {"pattern": "Shared secrets across environments", "reason": "Dev/staging/production must use separate credentials"}
+      ]
+    }
+  ],
+  "overlay_dependency_graph": {
+    "authentication": ["secrets_management"],
+    "authorization": ["authentication"],
+    "multi_tenant_isolation": ["authentication"],
+    "content_safety_pipeline": ["observability", "audit_logging"],
+    "real_time_streaming": ["authentication", "rate_limiting"],
+    "iframe_sandboxing": ["content_safety_pipeline"],
+    "observability": ["secrets_management"],
+    "rate_limiting": [],
+    "audit_logging": ["authentication"],
+    "encryption": [],
+    "health_checks": [],
+    "graceful_degradation": ["health_checks"],
+    "workflow_state_machine": [],
+    "secrets_management": []
+  },
+  "conflict_resolution": [],
+  "quality_gates": {
+    "all_overlays_justified": true,
+    "no_conflicting_overlays": true,
+    "all_compliance_requirements_covered": true,
+    "all_overlays_externally_configurable": true,
+    "dependency_graph_acyclic": true
+  }
+}

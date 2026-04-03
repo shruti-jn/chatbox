@@ -1,0 +1,469 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// === Identity & Multi-Tenancy ===
+
+model District {
+  id        String   @id @default(uuid())
+  name      String
+  config    Json?    // District-wide AI behavior defaults
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  schools    School[]
+  users      User[]
+  classrooms Classroom[]
+  catalogEntries DistrictAppCatalog[]
+  appInstances   AppInstance[]
+  conversations  Conversation[]
+  consents       ParentalConsent[]
+  auditEvents    AuditEvent[]
+  safetyEvents   SafetyEvent[]
+  toolInvocations ToolInvocation[]
+  deletionRequests DataDeletionRequest[]
+
+  @@map("districts")
+}
+
+model School {
+  id         String   @id @default(uuid())
+  districtId String   @map("district_id")
+  name       String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  district   District    @relation(fields: [districtId], references: [id])
+  users      User[]
+  classrooms Classroom[]
+
+  @@index([districtId])
+  @@map("schools")
+}
+
+model User {
+  id          String    @id @default(uuid())
+  districtId  String    @map("district_id")
+  schoolId    String?   @map("school_id")
+  role        UserRole
+  displayName String    @map("display_name")
+  externalId  String?   @unique @map("external_id") // LTI/SSO provider ID
+  gradeBand   GradeBand? @map("grade_band")
+  emailHash   String?   @map("email_hash") // Hashed, never plaintext
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastLoginAt DateTime? @map("last_login_at")
+
+  district    District  @relation(fields: [districtId], references: [id])
+  school      School?   @relation(fields: [schoolId], references: [id])
+  classroomsTeaching Classroom[] @relation("teacher")
+  memberships ClassroomMembership[]
+  conversations Conversation[]
+  oauthTokens OAuthToken[]
+  consent     ParentalConsent?
+  auditEvents AuditEvent[]
+  safetyEvents SafetyEvent[]
+  whispersSent Message[] @relation("whisperAuthor")
+
+  @@index([districtId, role])
+  @@map("users")
+}
+
+enum UserRole {
+  student
+  teacher
+  district_admin
+}
+
+enum GradeBand {
+  k2
+  g35
+  g68
+  g912
+}
+
+// === Classroom & Config ===
+
+model Classroom {
+  id         String    @id @default(uuid())
+  districtId String    @map("district_id")
+  schoolId   String?   @map("school_id")
+  teacherId  String    @map("teacher_id")
+  name       String
+  joinCode   String    @unique @map("join_code")
+  gradeBand  GradeBand @map("grade_band")
+  aiConfig   Json?     @map("ai_config") // { mode, subject, tone, complexity, asyncGuidance }
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  district   District  @relation(fields: [districtId], references: [id])
+  school     School?   @relation(fields: [schoolId], references: [id])
+  teacher    User      @relation("teacher", fields: [teacherId], references: [id])
+  memberships ClassroomMembership[]
+  appConfigs ClassroomAppConfig[]
+  conversations Conversation[]
+
+  @@index([teacherId])
+  @@map("classrooms")
+}
+
+model ClassroomMembership {
+  id          String   @id @default(uuid())
+  classroomId String   @map("classroom_id")
+  studentId   String   @map("student_id")
+  districtId  String   @map("district_id") // Denormalized for RLS
+  joinedAt    DateTime @default(now()) @map("joined_at")
+
+  classroom Classroom @relation(fields: [classroomId], references: [id])
+  student   User      @relation(fields: [studentId], references: [id])
+
+  @@unique([classroomId, studentId])
+  @@index([districtId])
+  @@map("classroom_memberships")
+}
+
+// === Apps & Marketplace ===
+
+// RLS-EXEMPT: Apps are platform-global
+model App {
+  id                String          @id @default(uuid())
+  name              String
+  description       String
+  developerId       String?         @map("developer_id")
+  toolDefinitions   Json            @map("tool_definitions") // MCP-compatible
+  uiManifest        Json            @map("ui_manifest") // { url, width, height, sandboxAttrs }
+  permissions       Json
+  complianceMetadata Json           @map("compliance_metadata")
+  interactionModel  InteractionModel @default(single_user) @map("interaction_model")
+  reviewStatus      AppReviewStatus @default(pending_review) @map("review_status")
+  reviewResults     Json?           @map("review_results")
+  version           String
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  catalogEntries DistrictAppCatalog[]
+  classroomConfigs ClassroomAppConfig[]
+  instances      AppInstance[]
+  toolInvocations ToolInvocation[]
+
+  @@index([reviewStatus])
+  @@map("apps")
+}
+
+enum InteractionModel {
+  single_user
+  turn_based
+  concurrent
+}
+
+enum AppReviewStatus {
+  pending_review
+  approved
+  rejected
+  suspended
+}
+
+model DistrictAppCatalog {
+  id              String   @id @default(uuid())
+  districtId      String   @map("district_id")
+  appId           String   @map("app_id")
+  status          CatalogStatus
+  approvedBy      String?  @map("approved_by")
+  approvedAt      DateTime? @map("approved_at")
+  rejectionReason String?  @map("rejection_reason")
+
+  district District @relation(fields: [districtId], references: [id])
+  app      App      @relation(fields: [appId], references: [id])
+
+  @@unique([districtId, appId])
+  @@map("district_app_catalog")
+}
+
+enum CatalogStatus {
+  approved
+  rejected
+  suspended
+}
+
+model ClassroomAppConfig {
+  id          String   @id @default(uuid())
+  classroomId String   @map("classroom_id")
+  appId       String   @map("app_id")
+  districtId  String   @map("district_id") // Denormalized for RLS
+  enabled     Boolean  @default(true)
+  enabledAt   DateTime @default(now()) @map("enabled_at")
+
+  classroom Classroom @relation(fields: [classroomId], references: [id])
+  app       App       @relation(fields: [appId], references: [id])
+
+  @@unique([classroomId, appId])
+  @@index([districtId])
+  @@map("classroom_app_configs")
+}
+
+model AppInstance {
+  id             String            @id @default(uuid())
+  appId          String            @map("app_id")
+  conversationId String            @map("conversation_id")
+  districtId     String            @map("district_id")
+  status         AppInstanceStatus @default(loading)
+  stateSnapshot  Json?             @map("state_snapshot")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  terminatedAt   DateTime?         @map("terminated_at")
+
+  app          App          @relation(fields: [appId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  district     District     @relation(fields: [districtId], references: [id])
+  collabSession CollaborativeSession?
+
+  @@index([conversationId, status])
+  @@index([appId])
+  @@map("app_instances")
+}
+
+enum AppInstanceStatus {
+  loading
+  active
+  suspended
+  collapsed
+  terminated
+  error
+}
+
+// === Conversations & Messages ===
+
+model Conversation {
+  id          String   @id @default(uuid())
+  districtId  String   @map("district_id")
+  classroomId String   @map("classroom_id")
+  studentId   String   @map("student_id")
+  title       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  district    District  @relation(fields: [districtId], references: [id])
+  classroom   Classroom @relation(fields: [classroomId], references: [id])
+  student     User      @relation(fields: [studentId], references: [id])
+  messages    Message[]
+  appInstances AppInstance[]
+  toolInvocations ToolInvocation[]
+
+  @@index([classroomId, studentId])
+  @@index([districtId, updatedAt])
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String      @map("conversation_id")
+  districtId     String      @map("district_id")
+  authorRole     MessageRole @map("author_role")
+  contentParts   Json        @map("content_parts") // Array of ContentPart
+  safetyVerdict  Json?       @map("safety_verdict")
+  tokenCount     Int?        @map("token_count")
+  whisperAuthorId String?    @map("whisper_author_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  whisperAuthor User?       @relation("whisperAuthor", fields: [whisperAuthorId], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@index([districtId])
+  @@map("messages")
+}
+
+enum MessageRole {
+  student
+  assistant
+  system
+  teacher_whisper
+}
+
+// === Collaboration ===
+
+model CollaborativeSession {
+  id              String              @id @default(uuid())
+  districtId      String              @map("district_id")
+  appInstanceId   String              @unique @map("app_instance_id")
+  sessionCode     String              @unique @map("session_code")
+  interactionModel InteractionModel   @map("interaction_model")
+  status          SessionStatus       @default(active)
+  createdBy       String              @map("created_by")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  closedAt        DateTime?           @map("closed_at")
+
+  appInstance  AppInstance          @relation(fields: [appInstanceId], references: [id])
+  participants SessionParticipant[]
+
+  @@map("collaborative_sessions")
+}
+
+enum SessionStatus {
+  active
+  closed
+}
+
+model SessionParticipant {
+  id              String   @id @default(uuid())
+  sessionId       String   @map("session_id")
+  userId          String   @map("user_id")
+  colorAssignment String?  @map("color_assignment")
+  turnOrder       Int?     @map("turn_order")
+  joinedAt        DateTime @default(now()) @map("joined_at")
+  disconnectedAt  DateTime? @map("disconnected_at")
+
+  session CollaborativeSession @relation(fields: [sessionId], references: [id])
+
+  @@unique([sessionId, userId])
+  @@map("session_participants")
+}
+
+// === Auth & Consent ===
+
+model OAuthToken {
+  id                    String   @id @default(uuid())
+  userId                String   @map("user_id")
+  provider              String   // e.g., "spotify"
+  accessTokenEncrypted  String   @map("access_token_encrypted")
+  refreshTokenEncrypted String   @map("refresh_token_encrypted")
+  expiresAt             DateTime @map("expires_at")
+  scopes                Json?
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, provider])
+  @@map("oauth_tokens")
+}
+
+model ParentalConsent {
+  id              String        @id @default(uuid())
+  studentId       String        @unique @map("student_id")
+  districtId      String        @map("district_id")
+  parentEmailHash String        @map("parent_email_hash")
+  consentStatus   ConsentStatus @default(pending) @map("consent_status")
+  consentDate     DateTime?     @map("consent_date")
+  revokedDate     DateTime?     @map("revoked_date")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  student  User     @relation(fields: [studentId], references: [id])
+  district District @relation(fields: [districtId], references: [id])
+
+  @@index([districtId])
+  @@map("parental_consents")
+}
+
+enum ConsentStatus {
+  pending
+  granted
+  denied
+  revoked
+}
+
+model DataDeletionRequest {
+  id          String         @id @default(uuid())
+  studentId   String         @map("student_id")
+  districtId  String         @map("district_id")
+  requestedBy String         @map("requested_by") // "parent" or "district_admin"
+  requestedAt DateTime       @default(now()) @map("requested_at")
+  completedAt DateTime?      @map("completed_at")
+  status      DeletionStatus @default(pending)
+
+  district District @relation(fields: [districtId], references: [id])
+
+  @@map("data_deletion_requests")
+}
+
+enum DeletionStatus {
+  pending
+  in_progress
+  completed
+}
+
+// === Observability & Audit ===
+
+// APPEND-ONLY: No updates or deletes
+model AuditEvent {
+  id           String   @id @default(uuid())
+  districtId   String   @map("district_id")
+  userId       String   @map("user_id")
+  action       String
+  resourceType String   @map("resource_type")
+  resourceId   String   @map("resource_id")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  district District @relation(fields: [districtId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([districtId, createdAt])
+  @@index([userId])
+  @@index([resourceType, resourceId])
+  @@map("audit_events")
+}
+
+// APPEND-ONLY
+model SafetyEvent {
+  id                     String        @id @default(uuid())
+  districtId             String        @map("district_id")
+  userId                 String        @map("user_id")
+  eventType              SafetyEventType @map("event_type")
+  severity               Severity
+  messageContextRedacted String?       @map("message_context_redacted")
+  actionTaken            String        @map("action_taken")
+  createdAt              DateTime      @default(now()) @map("created_at")
+
+  district District @relation(fields: [districtId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([districtId, createdAt])
+  @@index([severity])
+  @@map("safety_events")
+}
+
+enum SafetyEventType {
+  pii_detected
+  injection_detected
+  content_blocked
+  crisis_detected
+  app_content_blocked
+}
+
+enum Severity {
+  safe
+  warning
+  blocked
+  critical
+}
+
+model ToolInvocation {
+  id             String          @id @default(uuid())
+  districtId     String          @map("district_id")
+  conversationId String          @map("conversation_id")
+  appId          String          @map("app_id")
+  toolName       String          @map("tool_name")
+  parameters     Json?
+  result         Json?
+  status         InvocationStatus
+  latencyMs      Int             @map("latency_ms")
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  district     District     @relation(fields: [districtId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  app          App          @relation(fields: [appId], references: [id])
+
+  @@index([appId, createdAt])
+  @@index([conversationId])
+  @@map("tool_invocations")
+}
+
+enum InvocationStatus {
+  success
+  error
+  timeout
+}

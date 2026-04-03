@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: Collaborative Student Chat — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--hierarchy { background: #EEF2FF; color: #4F46E5; }
+    .label--interaction { background: #ECFDF5; color: #059669; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--responsive { background: #FEE2E2; color: #991B1B; }
+    .label--persona { background: #F3E8FF; color: #7C3AED; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Student Chat — Collaborative Session</h1>
+  <div class="screen-id">Screen: student-chat--collaborative | Persona: PER-001 (Sam the Student) | Journey: JRN-002 (multi-student collaboration)</div>
+
+  <!-- Information Hierarchy -->
+  <div class="section">
+    <h2>Information Hierarchy</h2>
+    <div class="zone-map">
+      <div class="zone zone--primary">
+        <div class="zone-number">1</div>
+        <strong>Collaborative App Card (center)</strong> — The chess board with participant avatars and turn indicator is the focal point. This is the shared working surface. The turn indicator answers the immediate question: "Whose turn is it?"
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">2</div>
+        <strong>Chat Thread (below/around app card)</strong> — Mixed messages from students and AI. Student messages are attributed (avatar + name). The chat is the coordination layer — students discuss strategy, AI provides coaching.
+      </div>
+      <div class="zone">
+        <div class="zone-number">3</div>
+        <strong>Participant Avatars (app card header)</strong> — Small circles with initials show who is in the session. Highlighted avatar indicates whose turn it is.
+      </div>
+      <div class="zone">
+        <div class="zone-number">4</div>
+        <strong>Move History (inside app card)</strong> — Algebraic notation of all moves. Latest move highlighted. This is reference data, not the primary focus.
+      </div>
+    </div>
+  </div>
+
+  <!-- Focal Point -->
+  <div class="section">
+    <h2>Focal Point</h2>
+    <p class="annotation"><span class="label label--hierarchy">FOCAL</span> <strong>The chess board</strong> dominates the first 3 seconds — it is the largest visual element and the shared activity. The turn indicator banner immediately below the app card header directs attention to whose turn it is.</p>
+    <p class="annotation"><strong>Above-the-fold:</strong> The app card (with chess board) and at least the last 1-2 chat messages visible without scrolling. The chat input is always pinned to the bottom.</p>
+  </div>
+
+  <!-- Banned Dominance Patterns -->
+  <div class="section">
+    <h2>Banned Dominance Patterns</h2>
+    <ul>
+      <li>No participant list sidebar consuming horizontal space — avatars are compact, in the card header</li>
+      <li>Move history must not be larger than the board itself — it is reference data</li>
+      <li>AI messages must not dominate the chat — collaborative sessions are student-to-student with AI coaching support</li>
+      <li>No separate "team chat" and "AI chat" tabs — all messages in one thread, differentiated by avatar</li>
+    </ul>
+  </div>
+
+  <!-- Interactive State Annotations -->
+  <div class="section">
+    <h2>Interactive States</h2>
+    <p class="annotation"><span class="label label--interaction">REAL-TIME</span> <strong>Chess board:</strong> Updates in real-time when any participant makes a move. Move animation: piece slides from origin to destination (200ms ease-out). Last-moved squares are highlighted green.</p>
+    <p class="annotation"><span class="label label--interaction">REAL-TIME</span> <strong>Turn indicator:</strong> Updates immediately when a move is made. Shows the next player's avatar and name. Subtle pulse animation on the active player's avatar.</p>
+    <p class="annotation"><span class="label label--interaction">REAL-TIME</span> <strong>Chat messages:</strong> Messages from other students appear instantly via WebSocket. System messages ("Emma S. moved: c5") appear inline with a distinct gray style.</p>
+    <p class="annotation"><span class="label label--interaction">CLICK</span> <strong>Chess board squares:</strong> On the active player's turn, clicking a piece highlights valid moves. Clicking a valid destination square makes the move. Invalid clicks are ignored.</p>
+    <p class="annotation"><span class="label label--interaction">CLICK</span> <strong>Suggestion chips:</strong> Same as standard chat — clicking sends the chip text as a message. Chips are contextual to the game state ("Explain this position", "What should Emma play?").</p>
+    <p class="annotation"><span class="label label--interaction">HOVER</span> <strong>Move history entries:</strong> Hovering a move highlights the corresponding squares on the board.</p>
+  </div>
+
+  <!-- API Integration Annotations -->
+  <div class="section">
+    <h2>API Integration Annotations</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Session state:</strong> <code>GET /api/v1/sessions/{session_id}/collaborative</code> — returns participants, game state (FEN string), move history, whose turn it is.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Real-time updates:</strong> <code>WebSocket /ws/collaborative/{session_id}</code> — pushes: move events, chat messages, participant join/leave, AI responses. All participants share one WebSocket channel.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Make a move:</strong> <code>POST /api/v1/sessions/{session_id}/app-action</code> — body: <code>{ "app": "chess", "action": "move", "from": "c7", "to": "c5" }</code>. Server validates legality. Broadcasts to all participants via WebSocket.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Send chat message:</strong> <code>POST /api/v1/sessions/{session_id}/messages</code> — same as standard chat. Message is broadcast to all participants. AI may respond if the message is a question.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>AI coaching:</strong> AI automatically comments on interesting positions (triggered server-side by game state analysis). Pushed via WebSocket as an AI message. Rate-limited to prevent AI from dominating conversation.</p>
+  </div>
+
+  <!-- Responsive Behavior -->
+  <div class="section">
+    <h2>Responsive Behavior</h2>
+    <p class="annotation"><span class="label label--responsive">MOBILE 375px</span> Chess board renders at full viewport width (375px - 32px padding = 343px). Move history collapses to a single line showing the last move only (expandable). Chat messages below the board. Collaborative sessions are challenging on mobile — but must work on Chromebooks at 768px+ viewport.</p>
+    <p class="annotation"><span class="label label--responsive">TABLET 768px</span> Chess board at 360px with move history beside it. Chat thread below. This is the primary device (Chromebook).</p>
+    <p class="annotation"><span class="label label--responsive">DESKTOP 1280px</span> Chat column centered at 800px max-width. Chess board 320px with move history beside it. Generous space for chat thread below.</p>
+  </div>
+
+  <!-- Persona Fit -->
+  <div class="section">
+    <h2>Persona Fit</h2>
+    <p class="annotation"><span class="label label--persona">PERSONA</span> Collaborative sessions are ChatBridge's signature differentiator. Students playing chess together with AI coaching in the same chat thread is the "magic moment" that sells the platform. The design must make collaboration feel natural: participant avatars establish presence, the turn indicator creates urgency, and student-to-student messages are first-class alongside AI messages. The AI acts as a coach, not a referee — it suggests and explains but does not interrupt the flow. System messages ("Emma moved: c5") provide game narration that keeps non-active players engaged during others' turns.</p>
+  </div>
+
+</body>
+</html>

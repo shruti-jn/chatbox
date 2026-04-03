@@ -1,0 +1,197 @@
+{
+  "metadata": {
+    "created_at": "2026-04-03T00:15:00Z",
+    "created_by": "project_profile_compiler",
+    "created_by_model": "claude-opus-4-6[1m]",
+    "prd_version": "1.0.0",
+    "technical_research_version": "1.0.0",
+    "project_id": "chatbridge-v2",
+    "artifact_version": "1.0.0"
+  },
+  "project_identity": {
+    "project_name": "ChatBridge v2",
+    "project_brief": "A K-12 AI chat platform with third-party app integration, built on a Chatbox fork, enabling educational apps to live inside the chat experience with teacher governance and child safety.",
+    "scope_phase": "production",
+    "business_context": "TutorMeAI must evolve from chatbot to platform. 12-18 month window. No competitor combines K-12 governance + extensibility. K-12 AI market $539.7M (2025) → $13.6B (2035)."
+  },
+  "project_archetypes": [
+    {
+      "archetype": "integration",
+      "primary": true,
+      "confidence": "high",
+      "justification": "Core thesis is third-party app integration. FR-APP-001–008 define registration, invocation, rendering, lifecycle. FR-STATE-001–006 define CBP protocol. MCP-compatible tool definitions. The integration contract IS the product.",
+      "prd_requirement_ids": ["FR-APP-001","FR-APP-002","FR-APP-003","FR-APP-004","FR-APP-005","FR-APP-006","FR-APP-007","FR-APP-008","FR-STATE-001","FR-STATE-002","FR-STATE-003","FR-STATE-004","FR-STATE-005","FR-STATE-006"]
+    },
+    {
+      "archetype": "real-time",
+      "primary": false,
+      "confidence": "high",
+      "justification": "Sub-100ms requirements: 100ms WebSocket relay (NFR-PERF-004), 200ms typing indicator (NFR-PERF-003). WebSocket for chat streaming, Mission Control, collaborative sessions. Redis Pub/Sub for cross-worker relay.",
+      "prd_requirement_ids": ["FR-CHAT-002","FR-CTRL-005","FR-COLLAB-003","NFR-PERF-003","NFR-PERF-004"]
+    },
+    {
+      "archetype": "regulatory",
+      "primary": false,
+      "confidence": "high",
+      "justification": "COPPA 2025 (April 22, 2026 deadline), FERPA, WCAG 2.1 AA are architectural constraints. FR-COMP-001–004, FR-SAFE-001–008, FR-AUTH-004 define compliance architecture.",
+      "prd_requirement_ids": ["FR-COMP-001","FR-COMP-002","FR-COMP-003","FR-COMP-004","FR-SAFE-001","FR-SAFE-002","FR-SAFE-003","FR-SAFE-004","FR-AUTH-004"]
+    },
+    {
+      "archetype": "event-driven",
+      "primary": false,
+      "confidence": "high",
+      "justification": "Server-authoritative event sourcing for collaborative sessions. Safety alerts trigger teacher notifications. App lifecycle transitions cascade. District-wide suspension cascades.",
+      "prd_requirement_ids": ["FR-COLLAB-003","FR-CTRL-006","FR-CTRL-008","FR-APP-004"]
+    },
+    {
+      "archetype": "workflow",
+      "primary": false,
+      "confidence": "medium",
+      "justification": "Multiple lifecycle state machines: app instance (loading→active→suspended→collapsed→terminated→error), COPPA consent flow, app review pipeline, conversation lifecycle.",
+      "prd_requirement_ids": ["FR-APP-004","FR-AUTH-004","FR-SAFE-007"]
+    }
+  ],
+  "hard_constraints": {
+    "technology_constraints": {
+      "language": {
+        "required": "TypeScript",
+        "justification": "Monoglot stack — Chatbox frontend is TypeScript, shared Zod schemas between frontend and backend eliminate type drift. TECH-CLRFY-001 decision.",
+        "prd_requirement_id": null,
+        "flexibility": "mandatory"
+      },
+      "primary_framework": {
+        "required": "Chatbox (Electron + React + Vite) for frontend, Fastify for backend",
+        "justification": "Chatbox fork is the build base (customer decision). Fastify chosen for auto-OpenAPI, schema validation, performance (TECH-CLRFY-001).",
+        "prd_requirement_id": null,
+        "flexibility": "mandatory"
+      },
+      "secondary_frameworks": [
+        {"framework": "Vercel AI SDK v6", "purpose": "LLM streaming, tool use orchestration", "justification": "Already in Chatbox codebase. Same SDK frontend and backend.", "prd_requirement_id": "FR-CHAT-002"},
+        {"framework": "Prisma 6.x", "purpose": "TypeScript ORM with migrations", "justification": "Type-safe queries, best TS ORM ecosystem. Supports RLS via raw SQL.", "prd_requirement_id": "FR-COMP-003"},
+        {"framework": "Zod", "purpose": "Runtime validation, shared schemas", "justification": "Already in Chatbox. Shared between frontend and backend.", "prd_requirement_id": "FR-STATE-006"},
+        {"framework": "ltijs", "purpose": "LTI 1.3 OIDC and AGS", "justification": "Standard Node.js LTI library for Canvas/Schoology integration.", "prd_requirement_id": "FR-AUTH-001"},
+        {"framework": "ioredis", "purpose": "Redis client with Pub/Sub", "justification": "Best Node.js Redis client. Cluster support, auto-reconnect.", "prd_requirement_id": "FR-STATE-004"},
+        {"framework": "Vitest", "purpose": "Testing", "justification": "Same ecosystem as Chatbox (Vite-based).", "prd_requirement_id": null},
+        {"framework": "chess.js", "purpose": "Chess logic and move validation", "justification": "Standard web chess library.", "prd_requirement_id": "FR-CHESS-001"},
+        {"framework": "Langfuse SDK", "purpose": "LLM observability", "justification": "Self-hostable for COPPA compliance.", "prd_requirement_id": "FR-OBS-001"}
+      ],
+      "database_technology": {
+        "type": "SQL",
+        "required": "PostgreSQL 16",
+        "justification": "RLS for multi-tenant isolation (FERPA). Mature, reliable. Customer chose Railway managed Postgres.",
+        "prd_requirement_id": "FR-COMP-003",
+        "flexibility": "mandatory"
+      },
+      "prohibited_technologies": [
+        {"technology": "SQLite (production)", "reason": "Cannot support RLS, concurrent WebSocket writes, or multi-tenant isolation"},
+        {"technology": "MongoDB", "reason": "No native row-level security for FERPA compliance"},
+        {"technology": "Non-US data centers", "reason": "US data residency requirement (FR-COMP-004)"}
+      ]
+    },
+    "deployment_constraints": {
+      "deployment_target": "Railway (PaaS)",
+      "justification": "Customer decision. Managed Postgres, Redis, containers. Git-based CI/CD.",
+      "prd_requirement_id": null,
+      "flexibility": "mandatory",
+      "cloud_provider": "Railway",
+      "cloud_regions": ["US"],
+      "data_residency_requirement": "US only — all student data, LLM traces, app states on US infrastructure"
+    },
+    "compliance_constraints": [
+      {"regulation": "COPPA 2025", "required": true, "justification": "Platform serves children under 13. Compliance deadline April 22, 2026.", "prd_requirement_id": "FR-COMP-001", "architectural_implications": ["Parental consent gate before under-13 access", "PII detection and stripping at every boundary", "Separate consent for third-party app data disclosure", "No biometric data collection", "Data deletion within 30 days on request"]},
+      {"regulation": "FERPA", "required": true, "justification": "Platform processes student education records.", "prd_requirement_id": "FR-COMP-003", "architectural_implications": ["Audit trails for all record access", "RLS multi-tenant isolation", "Role-based access control", "Data retention policies"]},
+      {"regulation": "WCAG 2.1 AA", "required": true, "justification": "K-12 platform must be accessible.", "prd_requirement_id": "NFR-ACC-001", "architectural_implications": ["Screen reader support", "Keyboard navigation", "4.5:1 contrast ratio", "Focus management for iframes"]}
+    ],
+    "integration_constraints": [
+      {"external_system": "Anthropic Claude API", "required": true, "integration_pattern": "REST API with streaming (SSE)", "criticality": "critical", "sla_requirement": "First token <1s p95", "justification": "Core AI — product doesn't function without it", "prd_requirement_id": "FR-CHAT-002"},
+      {"external_system": "Spotify Web API", "required": true, "integration_pattern": "REST API with OAuth2", "criticality": "important", "sla_requirement": null, "justification": "Spotify Playlist Creator app", "prd_requirement_id": "FR-SPOT-001"},
+      {"external_system": "OpenWeatherMap API", "required": true, "integration_pattern": "REST API with API key", "criticality": "optional", "sla_requirement": null, "justification": "Weather Dashboard app", "prd_requirement_id": "FR-WTHR-001"},
+      {"external_system": "LTI 1.3 Platforms (Canvas, Schoology)", "required": true, "integration_pattern": "OIDC + AGS", "criticality": "important", "sla_requirement": null, "justification": "LMS SSO and grade passback", "prd_requirement_id": "FR-AUTH-001"},
+      {"external_system": "Langfuse (self-hosted)", "required": true, "integration_pattern": "REST API", "criticality": "important", "sla_requirement": null, "justification": "LLM observability, COPPA-compliant", "prd_requirement_id": "FR-OBS-001"}
+    ]
+  },
+  "performance_targets": {
+    "latency_sla": {"target": "<1s first token p95", "justification": "NFR-PERF-001", "prd_requirement_id": "NFR-PERF-001", "measurement_method": "Langfuse trace latency percentiles"},
+    "throughput_sla": {"target": null, "justification": "Not explicitly specified. Derived from scale: 30 students × 100 classrooms = 3,000 concurrent users.", "prd_requirement_id": "NFR-SCAL-001", "measurement_method": "Load testing"},
+    "availability_sla": {"target": "99% monthly", "justification": "NFR-REL-001", "prd_requirement_id": "NFR-REL-001", "recovery_time_objective": "<5 minutes"},
+    "concurrent_users": {"target": 3000, "justification": "30 students/classroom × 100 classrooms/district. NFR-SCAL-001.", "prd_requirement_id": "NFR-SCAL-001"},
+    "data_freshness": {"target": "real-time", "justification": "WebSocket streaming for chat, Mission Control, collaborative sessions.", "prd_requirement_id": "NFR-PERF-004"}
+  },
+  "scope_boundaries": {
+    "scope_phase": "production",
+    "in_scope_features": ["AI chat with streaming", "Third-party apps via CBP (Chess, Spotify, Weather)", "Sandboxed iframes with 5-layer security", "Mission Control", "District admin portal", "LTI 1.3 Advantage", "Collaborative sessions", "COPPA/FERPA compliance", "4-stage safety pipeline", "4 grade bands", "Automated app review", "Langfuse observability", "Developer SDK", "Railway deployment"],
+    "out_of_scope_features": ["Offline mode", "Google Classroom LTI", "Mobile native (Capacitor)", "Marketplace billing", "Multi-language UI", "Video/voice chat"],
+    "deferred_features": [
+      {"feature": "Google Classroom custom API", "target_phase": "V2", "reason": "Doesn't support LTI"},
+      {"feature": "Marketplace billing", "target_phase": "V2", "reason": "V1 platform-owned apps"},
+      {"feature": "Mobile Capacitor builds", "target_phase": "V2", "reason": "Web + Electron for V1"},
+      {"feature": "Multi-model routing", "target_phase": "V2", "reason": "Sonnet for everything in V1"}
+    ],
+    "agent_autonomy_boundaries": {
+      "always_autonomous": ["Tool invocation on clear intent", "Safety classification", "Token refresh", "Rate limiting", "App lifecycle transitions"],
+      "ask_first": ["District-wide suspension", "Data deletion", "Classroom config changes", "App catalog approvals"],
+      "never": ["Bypass safety pipeline", "Share student data unauthorized", "Allow parent DOM access", "Store PII in traces", "Downgrade from US residency"]
+    }
+  },
+  "integration_boundaries": [
+    {"external_service": "Anthropic Claude API", "purpose": "Chat, classification, tool routing, state analysis", "integration_pattern": "REST + streaming", "failure_mode_requirement": "FR-INFRA: Retry 2x → graceful message", "contract_ownership": "Anthropic", "prd_requirement_id": "FR-CHAT-002"},
+    {"external_service": "Spotify Web API", "purpose": "Playlist creation, track search", "integration_pattern": "REST + OAuth2", "failure_mode_requirement": "FR-SPOT: Re-auth if token fails", "contract_ownership": "Spotify", "prd_requirement_id": "FR-SPOT-001"},
+    {"external_service": "OpenWeatherMap", "purpose": "Weather data", "integration_pattern": "REST + API key + 10min cache", "failure_mode_requirement": "FR-WTHR: Return cached data with staleness", "contract_ownership": "OpenWeatherMap", "prd_requirement_id": "FR-WTHR-001"},
+    {"external_service": "LTI 1.3 Platforms", "purpose": "SSO, grade passback", "integration_pattern": "OIDC + AGS", "failure_mode_requirement": "FR-AUTH-001: Fallback to platform JWT login", "contract_ownership": "LMS vendors", "prd_requirement_id": "FR-AUTH-001"},
+    {"external_service": "Redis", "purpose": "Pub/Sub, cache, rate limiting", "integration_pattern": "ioredis client", "failure_mode_requirement": "FR-INFRA-001: Degrade to direct DB, disable real-time", "contract_ownership": "Railway managed", "prd_requirement_id": "FR-INFRA-001"},
+    {"external_service": "PostgreSQL", "purpose": "Primary data store with RLS", "integration_pattern": "Prisma ORM", "failure_mode_requirement": "FR-INFRA-002: 503, maintenance page", "contract_ownership": "Railway managed", "prd_requirement_id": "FR-INFRA-002"}
+  ],
+  "technical_decisions_from_research": {
+    "recommended_language": {
+      "choice": "TypeScript",
+      "justification": "Monoglot stack. Chatbox is TS. Shared Zod schemas. Vercel AI SDK is TS-native. MCP SDK is TS-primary.",
+      "alternatives_considered": [{"alternative": "Python (FastAPI)", "why_not_chosen": "Polyglot stack, no shared types, separate AI SDK, language boundary overhead"}]
+    },
+    "recommended_primary_framework": {
+      "choice": "Fastify 5.x",
+      "version": "5.x",
+      "justification": "Auto-OpenAPI (L-001), built-in schema validation, 2-3x faster than Express, native TypeScript.",
+      "alternatives_considered": [{"alternative": "Express", "why_not_chosen": "No built-in validation or OpenAPI. Slower."}, {"alternative": "Hono", "why_not_chosen": "Smaller ecosystem, less battle-tested"}]
+    },
+    "recommended_database": {
+      "choice": "PostgreSQL 16",
+      "version": "16",
+      "justification": "RLS for FERPA multi-tenant isolation. Mature, reliable. Railway managed.",
+      "alternatives_considered": [{"alternative": "MongoDB", "why_not_chosen": "No native RLS"}, {"alternative": "Supabase", "why_not_chosen": "Customer chose Railway"}]
+    },
+    "recommended_deployment_platform": {
+      "choice": "Railway",
+      "cloud_provider": "Railway",
+      "justification": "Customer decision. Simple PaaS, managed services, git-based CI/CD.",
+      "configuration_approach": "Container services for backend/frontend, managed Postgres + Redis, separate Langfuse service"
+    },
+    "critical_technology_decisions": [
+      {"decision": "Prisma ORM with raw SQL for RLS policies", "rationale": "Prisma doesn't natively support SET LOCAL. Use $executeRaw in transaction middleware for tenant context.", "trade_offs": {"pros": ["Type-safe queries", "Migrations", "Studio"], "cons": ["RLS requires raw SQL workaround"]}},
+      {"decision": "Single Claude Sonnet model for all tasks", "rationale": "Customer chose simplicity over multi-model routing. Sonnet handles chat, classification, and reasoning.", "trade_offs": {"pros": ["Simple", "One API key", "Consistent behavior"], "cons": ["Higher cost than Haiku for classification", "May be slower than Opus for complex reasoning"]}},
+      {"decision": "pnpm monorepo with shared packages", "rationale": "Chatbox already uses pnpm. Shared Zod schemas package between frontend and backend.", "trade_offs": {"pros": ["Single repo", "Shared types", "Atomic commits"], "cons": ["Monorepo complexity", "Longer CI builds"]}}
+    ]
+  },
+  "risk_profile": {
+    "technical_risks": [
+      {"risk": "Prisma SET LOCAL for RLS requires raw SQL middleware", "source": "Technology choice (Prisma + PostgreSQL RLS)", "likelihood": "medium", "impact": "medium", "mitigation": "Well-documented pattern. Test with cross-tenant query assertions."},
+      {"risk": "Electron iframe security — 70% of Electron apps disable sandbox", "source": "Platform choice (Electron)", "likelihood": "low", "impact": "high", "mitigation": "Enforce sandbox in Electron config. CSP headers. Security audit."},
+      {"risk": "Chatbox fork divergence from upstream", "source": "Build approach (fork)", "likelihood": "medium", "impact": "low", "mitigation": "Minimize core changes. Plugin system as separate layer."},
+      {"risk": "Node.js single-threaded for CPU-bound safety pipeline", "source": "Language choice (TypeScript/Node.js)", "likelihood": "low", "impact": "low", "mitigation": "Safety stages 1/2/4 are regex (fast). Stage 3 is API call (async). No CPU bottleneck."},
+      {"risk": "Canvas/Schoology add MCP-based AI features (IgniteAgent)", "source": "Competitive landscape", "likelihood": "medium", "impact": "high", "mitigation": "Ship fast. Differentiate on safety depth + teacher governance."}
+    ],
+    "technology_maturity_risks": [
+      {"technology": "Fastify 5.x", "maturity": "stable", "risk": "Smaller ecosystem than Express", "mitigation": "Mature enough for all needs. Express middleware wrappable via plugin."},
+      {"technology": "Vercel AI SDK v6", "maturity": "stable", "risk": "Recent major version with breaking changes", "mitigation": "Use Chatbox's existing version. Don't upgrade unless needed."},
+      {"technology": "Prisma 6.x", "maturity": "stable", "risk": "RLS support is indirect", "mitigation": "Raw SQL for policies. Well-documented."},
+      {"technology": "ltijs", "maturity": "mature", "risk": "Limited maintainer community", "mitigation": "LTI 1.3 spec is stable. Library covers full Advantage spec."}
+    ]
+  },
+  "quality_gates": {
+    "all_constraints_sourced": true,
+    "all_constraints_justified": true,
+    "no_orphaned_prd_requirements": true,
+    "archetype_justified": true,
+    "performance_targets_measurable": true,
+    "integration_dependencies_explicit": true
+  }
+}

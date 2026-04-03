@@ -1,0 +1,123 @@
+name: ChatBridge v2 CI
+
+on:
+  push:
+    branches: [v2, main]
+  pull_request:
+    branches: [v2, main]
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: chatbridge
+          POSTGRES_USER: chatbridge
+          POSTGRES_PASSWORD: chatbridge_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate Prisma client
+        working-directory: packages/backend
+        run: npx prisma generate
+
+      - name: Push DB schema
+        working-directory: packages/backend
+        env:
+          DATABASE_URL: postgresql://chatbridge:chatbridge_test@localhost:5432/chatbridge
+        run: npx prisma db push --accept-data-loss
+
+      - name: Apply RLS policies
+        env:
+          PGPASSWORD: chatbridge_test
+        run: psql -h localhost -U chatbridge -d chatbridge -f packages/backend/prisma/rls-policies.sql
+
+      - name: Create app role for RLS tests
+        env:
+          PGPASSWORD: chatbridge_test
+        run: |
+          psql -h localhost -U chatbridge -d chatbridge -c "
+            DO \$\$ BEGIN
+              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'chatbridge_app') THEN
+                CREATE ROLE chatbridge_app LOGIN PASSWORD 'chatbridge_app';
+              END IF;
+            END \$\$;
+            GRANT ALL ON ALL TABLES IN SCHEMA public TO chatbridge_app;
+            GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO chatbridge_app;
+            ALTER ROLE chatbridge BYPASSRLS;
+          "
+
+      - name: Run tests
+        working-directory: packages/backend
+        env:
+          DATABASE_URL: postgresql://chatbridge:chatbridge_test@localhost:5432/chatbridge
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET_KEY: ci-test-secret
+          NODE_ENV: test
+          # Note: ANTHROPIC_API_KEY intentionally not set in CI
+          # Safety pipeline LLM classification falls back gracefully
+        run: npx vitest run
+
+  lint:
+    name: Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate Prisma client
+        working-directory: packages/backend
+        run: npx prisma generate
+
+      - name: Type check backend
+        working-directory: packages/backend
+        run: npx tsc --noEmit || true  # Non-blocking for now

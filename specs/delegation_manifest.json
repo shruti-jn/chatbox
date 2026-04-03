@@ -1,0 +1,540 @@
+{
+  "metadata": {
+    "created_at": "2026-04-03T03:00:00Z",
+    "created_by": "delegation_manifest_compiler",
+    "created_by_model": "claude-opus-4-6[1m]",
+    "project_id": "chatbridge-v2",
+    "prd_version": "1.0.0",
+    "architecture_version": "1.0.0"
+  },
+  "manifest_summary": {
+    "total_tasks": 55,
+    "checkpoint_distribution": {
+      "CP-1": 12,
+      "CP-1.5": 2,
+      "CP-2": 12,
+      "CP-3": 14,
+      "CP-4": 10,
+      "CP-5": 5
+    },
+    "critical_path": ["TASK-INFRA-001", "TASK-DB-001", "TASK-API-001", "TASK-SAFETY-001", "TASK-AI-001", "TASK-FE-CHAT-001", "TASK-CHESS-001", "TASK-INTEG-001"],
+    "parallelizable_groups": [
+      "CP-1: TASK-DB-001 and TASK-FE-001 after TASK-INFRA-001",
+      "CP-2: TASK-SAFETY-001, TASK-AI-001, TASK-FE-CHAT-001 after TASK-API-001",
+      "CP-3: All API route tasks after DB models complete",
+      "CP-3: TASK-CHESS-001, TASK-SPOT-001, TASK-WTHR-001 after TASK-APP-001",
+      "CP-4: Mission Control, collaborative, OAuth after core integration"
+    ]
+  },
+  "tasks": [
+    {
+      "task_id": "TASK-INFRA-001",
+      "title": "Monorepo scaffold + Chatbox fork setup on branch v2",
+      "checkpoint": "CP-1",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Create branch v2 on Chatbox fork. Set up pnpm monorepo: @chatbridge/shared (Zod schemas), @chatbridge/backend (Fastify), @chatbridge/sdk (developer SDK). Add docker-compose.yml for Postgres 16 + Redis 7. Configure Vitest. Create .env.example. README with architecture overview.",
+      "files_owned": ["package.json", "pnpm-workspace.yaml", "docker-compose.yml", ".env.example", "README.md", "packages/shared/", "packages/backend/", "packages/sdk/"],
+      "negative_constraints": ["Do NOT modify Chatbox core code yet — scaffold only", "Do NOT install Python packages", "Do NOT create separate repos"],
+      "requirement_ids": [],
+      "tdd_note": "Tests: docker-compose up works, pnpm install succeeds, shared package imports work"
+    },
+    {
+      "task_id": "TASK-INFRA-002",
+      "title": "Langfuse self-hosted setup + observability scaffold",
+      "checkpoint": "CP-1",
+      "priority": "critical",
+      "dependencies": ["TASK-INFRA-001"],
+      "description": "Add Langfuse to docker-compose (or Railway). Create observability module in @chatbridge/backend with trace wrapper. Every LLM call from CP-2 onward must be traced. Pseudonymous user IDs only.",
+      "files_owned": ["packages/backend/src/observability/", "docker-compose.yml (langfuse service)"],
+      "negative_constraints": ["Do NOT put PII in traces", "Do NOT make Langfuse calls synchronous in request path"],
+      "requirement_ids": ["FR-OBS-001"],
+      "tdd_note": "Tests: Langfuse trace created on mock LLM call, PII detection on trace payloads"
+    },
+    {
+      "task_id": "TASK-INFRA-003",
+      "title": "Prompt externalization + versioning scaffold",
+      "checkpoint": "CP-1",
+      "priority": "critical",
+      "dependencies": ["TASK-INFRA-002"],
+      "description": "Create prompt registry in @chatbridge/backend. Prompts stored as versioned templates (not in code). System prompt assembly: base + classroom_config + grade_band + tool_schemas + whisper + safety. Integrate with Langfuse prompt management.",
+      "files_owned": ["packages/backend/src/prompts/"],
+      "negative_constraints": ["Do NOT hardcode prompts in TypeScript source files"],
+      "requirement_ids": [],
+      "tdd_note": "Tests: prompt template loads by version, assembly includes all components"
+    },
+    {
+      "task_id": "TASK-DB-001",
+      "title": "Prisma schema + migrations + RLS policies",
+      "checkpoint": "CP-1",
+      "priority": "critical",
+      "dependencies": ["TASK-INFRA-001"],
+      "description": "Create Prisma schema for all 19 entities from data_model.yaml. Run initial migration. Create RLS policies via raw SQL migration for all 17 tenant-scoped tables. Create Prisma middleware for SET LOCAL per transaction. Test cross-tenant isolation.",
+      "files_owned": ["packages/backend/prisma/", "packages/backend/src/middleware/rls.ts"],
+      "negative_constraints": ["Do NOT use SET (session-scoped) — only SET LOCAL", "Do NOT skip RLS on any tenant-scoped table"],
+      "requirement_ids": ["FR-COMP-003"],
+      "tdd_note": "Tests: migration succeeds, RLS blocks cross-tenant query, SET LOCAL resets per transaction"
+    },
+    {
+      "task_id": "TASK-DB-002",
+      "title": "Seed data + test fixtures",
+      "checkpoint": "CP-1",
+      "dependencies": ["TASK-DB-001"],
+      "description": "Create seed script: 2 districts, 2 schools, 3 classrooms, 5 users (student K-2, student 9-12, teacher, admin, developer), 3 apps (chess, spotify, weather registered). Create test fixture factory for integration tests.",
+      "files_owned": ["packages/backend/prisma/seed.ts", "packages/backend/test/fixtures/"],
+      "negative_constraints": ["Do NOT use fake/placeholder data that looks real"],
+      "requirement_ids": [],
+      "tdd_note": "Tests: seed runs without error, fixtures create valid records"
+    },
+    {
+      "task_id": "TASK-API-001",
+      "title": "Fastify server scaffold + middleware stack",
+      "checkpoint": "CP-1",
+      "priority": "critical",
+      "dependencies": ["TASK-DB-001"],
+      "description": "Create Fastify server with: @fastify/swagger (auto-OpenAPI at /docs), @fastify/cors, @fastify/rate-limit (Redis-backed), @fastify/websocket, pino logging. Add middleware: JWT auth, RLS tenant context, audit logging hook. Health endpoint with capability probes (DB, Redis, Anthropic).",
+      "files_owned": ["packages/backend/src/server.ts", "packages/backend/src/middleware/", "packages/backend/src/routes/health.ts"],
+      "negative_constraints": ["Do NOT disable /docs or /openapi.json (L-001)", "Health must report capability status, not just connectivity (L-002)"],
+      "requirement_ids": ["FR-CHAT-008", "FR-SAFE-005"],
+      "tdd_note": "Tests: server starts, /docs returns 200, /health returns capability status, rate limiter triggers at threshold"
+    },
+    {
+      "task_id": "TASK-API-AUTH",
+      "title": "Auth routes: LTI 1.3 + JWT + RBAC",
+      "checkpoint": "CP-1",
+      "dependencies": ["TASK-API-001"],
+      "description": "Implement auth routes: POST /auth/lti/launch (ltijs), POST /auth/login (fallback JWT), GET/POST /auth/oauth/spotify/* (OAuth2 flow). JWT issuance with role + district_id. RBAC preHandler hooks. COPPA consent check for under-13.",
+      "files_owned": ["packages/backend/src/routes/auth.ts", "packages/backend/src/auth/"],
+      "negative_constraints": ["Do NOT store passwords — all auth via SSO/LTI/OAuth", "OAuth via popup, NOT redirect"],
+      "requirement_ids": ["FR-AUTH-001", "FR-AUTH-003", "FR-AUTH-004", "FR-AUTH-005"],
+      "tdd_note": "Tests: JWT issued with correct claims, RBAC blocks unauthorized routes, under-13 without consent blocked"
+    },
+    {
+      "task_id": "TASK-FE-001",
+      "title": "Chatbox branch v2 + shared package integration",
+      "checkpoint": "CP-1",
+      "dependencies": ["TASK-INFRA-001"],
+      "description": "Create branch v2 in Chatbox fork. Add @chatbridge/shared as workspace dependency. Extend MessageContentPartSchema with app-card type. Configure backend API client. Add WebSocket client module with auto-reconnect.",
+      "files_owned": ["src/shared/types/chatbridge.ts", "src/renderer/packages/chatbridge/", "src/renderer/lib/chatbridge-ws.ts"],
+      "negative_constraints": ["Minimize changes to core Chatbox files — use extension points identified in codebase audit"],
+      "requirement_ids": ["FR-CHAT-001"],
+      "tdd_note": "Tests: app-card schema validates, WebSocket client connects/reconnects"
+    },
+    {
+      "task_id": "TASK-FE-002",
+      "title": "Grade-band adaptive CSS variables",
+      "checkpoint": "CP-1",
+      "dependencies": ["TASK-FE-001"],
+      "description": "Create CSS variable system for 4 grade bands (K-2, 3-5, 6-8, 9-12). Variables for font-size, line-height, touch-target-size, spacing, information-density. Driven by classroom config from API. Apply DM Sans font.",
+      "files_owned": ["src/renderer/styles/grade-bands.css", "src/renderer/stores/atoms/gradeBandAtom.ts"],
+      "negative_constraints": ["Do NOT create separate component variants per grade band — single adaptive UI (CLR-001)"],
+      "requirement_ids": ["FR-CHAT-006"],
+      "tdd_note": "Tests: K-2 returns 18-20px font, 9-12 returns 15px, CSS variables apply correctly"
+    },
+    {
+      "task_id": "TASK-API-CLASSROOM",
+      "title": "Classroom CRUD + config routes",
+      "checkpoint": "CP-1",
+      "dependencies": ["TASK-API-001"],
+      "description": "Implement classroom routes: POST /classrooms (create with join code), GET/PATCH /classrooms/{id}/config, GET /classrooms/{id}/apps, PATCH /classrooms/{id}/apps/{appId} (toggle). App catalog from DistrictAppCatalog filtered by district RLS.",
+      "files_owned": ["packages/backend/src/routes/classrooms.ts"],
+      "negative_constraints": [],
+      "requirement_ids": ["FR-CTRL-001", "FR-CTRL-002", "FR-CTRL-004"],
+      "tdd_note": "Tests: classroom created with join code, config updates, app toggle works, RLS scopes to district"
+    },
+    {
+      "task_id": "TASK-DOCS-001",
+      "title": "Product README + architecture docs in repo",
+      "checkpoint": "CP-1",
+      "dependencies": ["TASK-INFRA-001"],
+      "description": "Copy all spec artifacts into product repo specs/ directory (L-080). Write README.md with architecture overview, setup guide, API documentation link. Create docs/architecture.md with system overview.",
+      "files_owned": ["README.md", "docs/architecture.md", "specs/"],
+      "negative_constraints": ["Do NOT generate docs without substance — must reflect actual architecture"],
+      "requirement_ids": [],
+      "tdd_note": "N/A — documentation task"
+    },
+    {
+      "task_id": "TASK-DEPLOY-001",
+      "title": "Tracer bullet deployment to Railway",
+      "checkpoint": "CP-1.5",
+      "dependencies": ["TASK-API-001", "TASK-FE-001"],
+      "description": "Deploy minimal stack to Railway: Fastify backend (health endpoint), Chatbox web build (static), managed Postgres, managed Redis. Verify: frontend reachable, backend starts, DB migrated, /health returns capability status.",
+      "files_owned": ["railway.json", "Dockerfile (backend)", "Procfile"],
+      "negative_constraints": ["Do NOT wait for full features — deploy the shell"],
+      "requirement_ids": [],
+      "tdd_note": "Verification: curl health endpoint returns 200 with capability status"
+    },
+    {
+      "task_id": "TASK-DEPLOY-002",
+      "title": "Langfuse deployment on Railway",
+      "checkpoint": "CP-1.5",
+      "dependencies": ["TASK-INFRA-002", "TASK-DEPLOY-001"],
+      "description": "Deploy self-hosted Langfuse on Railway as separate service with dedicated Postgres. Verify traces arrive from backend.",
+      "files_owned": ["railway.json (langfuse service)"],
+      "negative_constraints": ["Do NOT use cloud-hosted Langfuse — must be self-hosted for COPPA"],
+      "requirement_ids": ["FR-COMP-004"],
+      "tdd_note": "Verification: trace created in Langfuse when backend makes LLM call"
+    },
+    {
+      "task_id": "TASK-SAFETY-001",
+      "title": "Create 4-stage content safety pipeline",
+      "checkpoint": "CP-2",
+      "priority": "critical",
+      "dependencies": ["TASK-API-001", "TASK-INFRA-002"],
+      "description": "Implement 4-stage pipeline: (1) PII detection (regex: phone, email, SSN, address), (2) injection detection (13 regex patterns), (3) LLM classification (Sonnet: safe/violence/sexual/hate/self_harm/off_topic), (4) crisis detection (keyword scan, always runs). Total budget <600ms.",
+      "files_owned": ["packages/backend/src/safety/"],
+      "negative_constraints": ["Crisis detection MUST always run regardless of prior stages", "Do NOT use single-prompt approach"],
+      "requirement_ids": ["FR-SAFE-001", "FR-SAFE-002", "FR-SAFE-003", "FR-SAFE-004"],
+      "tdd_note": "Tests: PII redacted, injection detected, classification categories correct, crisis resources returned. Test each stage independently + pipeline end-to-end."
+    },
+    {
+      "task_id": "TASK-SAFETY-002",
+      "title": "Wire safety pipeline into message endpoint",
+      "checkpoint": "CP-2",
+      "dependencies": ["TASK-SAFETY-001"],
+      "description": "Wire safety pipeline into POST /conversations/{id}/messages. Blocked→422, critical→200+resources, safe→202. Wire output guardrails into AI response path.",
+      "wired_in": ["packages/backend/src/routes/chat.ts"],
+      "files_owned": ["packages/backend/src/routes/chat.ts (safety integration)"],
+      "negative_constraints": [],
+      "requirement_ids": ["FR-SAFE-001", "FR-SAFE-006"],
+      "tdd_note": "Integration tests: blocked message returns 422, crisis returns 200+resources, safe returns 202"
+    },
+    {
+      "task_id": "TASK-AI-001",
+      "title": "AI service: streaming + tool use orchestration",
+      "checkpoint": "CP-2",
+      "priority": "critical",
+      "dependencies": ["TASK-API-001", "TASK-INFRA-003"],
+      "description": "Create AI service using Vercel AI SDK. Streaming chat responses via WebSocket. Dynamic tool schema injection from enabled classroom apps. Context window management (app state > config > messages > schemas). Conservative routing: invoke tools only on clear explicit intent.",
+      "files_owned": ["packages/backend/src/ai/"],
+      "negative_constraints": ["Do NOT invoke tools speculatively — clear intent only (CLR-004)", "Do NOT exceed context window — truncate oldest messages first"],
+      "requirement_ids": ["FR-AI-001", "FR-AI-002", "FR-AI-003", "FR-AI-005"],
+      "tdd_note": "Tests: tool schemas injected correctly, 'let's play chess' invokes tool, 'I'm bored' does NOT invoke tool, context window respects priority order"
+    },
+    {
+      "task_id": "TASK-AI-002",
+      "title": "Wire AI service into chat endpoint + WebSocket streaming",
+      "checkpoint": "CP-2",
+      "dependencies": ["TASK-AI-001", "TASK-SAFETY-002"],
+      "description": "Wire AI service into the chat message flow. Student message → safety pipeline → AI service → streaming via WebSocket. First token <1s. Tool invocations trigger app lifecycle.",
+      "wired_in": ["packages/backend/src/routes/chat.ts"],
+      "requirement_ids": ["FR-CHAT-002", "FR-CHAT-005"],
+      "tdd_note": "Integration tests: message triggers AI response, streaming works, tool invocation returns result"
+    },
+    {
+      "task_id": "TASK-FE-CHAT-001",
+      "title": "Chat UI: message rendering + streaming + suggestion chips",
+      "checkpoint": "CP-2",
+      "dependencies": ["TASK-FE-001", "TASK-FE-002"],
+      "description": "Extend Chatbox message renderer to: stream AI responses via WebSocket, display typing indicator within 200ms, render suggestion chips (2-3 contextual) after AI response. K-2 mode: complete message display (no streaming).",
+      "files_owned": ["src/renderer/components/chat/ChatBridgeMessage.tsx", "src/renderer/components/chat/SuggestionChips.tsx"],
+      "requirement_ids": ["FR-CHAT-001", "FR-CHAT-002", "FR-CHAT-004", "FR-CHAT-006"],
+      "tdd_note": "Tests: message renders, streaming tokens appear, K-2 shows complete message, chips appear after response"
+    },
+    {
+      "task_id": "TASK-FE-APPCARD-001",
+      "title": "App card renderer: iframe sandbox + CBP client",
+      "checkpoint": "CP-2",
+      "dependencies": ["TASK-FE-001"],
+      "description": "Create AppCardPartUI component: sandboxed iframe rendering inline in chat. Lifecycle states (loading skeleton → active → suspended thumbnail → collapsed summary → error). postMessage handler with origin validation. CBP client for JSON-RPC 2.0.",
+      "files_owned": ["src/renderer/components/message-parts/AppCardPartUI.tsx", "src/renderer/packages/chatbridge/cbp-client.ts"],
+      "negative_constraints": ["sandbox='allow-scripts' only — NEVER allow-same-origin", "Validate postMessage origin before processing"],
+      "requirement_ids": ["FR-APP-003", "FR-APP-004", "FR-APP-006", "FR-STATE-001", "FR-STATE-005"],
+      "tdd_note": "Tests: iframe renders with sandbox attrs, origin validation rejects unknown origins, lifecycle states transition correctly"
+    },
+    {
+      "task_id": "TASK-APP-001",
+      "title": "App registration + tool invocation routes",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-API-001", "TASK-DB-001"],
+      "description": "Implement: POST /apps/register, POST /apps/{id}/tools/{name}/invoke (with 5s timeout), POST /apps/{id}/commands (CBP dispatch via Redis Pub/Sub), PUT/GET /apps/instances/{id}/state. PII stripping on outbound CBP commands.",
+      "files_owned": ["packages/backend/src/routes/apps.ts", "packages/backend/src/cbp/"],
+      "requirement_ids": ["FR-APP-001", "FR-APP-002", "FR-STATE-004"],
+      "tdd_note": "Tests: registration creates app, tool invocation returns result, timeout at 5s, CBP dispatch via Redis, PII stripped"
+    },
+    {
+      "task_id": "TASK-APP-002",
+      "title": "App lifecycle FSM + single-active constraint",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-APP-001"],
+      "description": "Implement formal state machine from workflow_fsm.yaml. Enforce single-active: new invocation suspends current. Invalid transitions rejected. State persisted to AppInstance.state_snapshot.",
+      "files_owned": ["packages/backend/src/apps/lifecycle.ts"],
+      "requirement_ids": ["FR-APP-004", "FR-APP-005", "FR-APP-006"],
+      "tdd_note": "Tests: valid transitions succeed, invalid transitions rejected, single-active enforced, completion collapses card"
+    },
+    {
+      "task_id": "TASK-APP-003",
+      "title": "App health monitoring + resource limits",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-APP-001"],
+      "description": "Implement health checks for registered apps. Resource limit enforcement (50MB memory, 100 req/min). Degraded apps stop being invoked. Events logged.",
+      "files_owned": ["packages/backend/src/apps/health.ts"],
+      "requirement_ids": ["FR-APP-007", "FR-APP-008"],
+      "tdd_note": "Tests: resource violation terminates app, degraded app not invocable"
+    },
+    {
+      "task_id": "TASK-CHESS-001",
+      "title": "Chess app: iframe bundle + CBP integration",
+      "checkpoint": "CP-3",
+      "priority": "critical",
+      "dependencies": ["TASK-APP-001", "TASK-FE-APPCARD-001"],
+      "description": "Build chess app as standalone iframe bundle using chess.js. Interactive board with drag-and-drop, legal move validation, highlighted valid squares. CBP integration: send state_update on every move (FEN), receive commands, signal completion on checkmate/stalemate/resignation. Register with platform.",
+      "files_owned": ["packages/apps-chess/"],
+      "requirement_ids": ["FR-CHESS-001", "FR-CHESS-003"],
+      "tdd_note": "Tests: legal moves accepted, illegal rejected, FEN sent via CBP, completion signaled on checkmate"
+    },
+    {
+      "task_id": "TASK-CHESS-002",
+      "title": "AI chess analysis: board state reasoning",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-CHESS-001", "TASK-AI-001"],
+      "description": "Implement AI analysis of chess board position. When student asks 'what should I do?', AI reads FEN from context and provides grade-appropriate tactical advice. K-2: simple guidance. 9-12: tactical analysis.",
+      "files_owned": ["packages/backend/src/ai/chess-analysis.ts"],
+      "requirement_ids": ["FR-CHESS-002", "FR-AI-003"],
+      "tdd_note": "Tests: given FEN + 'what should I do?', AI response references actual board position, grade-appropriate"
+    },
+    {
+      "task_id": "TASK-SPOT-001",
+      "title": "Spotify app: OAuth + playlist creation",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-APP-001", "TASK-API-AUTH"],
+      "description": "Build Spotify app: OAuth2 popup flow, track search, playlist creation. AI natural language → search params → create playlist. Token refresh. App card shows playlist with tracks and Spotify link.",
+      "files_owned": ["packages/apps-spotify/", "packages/backend/src/routes/auth.ts (spotify OAuth)"],
+      "requirement_ids": ["FR-SPOT-001", "FR-SPOT-002", "FR-SPOT-003", "FR-AUTH-003"],
+      "tdd_note": "Tests: OAuth flow stores token, search returns tracks, playlist created, token refresh works"
+    },
+    {
+      "task_id": "TASK-WTHR-001",
+      "title": "Weather app: API + visual dashboard",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-APP-001"],
+      "description": "Build weather app: fetch from OpenWeatherMap API, render visual dashboard (temp, conditions, 5-day forecast, icons). 10-minute cache. Graceful fallback on API failure.",
+      "files_owned": ["packages/apps-weather/"],
+      "requirement_ids": ["FR-WTHR-001", "FR-WTHR-002"],
+      "tdd_note": "Tests: weather data fetched, dashboard renders, cache works, stale data shown on failure"
+    },
+    {
+      "task_id": "TASK-API-CHAT",
+      "title": "Chat routes: messages + history + conversation CRUD",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-AI-002", "TASK-DB-001"],
+      "description": "Implement: POST /conversations/{id}/messages (full flow: safety → AI → response), GET /conversations/{id}/messages (paginated history with app cards). Conversation CRUD.",
+      "files_owned": ["packages/backend/src/routes/chat.ts"],
+      "requirement_ids": ["FR-CHAT-001", "FR-CHAT-003"],
+      "tdd_note": "Tests: message creates record, history paginated, app cards included in history"
+    },
+    {
+      "task_id": "TASK-API-WHISPER",
+      "title": "Whisper routes: real-time + async guidance",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-API-CLASSROOM", "TASK-AI-001"],
+      "description": "Implement POST /classrooms/{id}/students/{sid}/whisper (real-time injection into AI context). Async guidance via PATCH /classrooms/{id}/config. Whisper content never visible to student.",
+      "files_owned": ["packages/backend/src/routes/classrooms.ts (whisper)"],
+      "requirement_ids": ["FR-CTRL-003", "FR-CTRL-004"],
+      "tdd_note": "Tests: whisper stored, AI response reflects guidance, student cannot see whisper"
+    },
+    {
+      "task_id": "TASK-CONSENT-001",
+      "title": "COPPA consent routes + parental flow",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-API-AUTH", "TASK-DB-001"],
+      "description": "Implement: POST /consent/request (send email to parent), consent verification endpoint, POST /consent/delete-request (data deletion within 30 days). Under-13 gate blocks access without consent.",
+      "files_owned": ["packages/backend/src/routes/consent.ts"],
+      "requirement_ids": ["FR-COMP-001", "FR-COMP-002", "FR-AUTH-004"],
+      "tdd_note": "Tests: under-13 blocked without consent, consent request sent, deletion request accepted"
+    },
+    {
+      "task_id": "TASK-AUDIT-001",
+      "title": "Audit trail + safety event logging",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-API-001", "TASK-DB-001"],
+      "description": "Implement Fastify onResponse hook for audit logging (append-only). Safety event logging. Admin query routes: GET /admin/safety-events, GET /admin/audit-trail, GET /admin/tool-invocations.",
+      "files_owned": ["packages/backend/src/routes/admin.ts", "packages/backend/src/middleware/audit.ts"],
+      "requirement_ids": ["FR-OBS-002", "FR-OBS-003", "FR-COMP-003"],
+      "tdd_note": "Tests: every API call creates audit record, safety events logged, admin queries work with RLS"
+    },
+    {
+      "task_id": "TASK-REVIEW-001",
+      "title": "Automated app review pipeline",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-APP-001"],
+      "description": "Implement 5-stage review: schema validation, static security scan (CSP, external scripts, data exfiltration), runtime content safety scan, accessibility audit, performance profiling. POST /apps/{id}/submit-review, GET /apps/{id}/review-results.",
+      "files_owned": ["packages/backend/src/apps/review-pipeline.ts", "packages/backend/src/routes/apps.ts (review routes)"],
+      "requirement_ids": ["FR-SAFE-007"],
+      "tdd_note": "Tests: valid app passes, external scripts fail security, results per-check"
+    },
+    {
+      "task_id": "TASK-SDK-001",
+      "title": "Developer SDK: CBP client library + docs",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-APP-001"],
+      "description": "Create @chatbridge/sdk: TypeScript library for building ChatBridge apps. CBP client (postMessage wrapper), lifecycle hooks (onActivate, onSuspend, onTerminate), state management helpers, type definitions. API documentation.",
+      "files_owned": ["packages/sdk/"],
+      "requirement_ids": [],
+      "tdd_note": "Tests: SDK connects to platform, sends/receives CBP messages, lifecycle hooks fire"
+    },
+    {
+      "task_id": "TASK-EVAL-001",
+      "title": "Eval harness scaffold: rubrics + golden dataset",
+      "checkpoint": "CP-3",
+      "dependencies": ["TASK-AI-001", "TASK-INFRA-002"],
+      "description": "Create eval harness: load 20 golden dataset scenarios from PRD Section 11d. Scoring rubrics (chat quality, routing accuracy, safety precision/recall). Integration with Langfuse eval pipelines. Runnable before each deployment.",
+      "files_owned": ["packages/backend/src/eval/", "packages/backend/test/golden-dataset/"],
+      "requirement_ids": [],
+      "tdd_note": "Tests: golden dataset loads, scorer produces per-dimension results, baseline recorded"
+    },
+    {
+      "task_id": "TASK-INTEG-001",
+      "title": "Full chat-to-app integration: chess end-to-end",
+      "checkpoint": "CP-4",
+      "priority": "critical",
+      "dependencies": ["TASK-CHESS-001", "TASK-CHESS-002", "TASK-AI-002", "TASK-FE-APPCARD-001", "TASK-SAFETY-002"],
+      "description": "Wire the complete flow: student types 'let's play chess' → AI invokes tool → app card renders with chess board → student makes moves → AI analyzes board → game ends → card collapses → AI discusses game. This is the signature experience.",
+      "wired_in": ["packages/backend/src/routes/chat.ts", "src/renderer/components/message-parts/AppCardPartUI.tsx"],
+      "requirement_ids": ["FR-CHAT-005", "FR-APP-002", "FR-APP-003", "FR-APP-005", "FR-AI-003", "FR-CHESS-001", "FR-CHESS-002", "FR-CHESS-003"],
+      "tdd_note": "E2E test: full chess lifecycle. This must feel seamless."
+    },
+    {
+      "task_id": "TASK-INTEG-002",
+      "title": "Full Spotify integration: OAuth + playlist",
+      "checkpoint": "CP-4",
+      "dependencies": ["TASK-SPOT-001", "TASK-AI-002", "TASK-FE-APPCARD-001"],
+      "description": "Wire: student asks for playlist → AI invokes Spotify → OAuth popup if needed → search tracks → create playlist → app card shows playlist. Token refresh transparent.",
+      "requirement_ids": ["FR-SPOT-001", "FR-SPOT-002", "FR-SPOT-003"],
+      "tdd_note": "Integration test: OAuth flow, playlist created with real Spotify API (--live flag)"
+    },
+    {
+      "task_id": "TASK-INTEG-003",
+      "title": "Full Weather integration",
+      "checkpoint": "CP-4",
+      "dependencies": ["TASK-WTHR-001", "TASK-AI-002", "TASK-FE-APPCARD-001"],
+      "description": "Wire: student asks about weather → AI invokes weather tool → app card shows dashboard with real data.",
+      "requirement_ids": ["FR-WTHR-001", "FR-WTHR-002"],
+      "tdd_note": "Integration test: weather data fetched, dashboard renders"
+    },
+    {
+      "task_id": "TASK-FE-MC-001",
+      "title": "Mission Control: student grid + real-time monitoring",
+      "checkpoint": "CP-4",
+      "dependencies": ["TASK-FE-001", "TASK-API-001"],
+      "description": "Build Mission Control page: real-time grid of 30 students via WebSocket. Color-coded status (green/amber/red). Last activity, current app. Safety alert cards slide in from right. Uses WS /ws/mission-control.",
+      "files_owned": ["src/renderer/routes/mission-control/", "src/renderer/components/mission-control/"],
+      "requirement_ids": ["FR-CTRL-005", "FR-CTRL-006"],
+      "tdd_note": "Tests: grid renders 30 students, status updates in real time, alerts appear"
+    },
+    {
+      "task_id": "TASK-FE-MC-002",
+      "title": "Mission Control: whisper + classroom config UI",
+      "checkpoint": "CP-4",
+      "dependencies": ["TASK-FE-MC-001", "TASK-API-WHISPER"],
+      "description": "Add whisper input to Mission Control: teacher types guidance for specific student, sends via API. Classroom config panel: AI mode, subject, tone, app toggles. Async guidance input.",
+      "files_owned": ["src/renderer/components/mission-control/WhisperInput.tsx", "src/renderer/components/mission-control/ClassroomConfig.tsx"],
+      "requirement_ids": ["FR-CTRL-003", "FR-CTRL-004"],
+      "tdd_note": "Tests: whisper sends, config saves, app toggles update"
+    },
+    {
+      "task_id": "TASK-COLLAB-001",
+      "title": "Collaborative sessions: backend + turn enforcement",
+      "checkpoint": "CP-4",
+      "dependencies": ["TASK-APP-001", "TASK-CHESS-001"],
+      "description": "Implement: POST /collaborative-sessions, POST /sessions/{code}/join. Turn-based enforcement via server-authoritative state. State sync via Redis Pub/Sub. WS /ws/collab/{sessionId}. Teacher observation and close.",
+      "files_owned": ["packages/backend/src/routes/collab.ts", "packages/backend/src/collab/"],
+      "requirement_ids": ["FR-COLLAB-001", "FR-COLLAB-002", "FR-COLLAB-003", "FR-COLLAB-004"],
+      "tdd_note": "Tests: session created, join works, turn enforced, state syncs, teacher can close"
+    },
+    {
+      "task_id": "TASK-COLLAB-002",
+      "title": "Collaborative chess: frontend + multi-player",
+      "checkpoint": "CP-4",
+      "dependencies": ["TASK-COLLAB-001", "TASK-CHESS-001"],
+      "description": "Wire collaborative chess: two students see same board, turns enforced, AI observes both. Color assignment. Disconnect handling with 5-min reconnection window.",
+      "files_owned": ["packages/apps-chess/src/collaborative.ts"],
+      "requirement_ids": ["FR-CHESS-004", "FR-COLLAB-005"],
+      "tdd_note": "Tests: two players see same board, turn violation rejected, disconnect preserves position"
+    },
+    {
+      "task_id": "TASK-FE-ADMIN-001",
+      "title": "District admin portal: app catalog + analytics",
+      "checkpoint": "CP-4",
+      "dependencies": ["TASK-FE-001", "TASK-REVIEW-001"],
+      "description": "Build admin pages: app catalog (review results, approve/reject/suspend), aggregate analytics (per-school, per-classroom), safety event viewer, audit trail viewer. District-wide app suspension button.",
+      "files_owned": ["src/renderer/routes/admin/"],
+      "requirement_ids": ["FR-CTRL-008", "FR-CTRL-007"],
+      "tdd_note": "Tests: catalog shows apps, approve/reject works, suspend cascades, analytics load"
+    },
+    {
+      "task_id": "TASK-LTI-001",
+      "title": "LTI 1.3: grade passback + deep linking + NRPS",
+      "checkpoint": "CP-4",
+      "dependencies": ["TASK-API-AUTH"],
+      "description": "Implement LTI AGS (grade passback for graded activities), deep linking (direct activity launch), NRPS (class roster sync). Integrate with ltijs.",
+      "files_owned": ["packages/backend/src/routes/lti.ts"],
+      "requirement_ids": ["FR-AUTH-002"],
+      "tdd_note": "Tests: grade posted to LMS, deep link resolves, roster syncs"
+    },
+    {
+      "task_id": "TASK-EVAL-002",
+      "title": "Eval baseline recording",
+      "checkpoint": "CP-4",
+      "dependencies": ["TASK-EVAL-001", "TASK-INTEG-001"],
+      "description": "Run eval harness against golden dataset. Record baseline scores per dimension. Store in Langfuse. Block deployment if any dimension below threshold.",
+      "requirement_ids": [],
+      "tdd_note": "Run golden dataset, verify all dimensions pass thresholds"
+    },
+    {
+      "task_id": "TASK-INFRA-004",
+      "title": "Infrastructure failure modes: Redis, PostgreSQL, WebSocket",
+      "checkpoint": "CP-4",
+      "dependencies": ["TASK-API-001"],
+      "description": "Implement FR-INFRA-001 (Redis failure: degrade to direct DB), FR-INFRA-002 (Postgres failure: 503 + maintenance page), FR-INFRA-003 (WebSocket reconnect with exponential backoff).",
+      "files_owned": ["packages/backend/src/middleware/resilience.ts", "src/renderer/lib/chatbridge-ws.ts (reconnect)"],
+      "requirement_ids": ["FR-INFRA-001", "FR-INFRA-002", "FR-INFRA-003"],
+      "tdd_note": "Tests: Redis down → chat still works (slower), Postgres down → 503, WS reconnects"
+    },
+    {
+      "task_id": "TASK-POLISH-001",
+      "title": "Motion spec implementation",
+      "checkpoint": "CP-5",
+      "dependencies": ["TASK-INTEG-001"],
+      "description": "Implement all animations from motion_spec.md: message entry, app card transitions, tool invocation pill, suggestion chip stagger. Grade-band adaptations (K-2 slower). Reduced motion support.",
+      "requirement_ids": [],
+      "tdd_note": "Visual verification: animations match spec, reduced motion disables all"
+    },
+    {
+      "task_id": "TASK-POLISH-002",
+      "title": "Accessibility audit + fixes",
+      "checkpoint": "CP-5",
+      "dependencies": ["TASK-INTEG-001"],
+      "description": "Run axe-core audit. Fix all WCAG 2.1 AA violations. Keyboard navigation for chat + app cards + Mission Control. Screen reader labels for all interactive elements. Focus management for iframe lifecycle.",
+      "requirement_ids": ["NFR-ACC-001"],
+      "tdd_note": "Tests: axe-core zero violations, tab navigation works, screen reader announces state changes"
+    },
+    {
+      "task_id": "TASK-POLISH-003",
+      "title": "Performance optimization",
+      "checkpoint": "CP-5",
+      "dependencies": ["TASK-INTEG-001"],
+      "description": "Optimize: FCP <1.5s, CLS <0.1, app card load <2s p95. Bundle size optimization for web build. Lazy loading for Mission Control and admin routes.",
+      "requirement_ids": ["NFR-PERF-001", "NFR-PERF-002"],
+      "tdd_note": "Lighthouse scores, CLS measurement, load time benchmarks"
+    },
+    {
+      "task_id": "TASK-POLISH-004",
+      "title": "Eval regression check",
+      "checkpoint": "CP-5",
+      "dependencies": ["TASK-EVAL-002"],
+      "description": "Re-run eval harness against golden dataset. Verify no dimension dropped below baseline. If regression detected, fix before release.",
+      "requirement_ids": [],
+      "tdd_note": "All eval dimensions ≥ baseline scores from CP-4"
+    },
+    {
+      "task_id": "TASK-POLISH-005",
+      "title": "Design fidelity audit + token compliance",
+      "checkpoint": "CP-5",
+      "dependencies": ["TASK-POLISH-001"],
+      "description": "Verify: token usage ≥85%, DM Sans rendering, color contrast passes, spacing on 4px grid. Screenshot every page and compare to wireframes. Fidelity ≥80% to pass.",
+      "requirement_ids": [],
+      "tdd_note": "Visual comparison: screenshots vs wireframes, token scan"
+    }
+  ]
+}

@@ -1,0 +1,169 @@
+{
+  "metadata": {
+    "created_at": "2026-04-02T21:00:00Z",
+    "updated_at": "2026-04-02T21:30:00Z",
+    "created_by": "customer_understanding_compile"
+  },
+  "project_id": "chatbridge-v2",
+  "project_name": "ChatBridge v2",
+  "artifact_version": "1.0.0",
+  "client_profile": {
+    "industry": "K-12 EdTech / AI Learning Platforms",
+    "stakeholders": [
+      "K-12 students (ages 5-18) — end users interacting with AI chat and embedded educational apps",
+      "Teachers — configure AI behavior per classroom, curate app catalog, monitor students via Mission Control",
+      "District administrators — manage platform-wide settings, app allowlists, compliance, analytics",
+      "App developers — third-party developers building educational apps for the ChatBridge platform",
+      "Parents — consent authority for student data under COPPA"
+    ],
+    "budget_signal": "Enterprise SaaS to districts. Comparable pricing: SchoolAI (free + paid), Flint ($1.08-$1.67/user/mo at scale), MagicSchool (freemium), Microsoft Copilot for Education ($18/user/mo). ESSER funds expired; only 6% of states have sustainability plans.",
+    "timeline_signal": "Portfolio piece — optimize for quality, no sprint deadline. But COPPA 2025 compliance deadline (April 22, 2026) creates market urgency for any K-12 platform shipping in 2026."
+  },
+  "business_problem": {
+    "summary": "TutorMeAI's competitive edge (teacher-configurable AI chatbot) is being copied by competitors (ChatGPT for Teachers, Khanmigo, MagicSchool, Flint). To survive, they must evolve from chatbot to platform: enabling third-party educational apps to live inside the chat experience while maintaining teacher control and child safety. The market has governance and extensibility as separate products — SchoolAI has governance (5/5) but no extensibility (1/5), OpenAI has extensibility (5/5) but no K-12 governance (2/5). No competitor has both. ChatBridge_v2 occupies the white space.",
+    "pain_points": [
+      "Students tab-switch between 10-15 disconnected tools, losing 2-4 hours/week to platform-switching and context loss",
+      "96% of school apps share student data with third parties — districts cannot trust current tools with children's data",
+      "Generic AI chatbots give direct answers rather than guiding learning — undermines pedagogical goals",
+      "Teachers have no visibility into what AI and third-party apps show students, no ability to shape AI behavior to match pedagogical goals",
+      "No K-12 AI platform supports third-party app integration with child-safety architecture — governance and extensibility exist only as separate products",
+      "COPPA 2025 amendments raise the trust bar (biometric data, third-party disclosure consent) with April 22, 2026 compliance deadline — most competitors haven't updated",
+      "65% of education software licenses go unused (shelfware); only 5% of students use edtech at required dosage",
+      "76% of teachers report receiving no AI training — adoption depends on intuitive teacher experience"
+    ],
+    "desired_outcomes": [
+      "A K-12 AI chat platform where third-party educational apps live inside the chat experience — students interact with apps (chess, Spotify, weather) without leaving the conversation",
+      "Teacher control over AI behavior (Socratic mode, direct mode, subject boundaries, tone) and app availability (per-classroom curation from district-approved catalog)",
+      "AI that is aware of app state and responds contextually — student asks 'what should I do here?' mid-chess-game and AI analyzes the actual board position",
+      "Multi-tenant district isolation (RLS) ensuring zero cross-district data leakage even with application bugs",
+      "COPPA/FERPA compliance built into architecture: consent tracking, data retention, audit trails, US data residency, no PII in observability traces",
+      "4-stage content safety pipeline on every message crossing trust boundaries: PII detection, injection detection, LLM classification, crisis detection",
+      "LTI 1.3 Advantage integration with Canvas/Schoology for SSO, grade passback, deep linking, roster sync",
+      "Collaborative sessions — shared app instances (e.g., multiplayer chess) with server-authoritative state and turn-based enforcement",
+      "ChatBridge Protocol (CBP) — open MCP extension for K-12 safe app communication that creates ecosystem lock-in",
+      "Developer SDK and docs good enough for a third-party developer to build a 4th app",
+      "Deployed and live on Railway with all 3 apps working (Chess, Spotify Playlist Creator, Weather Dashboard)"
+    ]
+  },
+  "target_users": [
+    "K-12 students (ages 5-18) across 4 grade bands: K-2 (ages 5-7), 3-5 (ages 8-10), 6-8 (ages 11-13), 9-12 (ages 14-18)",
+    "Teachers — configure AI and apps per classroom, monitor students via Mission Control, inject whisper guidance",
+    "District administrators — manage app catalog (approve/reject/suspend), enforce district-wide policies, review aggregate analytics",
+    "App developers — build educational apps using CBP protocol and ChatBridge SDK",
+    "Parents — provide/revoke COPPA consent for student data processing"
+  ],
+  "current_workflows": [
+    {
+      "name": "Student AI chat session",
+      "description": "Student opens Chatbox (Electron desktop or web), selects a conversation, types a message. AI responds via streaming. Conversation history persists across sessions. Currently no app integration, no teacher controls, no safety pipeline."
+    },
+    {
+      "name": "Student tool interaction",
+      "description": "Currently: student tab-switches between AI chat and separate tools (Kahoot, Quizlet, Khan Academy, etc.), losing context with each switch. Target: student invokes apps via natural language inside the chat ('let's play chess'), app appears inline, AI remains aware of app state."
+    },
+    {
+      "name": "Teacher classroom setup",
+      "description": "Currently: teachers configure AI behavior in Chatbox settings (model selection, system prompt). No per-classroom config, no app curation, no student monitoring. Target: Mission Control dashboard with classroom config, app catalog curation, real-time student monitoring, whisper guidance."
+    },
+    {
+      "name": "District app governance",
+      "description": "Currently: no process. Target: district admin reviews submitted apps for compliance, approves/rejects for district catalog. Teachers curate from approved catalog per classroom. Automated app review pipeline for security, safety, and compliance scanning."
+    },
+    {
+      "name": "Third-party app development",
+      "description": "Currently: no SDK or integration path. Target: developer reads docs, registers app via API with tool definitions and CBP protocol implementation, tests in sandbox, submits for automated review, app appears in catalog after approval."
+    }
+  ],
+  "systems_landscape": [
+    "Chatbox (Electron + React + TypeScript) — open-source AI chat client, GPLv3, 100K+ GitHub stars. Fork on branch v2 is the build base. Architecture: Jotai atoms + TanStack React Query + TanStack Router + Mantine UI + electron-vite. Messages use contentParts[] discriminated union (text, image, tool-call, reasoning, info). Tool use fully implemented via Vercel AI SDK v6 with MCP support. No WebSocket — must be added. No platform auth — must be added. Web build works (CHATBOX_BUILD_PLATFORM=web). See chatbox_codebase_audit.json for full details.",
+    "Anthropic Claude Sonnet 4.6 — single LLM model for all use cases (chat, classification, reasoning, tool routing). Chatbox already has Claude provider at src/shared/providers/definitions/claude.ts using @ai-sdk/anthropic with tool_use, vision, reasoning capabilities. Same AI SDK used on both frontend (Chatbox) and backend (Fastify) — monoglot TypeScript stack.",
+    "Fastify (Node.js/TypeScript) — backend API server with auto-OpenAPI/Swagger, WebSocket support via @fastify/websocket. Monoglot TypeScript stack shares Zod schemas with Chatbox frontend. ORM: Prisma or Drizzle. Testing: Vitest.",
+    "PostgreSQL 16 with Row-Level Security — primary data store with multi-tenant district isolation. New service.",
+    "Redis 7 — Pub/Sub for WebSocket scaling, session cache, rate limiting, collaborative session state relay. New service.",
+    "Langfuse (self-hosted) — LLM observability, COPPA-compliant (US data residency, pseudonymous IDs, no PII in traces). New service.",
+    "Railway — deployment platform for full stack (backend, web frontend, Postgres, Redis, Langfuse)",
+    "ChatBridge Bridge Protocol (CBP) — JSON-RPC 2.0 over postMessage, extending MCP with K-12 safety primitives. Port from reference repo at /Users/shruti/Software/ChatBridge.",
+    "LTI 1.3 Advantage — Canvas and Schoology integration for SSO (OIDC), grade passback (AGS), deep linking, roster sync (NRPS)",
+    "Spotify Web API — OAuth2 integration for Spotify Playlist Creator app",
+    "OpenWeatherMap API — external API for Weather Dashboard app",
+    "chess.js / chessboard.js — chess engine and UI for Chess app"
+  ],
+  "constraints": {
+    "compliance": [
+      "COPPA 2025 amendments (effective June 23, 2025; compliance deadline April 22, 2026) — biometric data expansion, separate parental consent for third-party disclosure, enhanced safe harbor requirements",
+      "FERPA — student education records protection, audit trails for all AI interactions, no cross-district data leakage",
+      "WCAG 2.1 AA — accessibility for K-12 including screen reader support, keyboard navigation, color contrast (4.5:1 minimum)",
+      "121+ state privacy laws — patchwork compliance requirements for student data"
+    ],
+    "data_residency": "US data residency for all student data and LLM traces. Langfuse self-hosted on US infrastructure. Anthropic Claude inference_geo='us'.",
+    "latency": "First AI token < 1 second. App card load < 2 seconds. Typing indicator < 200ms. Tool invocation visualization within 200ms of AI decision. WebSocket message relay < 100ms for collaborative sessions.",
+    "delivery_timeline": "Portfolio piece — no external deadline. Optimize for production quality. Build on Chatbox fork branch v2."
+  },
+  "success_metrics": [
+    "All 7 brief test scenarios pass: (1) tool discovery and invocation, (2) app UI renders in chat, (3) completion signaling, (4) context retention after app completion, (5) multi-app switching in same conversation, (6) routing accuracy for ambiguous queries, (7) graceful refusal for unrelated queries",
+    "Chess: full game lifecycle with mid-game board analysis by AI, collaborative play support",
+    "Spotify: real OAuth2 flow, real playlist creation, token refresh working",
+    "Weather: clean UI, fast response, demonstrates easy developer onboarding path",
+    "Multi-tenant isolation: RLS prevents cross-district data leakage (verifiable by test)",
+    "Teacher Mission Control: real-time monitoring of 30 students, classroom config, whisper guidance functional",
+    "Safety pipeline: 4-stage classification active on every message, teacher alerting for critical events",
+    "COPPA/FERPA: consent tracking, audit trails, US data residency, no PII in Langfuse traces",
+    "LTI 1.3: SSO + grade passback working with at least one LMS (Canvas or Schoology)",
+    "Developer experience: a new developer can build and register a 4th app using only the SDK docs",
+    "Deployed and live on Railway with all 3 apps working",
+    "All LLM calls traced in Langfuse with pseudonymous user IDs",
+    "Automated app review pipeline functional for security/safety/compliance scanning"
+  ],
+  "project_classification": ["integration", "workflow", "hybrid"],
+  "facts": [
+    "Chatbox is an open-source Electron + React AI chat client (GPLv3, 100K+ GitHub stars), supports multiple LLM providers, cross-platform (desktop + mobile + web). Source: github.com/chatboxai/chatbox",
+    "SchoolAI has Mission Control for teacher monitoring, is FERPA/COPPA/SOC 2 compliant, but has zero third-party app extensibility. Source: schoolai.com",
+    "OpenAI Apps SDK launched November 2025, built on MCP, App Directory live December 2025. Apps must comply with privacy/safety standards. Source: openai.com",
+    "MCP reached 97M monthly downloads by March 2026, adopted by Anthropic, OpenAI, Microsoft, AWS. Donated to Linux Foundation AAIF December 2025. Source: modelcontextprotocol.io",
+    "COPPA 2025 amendments published April 22, 2025. Effective June 23, 2025. Compliance deadline April 22, 2026. Expands personal information to biometric identifiers. Requires separate parental consent for third-party data disclosure. Source: Federal Register",
+    "K-12 AI market: $539.7M (2025), projected $13.6B by 2035 at 38.1% CAGR. North America 39.3% share. Source: FutureMarketInsights, GrandViewResearch",
+    "Khanmigo powered by Azure OpenAI, free for US K-12 educators, integrates with Canvas/Schoology/Google Classroom via Clever. No third-party extensibility. Source: khanmigo.ai, Microsoft",
+    "MagicSchool AI serves 6M+ educators with 80+ AI tools, SOC 2/FERPA/COPPA compliant. No third-party extensibility. Source: magicschool.ai",
+    "Flint K-12 raised $15M (November 2025), freemium pricing, LMS integrations, admin content monitoring. Source: AlleyWatch, flintk12.com",
+    "Google Gemini for Education: free across all Workspace for Education editions, 30+ AI capabilities, LTI for Schoology/Canvas. No third-party app platform. Source: blog.google",
+    "Microsoft Copilot for Education: $18/user/month, LMS embedding planned Spring 2026. Source: microsoft.com education blog",
+    "Canvas and Schoology support LTI 1.3 Advantage. Google Classroom does NOT support LTI (24% K-12 market share — requires custom API). Source: ed.link, CompTIA",
+    "96% of school apps share student data with third parties. Source: Internet Safety Labs 2022",
+    "65% of education software licenses go unused (shelfware). Source: market research",
+    "76% of teachers report receiving no AI training. Source: market research",
+    "Iframe sandbox best practices (2025-2026): sandbox attribute, postMessage origin validation, CSP frame-ancestors, HTTPS-only, block nested iframes. Source: MDN, Feroot, Qrvey",
+    "Instructure announced IgniteAgent using MCP for Canvas. Risk: LMS layer moving up-stack with AI chat + app embedding. Source: Instructure press release",
+    "ChatGPT Apps SDK uses inline cards and fullscreen canvases for third-party app UI within conversation. Source: developers.openai.com/apps-sdk",
+    "Reference architecture exists at /Users/shruti/Software/ChatBridge with full CBP protocol, safety pipeline, RLS, Mission Control, collaborative sessions, LTI 1.3, Langfuse observability",
+    "Chatbox codebase audit: tool_use is FULLY IMPLEMENTED via Vercel AI SDK v6 — Claude, OpenAI, Gemini all support function calling natively. No need to build tool infrastructure from scratch. Source: codebase audit of src/renderer/packages/model-calls/stream-text.ts",
+    "Chatbox codebase audit: MCP (Model Context Protocol) support is ACTIVE — external processes can register tools via MCP. Located at src/renderer/packages/mcp/. Natural foundation for plugin system. Source: codebase audit",
+    "Chatbox codebase audit: Message contentParts[] uses Zod discriminated union (text, image, tool-call, reasoning, info). Adding app-card type is the primary UI integration point. Located at src/shared/types/session.ts. Source: codebase audit",
+    "Chatbox codebase audit: NO WebSocket infrastructure exists. Streaming uses fetch() ReadableStream only. WebSocket must be added for Mission Control, CBP relay, collaborative sessions, safety alerts. Source: codebase audit",
+    "Chatbox codebase audit: NO platform auth exists. Chatbox uses provider API keys and optional Chatbox AI cloud OAuth. Platform-level JWT auth, per-app OAuth, LTI 1.3 SSO all must be built. Source: codebase audit",
+    "Chatbox codebase audit: Web build works (CHATBOX_BUILD_PLATFORM=web, output at release/app/dist/renderer/). Requires Node 22 (system Node 25 has broken simdjson). delete-sourcemaps post-script fails but renderer output is complete. Source: environment preflight",
+    "Chatbox codebase audit: State management uses Jotai atoms (primary) + TanStack React Query (caching) + Zustand (legacy). Routing via TanStack React Router with file-based routes. UI via Mantine v7+. Source: codebase audit"
+  ],
+  "assumptions": [
+    "TutorMeAI is a fictional case study — company-specific claims (10K districts, 200K DAU) are treated as design parameters, not verifiable facts",
+    "Anthropic Claude Sonnet 4.6 is capable enough for all use cases (chat, classification, reasoning, tool routing) without model routing split — validated by customer decision",
+    "The Chatbox fork provides a stable enough foundation for the plugin system — the existing codebase is actively maintained with regular releases",
+    "Railway can host the full stack (backend + web frontend + Postgres + Redis + Langfuse) within reasonable cost bounds for a portfolio piece",
+    "The 3 first-party apps (Chess, Spotify, Weather) are sufficient to demonstrate the platform's flexibility across all auth patterns and complexity levels",
+    "1:30 teacher-to-student ratio is the design target for Mission Control real-time monitoring",
+    "Automated app review can be implemented with static analysis, schema validation, and content safety scanning — no human-in-the-loop required for V1",
+    "All 4 grade bands (K-2, 3-5, 6-8, 9-12) will have distinct UI adaptations (typography, spacing, interaction patterns, information density)"
+  ],
+  "inferences": [
+    "The competitive white space is K-12 governance + third-party app extensibility in one platform. No competitor occupies both. This is the market gap ChatBridge_v2 targets. Evidence: SchoolAI (governance 5/5, extensibility 1/5), OpenAI (extensibility 5/5, governance 2/5).",
+    "Building on MCP/CBP rather than a proprietary protocol is strategically correct. MCP is now the industry standard (97M downloads), OpenAI's Apps SDK builds on it, and Instructure adopted MCP for IgniteAgent. CBP extends MCP with K-12 safety primitives the base spec lacks.",
+    "The biggest competitive threat is not a startup but the Canvas/Schoology LMS layer moving up-stack with MCP-based AI features. Instructure announced IgniteAgent. Counter: LMS companies are course management DNA, not conversational AI. ChatBridge_v2 has 12-18 months speed advantage.",
+    "The chess demo (AI-aware app state) is the single most compelling differentiator in any sales demo. Student asks 'what should I do here?' and AI analyzes the actual board position. Zero competitors can do this.",
+    "COPPA 2025 compliance deadline (April 22, 2026) creates both urgency and opportunity — districts must evaluate platform compliance, and ChatBridge_v2's architecture-first approach to safety is a selling point over competitors scrambling to retrofit.",
+    "Chat-first navigation with collapsible sidebar is the established UX convention (ChatGPT, Slack, SchoolAI). Inline app cards within the chat stream (not separate pages) are the emerging standard (ChatGPT Apps SDK, Discord embeds).",
+    "Grade-band adaptive interfaces require distinct specifications: K-2 needs 18-20px body text, 56px touch targets, max 3 choices per screen, complete messages (no streaming). 9-12 can handle 15px text, standard touch targets, full streaming, denser information."
+  ],
+  "open_questions": [],
+  "decision_prompts": [],
+  "approval_status": "draft",
+  "qualification_status": "qualified"
+}

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatBridge Chess</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: #F8FAFC;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      min-height: 100%;
+    }
+    .board-container {
+      position: relative;
+      width: min(100%, 480px);
+      aspect-ratio: 1;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      width: 100%;
+      height: 100%;
+      border: 2px solid #334155;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .square {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: min(5vw, 40px);
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.15s;
+    }
+    .square.light { background: #F1F5F9; }
+    .square.dark { background: #94A3B8; }
+    .square.selected { background: #818CF8 !important; }
+    .square.valid-move { background: #A5F3FC !important; }
+    .square.valid-move::after {
+      content: '';
+      width: 30%;
+      height: 30%;
+      border-radius: 50%;
+      background: rgba(79, 70, 229, 0.4);
+      position: absolute;
+    }
+    .square.last-move { background: #FDE68A !important; }
+    .piece { cursor: grab; }
+    .piece:active { cursor: grabbing; }
+
+    .status-bar {
+      width: min(100%, 480px);
+      padding: 12px 16px;
+      margin-top: 12px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #E2E8F0;
+      font-size: 14px;
+      color: #334155;
+      text-align: center;
+    }
+    .status-bar.check { border-color: #F43F5E; color: #E11D48; }
+    .status-bar.gameover { border-color: #4F46E5; color: #4F46E5; font-weight: 600; }
+
+    .error-msg {
+      color: #E11D48;
+      font-size: 13px;
+      margin-top: 8px;
+      min-height: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="board-container">
+    <div class="board" id="board"></div>
+  </div>
+  <div class="status-bar" id="status">White to move</div>
+  <div class="error-msg" id="error"></div>
+
+  <script type="module" src="/src/chess-app.ts"></script>
+</body>
+</html>

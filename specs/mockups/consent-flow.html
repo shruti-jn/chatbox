@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatBridge — Parental Consent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* --- Colors: Primary (Indigo) --- */
+      --color-primary: #4F46E5;
+      --color-primary-hover: #4338CA;
+      --color-primary-active: #3730A3;
+      --color-primary-disabled: #A5B4FC;
+      --color-primary-light: #EEF2FF;
+
+      /* --- Colors: Secondary (Teal) --- */
+      --color-secondary: #0D9488;
+      --color-secondary-hover: #0F766E;
+      --color-secondary-active: #115E59;
+      --color-secondary-disabled: #99F6E4;
+      --color-secondary-light: #F0FDFA;
+
+      /* --- Colors: Accent (Amber) --- */
+      --color-accent: #F59E0B;
+      --color-accent-hover: #D97706;
+      --color-accent-active: #B45309;
+
+      /* --- Colors: Semantic --- */
+      --color-success: #10B981;
+      --color-warning: #F59E0B;
+      --color-error: #EF4444;
+      --color-info: #3B82F6;
+
+      /* --- Colors: Neutral Scale (9 steps) --- */
+      --neutral-0: #FFFFFF;
+      --neutral-50: #F9FAFB;
+      --neutral-100: #F3F4F6;
+      --neutral-200: #E5E7EB;
+      --neutral-300: #D1D5DB;
+      --neutral-400: #9CA3AF;
+      --neutral-500: #6B7280;
+      --neutral-600: #374151;
+      --neutral-900: #111827;
+
+      /* --- Colors: Background Tiers --- */
+      --bg-page: #F9FAFB;
+      --bg-surface: #FFFFFF;
+      --bg-elevated: #FFFFFF; /* with shadow */
+
+      /* --- Chat Bubble Colors --- */
+      --bubble-student: #4F46E5;
+      --bubble-student-text: #FFFFFF;
+      --bubble-ai: #F3F4F6;
+      --bubble-ai-text: #111827;
+      --bubble-system: #E5E7EB;
+      --bubble-system-text: #6B7280;
+
+      /* --- Typography --- */
+      --font-heading: 'Inter', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --text-xs: 0.75rem;   /* 12px */
+      --text-sm: 0.875rem;  /* 14px */
+      --text-base: 1rem;    /* 16px */
+      --text-lg: 1.125rem;  /* 18px */
+      --text-xl: 1.25rem;   /* 20px */
+      --text-2xl: 1.5rem;   /* 24px */
+      --text-3xl: 1.875rem; /* 30px */
+
+      --weight-regular: 400;
+      --weight-medium: 500;
+      --weight-semibold: 600;
+      --weight-bold: 700;
+
+      --leading-tight: 1.25;
+      --leading-normal: 1.5;
+      --leading-relaxed: 1.75;
+
+      /* --- Spacing --- */
+      --space-unit: 4px;
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      --space-2xl: 48px;
+      --space-3xl: 64px;
+
+      /* --- Elevation --- */
+      --shadow-flat: none;
+      --shadow-raised: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-floating: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-overlay: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05);
+
+      /* --- Border Radius --- */
+      --radius-none: 0;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --radius-full: 9999px;
+
+      /* --- Motion --- */
+      --ease-micro: cubic-bezier(0, 0, 0.2, 1);
+      --ease-panel: cubic-bezier(0.4, 0, 0.2, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+      --duration-micro: 200ms;
+      --duration-panel: 300ms;
+      --duration-page: 400ms;
+      --duration-app-materialize: 500ms;
+      --duration-shimmer: 1.5s;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-page);
+      color: var(--neutral-900);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: var(--space-xl) var(--space-md);
+      display: flex;
+      justify-content: center;
+    }
+
+    .consent-card {
+      width: 100%;
+      max-width: 600px;
+      background: var(--bg-surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-overlay);
+      padding: 40px var(--space-xl);
+    }
+
+    /* Logo */
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-xl);
+    }
+
+    .logo svg {
+      width: 36px;
+      height: 36px;
+    }
+
+    .logo-text {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--color-primary);
+    }
+
+    /* Header */
+    .consent-header {
+      text-align: center;
+      margin-bottom: var(--space-lg);
+    }
+
+    .consent-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: var(--space-sm);
+      color: var(--neutral-900);
+    }
+
+    .consent-header p {
+      font-size: 15px;
+      color: var(--neutral-500);
+    }
+
+    .consent-header .teacher-name {
+      font-weight: 600;
+      color: var(--neutral-900);
+    }
+
+    .consent-header .school-name {
+      font-weight: 600;
+      color: var(--color-primary);
+    }
+
+    /* Sections */
+    .section {
+      margin-bottom: var(--space-lg);
+      padding-bottom: var(--space-lg);
+      border-bottom: 1px solid var(--neutral-200);
+    }
+
+    .section:last-of-type {
+      border-bottom: none;
+      margin-bottom: var(--space-md);
+      padding-bottom: 0;
+    }
+
+    .section h2 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: var(--space-md);
+      color: var(--neutral-900);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .section-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    /* Bullet List */
+    .bullet-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .bullet-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-sm);
+      font-size: 14px;
+      color: var(--neutral-500);
+      line-height: 1.5;
+    }
+
+    .bullet-list li::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: var(--radius-full);
+      background: var(--color-primary);
+      flex-shrink: 0;
+      margin-top: 7px;
+    }
+
+    /* Data Collection Items */
+    .data-items {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .data-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      font-size: 14px;
+      color: var(--neutral-500);
+      padding: var(--space-sm) var(--space-md);
+      background: #F9FAFB;
+      border-radius: var(--radius-md);
+    }
+
+    .data-item svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .data-item--positive svg {
+      color: var(--color-info);
+    }
+
+    .data-item--negative {
+      background: #FEF2F2;
+      color: #991B1B;
+      font-weight: 500;
+    }
+
+    .data-item--negative svg {
+      color: var(--color-error);
+    }
+
+    /* App Toggles */
+    .app-toggles {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+    }
+
+    .app-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-md);
+      border: 1px solid var(--neutral-200);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+    }
+
+    .app-toggle-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .app-toggle-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--neutral-900);
+    }
+
+    .app-toggle-desc {
+      font-size: 13px;
+      color: var(--neutral-500);
+    }
+
+    /* Toggle Switch */
+    .toggle {
+      width: 44px;
+      height: 24px;
+      background: var(--color-success);
+      border-radius: var(--radius-full);
+      position: relative;
+      cursor: pointer;
+      border: none;
+      flex-shrink: 0;
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 22px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: var(--radius-full);
+      box-shadow: var(--shadow-raised);
+      transition: left 0.2s;
+    }
+
+    .toggle[aria-checked="false"] {
+      background: var(--neutral-200);
+    }
+
+    .toggle[aria-checked="false"]::after {
+      left: 2px;
+    }
+
+    .toggle-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-success);
+      margin-left: var(--space-sm);
+    }
+
+    .app-toggle-right {
+      display: flex;
+      align-items: center;
+    }
+
+    /* Rights List */
+    .rights-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .rights-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-sm);
+      font-size: 14px;
+      color: var(--neutral-500);
+    }
+
+    .rights-list li svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      color: var(--color-success);
+      margin-top: 1px;
+    }
+
+    /* Action Buttons */
+    .actions {
+      margin-top: var(--space-lg);
+      text-align: center;
+    }
+
+    .btn-approve {
+      width: 100%;
+      padding: 14px;
+      background: var(--color-success);
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      font-family: var(--font-body);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-bottom: var(--space-md);
+    }
+
+    .btn-approve:hover {
+      background: #059669;
+    }
+
+    .btn-deny {
+      display: inline-block;
+      color: var(--neutral-400);
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-family: var(--font-body);
+      transition: color 0.15s;
+    }
+
+    .btn-deny:hover {
+      color: var(--neutral-500);
+      text-decoration: underline;
+    }
+
+    /* Footer */
+    .consent-footer {
+      margin-top: var(--space-xl);
+      text-align: center;
+      font-size: 13px;
+      color: var(--neutral-400);
+      padding-top: var(--space-md);
+      border-top: 1px solid var(--neutral-200);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="consent-card">
+    <!-- Logo -->
+    <div class="logo">
+      <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="7" width="13" height="12" rx="3.5" fill="#4F46E5"/>
+        <rect x="20" y="7" width="13" height="12" rx="3.5" fill="#4F46E5" opacity="0.6"/>
+        <path d="M16 13 L20 13" stroke="#4F46E5" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M7 21 L7 26 L12 23.5" fill="#4F46E5" opacity="0.4"/>
+        <circle cx="8" cy="12.5" r="1.2" fill="white"/>
+        <circle cx="12" cy="12.5" r="1.2" fill="white"/>
+      </svg>
+      <span class="logo-text">ChatBridge</span>
+    </div>
+
+    <!-- Header -->
+    <div class="consent-header">
+      <h1>Parental Consent Required</h1>
+      <p><span class="teacher-name">Ms. Rodriguez</span> has invited your child to use ChatBridge in <strong>Period 3 &mdash; Science</strong> at <span class="school-name">Lincoln Middle School</span>.</p>
+    </div>
+
+    <!-- What ChatBridge Does -->
+    <div class="section">
+      <h2>
+        <svg class="section-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="10" cy="10" r="9" stroke="#4F46E5" stroke-width="1.5" fill="#EEF2FF"/>
+          <path d="M10 6v4.5l3 1.5" stroke="#4F46E5" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        What ChatBridge Does
+      </h2>
+      <ul class="bullet-list">
+        <li>Provides an AI learning assistant that helps students with schoolwork</li>
+        <li>Allows interactive educational apps (like chess and flashcards) inside the chat</li>
+        <li>Gives teachers real-time visibility into student interactions</li>
+      </ul>
+    </div>
+
+    <!-- What We Collect -->
+    <div class="section">
+      <h2>
+        <svg class="section-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="4" width="14" height="12" rx="2" stroke="#4F46E5" stroke-width="1.5" fill="#EEF2FF"/>
+          <path d="M7 9h6M7 12h4" stroke="#4F46E5" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        What We Collect
+      </h2>
+      <div class="data-items">
+        <div class="data-item data-item--positive">
+          <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#3B82F6" stroke-width="1.2"/><circle cx="8" cy="8" r="2" fill="#3B82F6"/></svg>
+          Chat messages your child sends and receives
+        </div>
+        <div class="data-item data-item--positive">
+          <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#3B82F6" stroke-width="1.2"/><circle cx="8" cy="8" r="2" fill="#3B82F6"/></svg>
+          App interaction data (e.g., chess moves, quiz answers)
+        </div>
+        <div class="data-item data-item--positive">
+          <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#3B82F6" stroke-width="1.2"/><circle cx="8" cy="8" r="2" fill="#3B82F6"/></svg>
+          Session duration and activity timestamps
+        </div>
+        <div class="data-item data-item--negative">
+          <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#EF4444" stroke-width="1.2"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#EF4444" stroke-width="1.2" stroke-linecap="round"/></svg>
+          We do NOT collect: photos, videos, voice, location, or biometric data
+        </div>
+      </div>
+    </div>
+
+    <!-- Apps Enabled -->
+    <div class="section">
+      <h2>
+        <svg class="section-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="6" height="6" rx="1.5" fill="#4F46E5"/>
+          <rect x="11" y="3" width="6" height="6" rx="1.5" fill="#4F46E5" opacity="0.6"/>
+          <rect x="3" y="11" width="6" height="6" rx="1.5" fill="#4F46E5" opacity="0.6"/>
+          <rect x="11" y="11" width="6" height="6" rx="1.5" fill="#4F46E5" opacity="0.3"/>
+        </svg>
+        Apps Your Child's Teacher Has Enabled
+      </h2>
+      <div class="app-toggles">
+        <div class="app-toggle">
+          <div class="app-toggle-info">
+            <span class="app-toggle-name">Chess</span>
+            <span class="app-toggle-desc">Interactive chess with AI coaching</span>
+          </div>
+          <div class="app-toggle-right">
+            <button class="toggle" role="switch" aria-checked="true" aria-label="Approve Chess"></button>
+            <span class="toggle-label">Approved</span>
+          </div>
+        </div>
+        <div class="app-toggle">
+          <div class="app-toggle-info">
+            <span class="app-toggle-name">Flashcards</span>
+            <span class="app-toggle-desc">Vocabulary flashcard practice</span>
+          </div>
+          <div class="app-toggle-right">
+            <button class="toggle" role="switch" aria-checked="true" aria-label="Approve Flashcards"></button>
+            <span class="toggle-label">Approved</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Your Rights -->
+    <div class="section">
+      <h2>
+        <svg class="section-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 2L3 5.5v5c0 4 2.8 7.2 7 8 4.2-.8 7-4 7-8v-5L10 2z" stroke="#10B981" stroke-width="1.5" fill="#ECFDF5"/>
+          <path d="M7 10.5L9 12.5L13 8.5" stroke="#10B981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Your Rights
+      </h2>
+      <ul class="rights-list">
+        <li>
+          <svg viewBox="0 0 18 18" fill="none"><path d="M4 9l3 3 7-7" stroke="#10B981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          You can withdraw consent at any time
+        </li>
+        <li>
+          <svg viewBox="0 0 18 18" fill="none"><path d="M4 9l3 3 7-7" stroke="#10B981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          You can request deletion of all your child's data
+        </li>
+        <li>
+          <svg viewBox="0 0 18 18" fill="none"><path d="M4 9l3 3 7-7" stroke="#10B981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          You can review your child's data by contacting the school
+        </li>
+      </ul>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button class="btn-approve">I Approve</button>
+      <button class="btn-deny">I Do Not Approve</button>
+    </div>
+
+    <!-- Footer -->
+    <div class="consent-footer">
+      Questions? Contact Lincoln Middle School at (555) 123-4567
+    </div>
+  </div>
+
+</body>
+</html>

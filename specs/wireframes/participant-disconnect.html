@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: Participant Disconnect — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .annotation strong { color: #111827; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--trigger { background: #FEF3C7; color: #92400E; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--state { background: #EEF2FF; color: #4F46E5; }
+    .label--exit { background: #ECFDF5; color: #059669; }
+    .label--error { background: #FEE2E2; color: #991B1B; }
+    .label--a11y { background: #F3E8FF; color: #7C3AED; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    .zone--alert { border-color: #EF4444; background: #FEF2F2; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Participant Disconnect</h1>
+  <div class="screen-id">Screen: participant-disconnect | FR: FR-COLLAB-004 | Personas: PER-001 (Student) | Journeys: JRN-002</div>
+
+  <!-- Layout Zones -->
+  <div class="section">
+    <h2>Layout Zones</h2>
+    <div class="zone-map">
+      <div class="zone zone--alert">
+        <div class="zone-number">1</div>
+        <strong>Disconnect Notification (in collaborative session view — remaining participants)</strong> — Inline notification below the participant roster: "[Student Name] disconnected. Waiting for them to reconnect (up to 5 minutes)." Amber styling. A 5-minute countdown timer shows time remaining. If turn-based: "It's [Other Student]'s turn. The game is paused while [Disconnected Student] reconnects." If concurrent: "You can keep going — [Disconnected Student] will catch up when they reconnect."
+      </div>
+      <div class="zone zone--primary">
+        <div class="zone-number">2</div>
+        <strong>Participant Roster (in session header)</strong> — List of all participants with connection status dots: green = connected, amber = reconnecting, gray = disconnected. Disconnected participant's avatar grays out with a clock icon. Roster is always visible in the collaborative session view.
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">3</div>
+        <strong>Reconnection View (disconnected student's browser)</strong> — When a student's connection drops, their own view shows a reconnection overlay: "You got disconnected. Reconnecting..." with a spinner. Auto-reconnects up to 5 attempts at 5-second intervals. On success: overlay dismisses, session state is delivered, game resumes. On failure (5 min timeout): overlay shows "You couldn't reconnect in time. The session may have continued without you." with a "Return to chat" button.
+      </div>
+      <div class="zone">
+        <div class="zone-number">4</div>
+        <strong>All-Disconnected Threshold (edge case)</strong> — If all participants disconnect simultaneously (e.g., class ends mid-session), the session transitions to <code>ending</code> state via the ALL_DISCONNECTED event. When any participant returns, they see: "Your session ended because everyone disconnected. Here's a summary of what you accomplished." Summary card (same as collab-session-end).
+      </div>
+    </div>
+  </div>
+
+  <!-- Trigger Conditions -->
+  <div class="section">
+    <h2>Trigger Conditions</h2>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>WebSocket connection drops:</strong> The server detects a participant's WebSocket disconnection (no ping response). PARTICIPANT_DISCONNECTED event fires in FSM-003. Per AC-COLLAB-004-01: remaining participants see "[Student name] disconnected" and the session continues.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>Browser closed / tab closed / network loss:</strong> Any of these causes the WebSocket to drop. The server distinguishes a graceful close (CLOSE frame) from a network loss (heartbeat timeout after ~15s). Both are treated as disconnections for session purposes.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>Turn-based vs. concurrent behavior:</strong> In turn-based sessions, disconnection of the current-turn player pauses the game. In concurrent sessions, remaining players can continue — disconnected player's state is preserved for when they return.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER (Reconnect)</span> <strong>Student navigates back / network restores:</strong> Browser re-establishes WebSocket. Server validates session is still active. PARTICIPANT_RECONNECTED event fires. Current state is delivered to the reconnected student. Remaining-participant view shows reconnection success.</p>
+  </div>
+
+  <!-- API Endpoints -->
+  <div class="section">
+    <h2>API Endpoints</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Rejoin after disconnect:</strong> <code>POST /api/v1/collaborative-sessions/{session_id}/join</code> — Same endpoint as initial join. Server recognizes existing participant and treats as rejoin. Returns full current session state for catch-up. Per FSM-003 rejoin_participant action.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>WebSocket (session — remaining participants):</strong> <code>WebSocket /ws/collab/{session_id}</code> receives <code>participant_disconnected</code> event with <code>{ "user_id": "uuid", "display_name": "..." }</code>. Frontend updates roster and shows disconnect notification.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>WebSocket (session — reconnecting student):</strong> After POST /join succeeds, student re-subscribes to <code>WebSocket /ws/collab/{session_id}</code>. Server sends the current state snapshot on WebSocket connect: <code>{ "type": "state_sync", "state": { ... } }</code>.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>WebSocket (reconnect success broadcast):</strong> Server broadcasts <code>participant_reconnected</code> event to all remaining participants: <code>{ "user_id": "uuid", "display_name": "..." }</code>. Roster updates and disconnect notification dismisses.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>5-minute reconnection window (server-side):</strong> Server starts a 5-minute timer on disconnect. If the participant does not rejoin within 5 minutes, the server broadcasts a <code>participant_timeout</code> event. If no other participants remain, ALL_DISCONNECTED fires and the session moves to <code>ending</code>.</p>
+  </div>
+
+  <!-- State Transitions -->
+  <div class="section">
+    <h2>State Transitions (FSM-003: Collaborative Session Lifecycle)</h2>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Disconnect (remaining participants):</strong> PARTICIPANT_DISCONNECTED event while in <code>active</code> state. Guard: "At least 1 participant remains." Session stays in <code>active</code>. handle_disconnect action fires: broadcast disconnect event, start 5-min reconnection window.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Reconnect:</strong> PARTICIPANT_RECONNECTED event while in <code>active</code>. rejoin_participant action: send current state to reconnected participant, broadcast rejoin event. Session remains in <code>active</code>.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>All disconnected:</strong> PARTICIPANT_DISCONNECTED event where no participants remain → guard fails → ALL_DISCONNECTED event fires → session moves to <code>ending</code>.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>30-minute inactivity timeout (edge case):</strong> If a disconnected player is the only one and the reconnection window expires (they are also the last player), the 30-min inactivity timeout fires → <code>ending</code>.</p>
+  </div>
+
+  <!-- User Exit Paths -->
+  <div class="section">
+    <h2>User Exit Paths</h2>
+    <ul>
+      <li><strong>Automatic reconnection succeeds:</strong> Reconnecting overlay dismisses. Student is back in the session. Roster shows green dot. Other participants see "[Student] reconnected."</li>
+      <li><strong>Reconnection fails (5 min timeout):</strong> Disconnected student sees "You couldn't reconnect in time." Button: "Return to chat" → returns to normal student-chat view. Their conversation history includes a note: "You were disconnected from the collaborative session."</li>
+      <li><strong>Remaining participant waits:</strong> No action required. Session continues if concurrent. If turn-based, game is paused. Timer counts down. If 5 min passes with no reconnect, session continues with reduced participants or ends if only 1 remains and the session requires 2.</li>
+      <li><strong>Session ends naturally during disconnect wait:</strong> If teacher ends session or activity completes while participant is disconnected, the disconnected student receives the session summary when they next connect.</li>
+    </ul>
+  </div>
+
+  <!-- Error Recovery -->
+  <div class="section">
+    <h2>Error Recovery</h2>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>POST /join fails on reconnect (5xx):</strong> Reconnecting overlay shows: "Having trouble reconnecting. Trying again..." Retries automatically up to 3 times with exponential backoff. If all retries fail: "Could not reconnect. Return to chat." Error logged.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>State sync fails after rejoin:</strong> If the WebSocket state_sync message is missing or malformed, the reconnected student sees the app in a loading state. After 5 seconds timeout, an error card shows: "Something went wrong catching you up. Try reloading." Reload triggers a fresh POST /join.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Multiple simultaneous disconnects:</strong> FSM handles each independently. Guard condition "at least 1 participant remains" is checked atomically. If multiple disconnects arrive in the same second, the last check determines if the session moves to ALL_DISCONNECTED.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Reconnect succeeds but session already ended:</strong> POST /join returns 404 (session not found) or 410 (session ended). Show: "The collaborative session has ended. Here's what happened while you were away:" followed by the session summary card.</p>
+  </div>
+
+  <!-- Accessibility Notes -->
+  <div class="section">
+    <h2>Accessibility Notes</h2>
+    <ul>
+      <li>Disconnect notification uses <code>role="status"</code> and <code>aria-live="polite"</code>: "[Student Name] disconnected. Waiting for them to reconnect." Not assertive — it's informational, not urgent for the remaining student.</li>
+      <li>Countdown timer uses <code>aria-live="polite"</code> and announces at 4 minutes, 2 minutes, and 1 minute remaining (not every second). Reads: "3 minutes left for [Student Name] to reconnect."</li>
+      <li>Participant roster uses <code>role="list"</code>. Each participant: <code>role="listitem"</code> with <code>aria-label="[Name] — connected"</code> or <code>aria-label="[Name] — reconnecting"</code>.</li>
+      <li>Reconnecting overlay on disconnected student's view uses <code>role="dialog"</code> (it blocks the session). Spinner has <code>aria-label="Reconnecting to session"</code> and <code>role="progressbar"</code> with <code>aria-valuetext="Attempting to reconnect..."</code>.</li>
+      <li>"Return to chat" button in timeout state has <code>aria-label="Return to your individual chat — collaborative session ended"</code>.</li>
+    </ul>
+  </div>
+
+</body>
+</html>

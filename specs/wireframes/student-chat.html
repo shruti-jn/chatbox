@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: Student Chat — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .annotation strong { color: #111827; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--hierarchy { background: #EEF2FF; color: #4F46E5; }
+    .label--interaction { background: #ECFDF5; color: #059669; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--responsive { background: #FEE2E2; color: #991B1B; }
+    .label--persona { background: #F3E8FF; color: #7C3AED; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Student Chat</h1>
+  <div class="screen-id">Screen: student-chat | Persona: PER-001 (Sam the Student) | Journeys: JRN-001, JRN-002</div>
+
+  <!-- Information Hierarchy -->
+  <div class="section">
+    <h2>Information Hierarchy</h2>
+    <div class="zone-map">
+      <div class="zone zone--primary">
+        <div class="zone-number">1</div>
+        <strong>Chat Messages + App Cards (center column)</strong> — The conversation thread with embedded app cards is the focal point. This is where learning happens.
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">2</div>
+        <strong>Chat Input Bar (bottom)</strong> — Persistent text input with suggestion chips. Always visible, always accessible. This is the primary action surface.
+      </div>
+      <div class="zone">
+        <div class="zone-number">3</div>
+        <strong>Top Bar (top)</strong> — Classroom context, student identity. Minimal chrome. Class name + teacher name orient the student.
+      </div>
+    </div>
+  </div>
+
+  <!-- Focal Point -->
+  <div class="section">
+    <h2>Focal Point</h2>
+    <p class="annotation"><span class="label label--hierarchy">FOCAL</span> <strong>The most recent message or app card</strong> owns the first 3 seconds. On load, scroll to the latest interaction. If an app card is active, it takes visual priority over text messages.</p>
+    <p class="annotation"><strong>Above-the-fold working surface:</strong> The student can read the last 2-3 messages and type a response without scrolling. The chat input is always pinned to the bottom.</p>
+  </div>
+
+  <!-- Banned Dominance Patterns -->
+  <div class="section">
+    <h2>Banned Dominance Patterns</h2>
+    <ul>
+      <li>No hero banner or welcome splash that pushes content below the fold</li>
+      <li>No sidebar navigation consuming horizontal space — chat is full-width (centered, max 800px)</li>
+      <li>No app catalog grid on the chat screen — apps appear only when invoked in conversation</li>
+      <li>Empty state must not be a large illustration dominating the viewport — use a simple prompt</li>
+    </ul>
+  </div>
+
+  <!-- Interactive State Annotations -->
+  <div class="section">
+    <h2>Interactive States</h2>
+    <p class="annotation"><span class="label label--interaction">CLICK</span> <strong>Suggestion chips:</strong> Clicking a chip inserts its text into the input and sends immediately. Chip disappears after use.</p>
+    <p class="annotation"><span class="label label--interaction">CLICK</span> <strong>App card:</strong> Clicking inside the app card's iframe sends events to the app. The card can expand/collapse. A minimize button collapses the app card to a summary row.</p>
+    <p class="annotation"><span class="label label--interaction">HOVER</span> <strong>Messages:</strong> Hover reveals a timestamp and a "copy" icon on AI messages.</p>
+    <p class="annotation"><span class="label label--interaction">FOCUS</span> <strong>Chat input:</strong> Border color changes to primary. Placeholder text: "Ask me anything..." for grades 6-12, "What do you want to learn?" for K-5.</p>
+    <p class="annotation"><span class="label label--interaction">STREAMING</span> <strong>AI response:</strong> Tokens stream in word-by-word. A typing indicator (three dots) appears while waiting for first token. Scroll auto-follows the streaming response.</p>
+  </div>
+
+  <!-- API Integration Annotations -->
+  <div class="section">
+    <h2>API Integration Annotations</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Chat messages zone:</strong> <code>GET /api/v1/sessions/{session_id}/messages</code> — loads conversation history on page load. Paginated (newest first, load more on scroll up).</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Send message:</strong> <code>POST /api/v1/sessions/{session_id}/messages</code> — sends student message. Returns streaming AI response via <code>WebSocket /ws/chat/{session_id}</code>.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>App card rendering:</strong> <code>GET /api/v1/apps/{app_id}/render</code> — returns iframe URL and initial state. App state updates flow via <code>postMessage</code> bridge.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Suggestion chips:</strong> Returned as part of the AI streaming response metadata. No separate endpoint.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Session context:</strong> <code>GET /api/v1/sessions/{session_id}</code> — classroom name, teacher name, grade band, enabled apps.</p>
+  </div>
+
+  <!-- Responsive Behavior -->
+  <div class="section">
+    <h2>Responsive Behavior</h2>
+    <p class="annotation"><span class="label label--responsive">MOBILE 375px</span> Chat messages go full-width with reduced padding. App cards render at full viewport width. Suggestion chips wrap to 2 rows max. Top bar collapses to logo + hamburger menu.</p>
+    <p class="annotation"><span class="label label--responsive">TABLET 768px</span> Same as desktop but chat column max-width reduces to 640px. App cards maintain aspect ratio.</p>
+    <p class="annotation"><span class="label label--responsive">DESKTOP 1280px</span> Chat column centered at max-width 800px. Generous whitespace on sides. App cards render up to 720px wide.</p>
+  </div>
+
+  <!-- Persona Fit -->
+  <div class="section">
+    <h2>Persona Fit</h2>
+    <p class="annotation"><span class="label label--persona">PERSONA</span> This screen serves K-12 students (ages 5-18). The layout is intentionally simple — one conversation thread, one input, minimal navigation. Younger students (K-5) see larger text, more suggestion chips, and simpler language. Older students (6-12) see standard text sizes and can type freely. The chat-first paradigm matches how students already communicate (messaging apps). Apps appearing inline in conversation feels natural, not imposed.</p>
+  </div>
+
+</body>
+</html>

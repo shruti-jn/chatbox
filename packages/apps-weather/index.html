@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatBridge Weather</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 50%, #7DD3FC 100%);
+      min-height: 100%;
+      padding: 16px;
+      color: #0F172A;
+    }
+    .weather-card {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 480px;
+      margin: 0 auto;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    .location { font-size: 24px; font-weight: 600; margin-bottom: 4px; }
+    .current { display: flex; align-items: center; gap: 16px; margin: 16px 0; }
+    .temp { font-size: 48px; font-weight: 700; color: #4F46E5; }
+    .conditions { font-size: 16px; color: #64748B; }
+    .weather-icon { font-size: 48px; }
+    .details { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+    .detail-item {
+      background: #F8FAFC;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .detail-label { font-size: 12px; color: #94A3B8; margin-bottom: 4px; }
+    .detail-value { font-size: 16px; font-weight: 600; }
+    .forecast {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      overflow-x: auto;
+    }
+    .forecast-day {
+      flex: 0 0 80px;
+      background: #F8FAFC;
+      border-radius: 8px;
+      padding: 12px 8px;
+      text-align: center;
+    }
+    .forecast-day .day { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+    .forecast-day .icon { font-size: 24px; }
+    .forecast-day .temps { font-size: 12px; color: #64748B; margin-top: 4px; }
+    .loading { text-align: center; padding: 40px; font-size: 16px; color: #64748B; }
+    .error { text-align: center; padding: 40px; color: #E11D48; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="loading">Loading weather data...</div>
+  </div>
+  <script type="module" src="/src/weather-app.ts"></script>
+</body>
+</html>

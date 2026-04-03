@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatBridge — Export Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+    :root {
+      /* --- Colors: Primary (Indigo) --- */
+      --color-primary: #4F46E5;
+      --color-primary-hover: #4338CA;
+      --color-primary-active: #3730A3;
+      --color-primary-disabled: #A5B4FC;
+      --color-primary-light: #EEF2FF;
+
+      /* --- Colors: Secondary (Teal) --- */
+      --color-secondary: #0D9488;
+      --color-secondary-hover: #0F766E;
+      --color-secondary-active: #115E59;
+      --color-secondary-disabled: #99F6E4;
+      --color-secondary-light: #F0FDFA;
+
+      /* --- Colors: Accent (Amber) --- */
+      --color-accent: #F59E0B;
+      --color-accent-hover: #D97706;
+      --color-accent-active: #B45309;
+
+      /* --- Colors: Semantic --- */
+      --color-success: #10B981;
+      --color-warning: #F59E0B;
+      --color-error: #EF4444;
+      --color-info: #3B82F6;
+
+      /* --- Colors: Neutral Scale (9 steps) --- */
+      --neutral-0: #FFFFFF;
+      --neutral-50: #F9FAFB;
+      --neutral-100: #F3F4F6;
+      --neutral-200: #E5E7EB;
+      --neutral-300: #D1D5DB;
+      --neutral-400: #9CA3AF;
+      --neutral-500: #6B7280;
+      --neutral-600: #374151;
+      --neutral-900: #111827;
+
+      /* --- Colors: Background Tiers --- */
+      --bg-page: #F9FAFB;
+      --bg-surface: #FFFFFF;
+      --bg-elevated: #FFFFFF; /* with shadow */
+
+      /* --- Chat Bubble Colors --- */
+      --bubble-student: #4F46E5;
+      --bubble-student-text: #FFFFFF;
+      --bubble-ai: #F3F4F6;
+      --bubble-ai-text: #111827;
+      --bubble-system: #E5E7EB;
+      --bubble-system-text: #6B7280;
+
+      /* --- Typography --- */
+      --font-heading: 'Inter', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --text-xs: 0.75rem;   /* 12px */
+      --text-sm: 0.875rem;  /* 14px */
+      --text-base: 1rem;    /* 16px */
+      --text-lg: 1.125rem;  /* 18px */
+      --text-xl: 1.25rem;   /* 20px */
+      --text-2xl: 1.5rem;   /* 24px */
+      --text-3xl: 1.875rem; /* 30px */
+
+      --weight-regular: 400;
+      --weight-medium: 500;
+      --weight-semibold: 600;
+      --weight-bold: 700;
+
+      --leading-tight: 1.25;
+      --leading-normal: 1.5;
+      --leading-relaxed: 1.75;
+
+      /* --- Spacing --- */
+      --space-unit: 4px;
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      --space-2xl: 48px;
+      --space-3xl: 64px;
+
+      /* --- Elevation --- */
+      --shadow-flat: none;
+      --shadow-raised: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-floating: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-overlay: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05);
+
+      /* --- Border Radius --- */
+      --radius-none: 0;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --radius-full: 9999px;
+
+      /* --- Motion --- */
+      --ease-micro: cubic-bezier(0, 0, 0.2, 1);
+      --ease-panel: cubic-bezier(0.4, 0, 0.2, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+      --duration-micro: 200ms;
+      --duration-panel: 300ms;
+      --duration-page: 400ms;
+      --duration-app-materialize: 500ms;
+      --duration-shimmer: 1.5s;
+    }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-page);
+  color: var(--neutral-900);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* Dimmed background -- simulates the analytics page behind the modal */
+.page-behind {
+  opacity: 0.4;
+  pointer-events: none;
+  padding: var(--space-xl);
+  max-width: 1080px;
+  margin: 0 auto;
+}
+.page-behind h1 { font-size: 22px; font-weight: 700; margin-bottom: var(--space-md); }
+.page-behind .placeholder {
+  height: 200px; background: var(--bg-surface); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.modal {
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
+  width: 520px; max-width: 90vw;
+  padding: var(--space-xl);
+}
+
+.modal-title {
+  font-size: 18px; font-weight: 700; color: var(--neutral-900);
+  margin-bottom: var(--space-lg);
+}
+
+/* Form */
+.form-group {
+  margin-bottom: var(--space-lg);
+}
+
+.form-label {
+  display: block; font-size: 13px; font-weight: 600;
+  color: var(--neutral-900); margin-bottom: var(--space-sm);
+}
+
+.form-row {
+  display: flex; gap: var(--space-md);
+}
+
+.radio-group {
+  display: flex; gap: var(--space-md);
+}
+
+.radio-option {
+  display: flex; align-items: center; gap: var(--space-sm);
+  font-size: 14px; color: var(--neutral-900); cursor: pointer;
+}
+
+.radio-option input[type="radio"] {
+  accent-color: var(--color-primary);
+  width: 16px; height: 16px;
+}
+
+select, input[type="date"] {
+  font-family: var(--font-body); font-size: 14px;
+  padding: 10px var(--space-md); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md); background: var(--bg-surface);
+  color: var(--neutral-900); outline: none; width: 100%;
+}
+select:focus, input[type="date"]:focus {
+  border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+}
+
+.checkbox-group { display: flex; flex-direction: column; gap: var(--space-sm); }
+
+.checkbox-option {
+  display: flex; align-items: center; gap: var(--space-sm);
+  font-size: 14px; color: var(--neutral-900); cursor: pointer;
+}
+
+.checkbox-option input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  width: 16px; height: 16px;
+}
+
+.note {
+  padding: var(--space-md);
+  background: #FFFBEB; border: 1px solid #FDE68A;
+  border-radius: var(--radius-md);
+  font-size: 13px; color: #92400E; line-height: 1.5;
+  margin-bottom: var(--space-lg);
+}
+
+.note strong { font-weight: 600; }
+
+.modal-actions {
+  display: flex; justify-content: flex-end; gap: var(--space-md);
+}
+
+.btn {
+  font-family: var(--font-body); font-size: 14px; font-weight: 600;
+  padding: 10px 24px; border-radius: var(--radius-md);
+  cursor: pointer; border: 1px solid transparent;
+}
+
+.btn--primary {
+  background: var(--color-primary); color: white;
+}
+.btn--primary:hover { background: var(--color-primary-hover); }
+
+.btn--ghost {
+  background: transparent; color: var(--neutral-500);
+  border-color: var(--neutral-200);
+}
+.btn--ghost:hover { background: var(--bg-page); color: var(--neutral-900); }
+</style>
+</head>
+<body>
+
+<!-- Dimmed page behind -->
+<div class="page-behind">
+  <h1>Classroom Analytics -- Period 3</h1>
+  <div class="placeholder"></div>
+</div>
+
+<!-- Modal Overlay -->
+<div class="modal-overlay">
+  <div class="modal" role="dialog" aria-labelledby="modal-title" aria-modal="true">
+    <h2 class="modal-title" id="modal-title">Export Analytics Report</h2>
+
+    <div class="form-group">
+      <span class="form-label">Format</span>
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" name="format" value="csv"> CSV
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="format" value="pdf" checked> PDF
+        </label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <span class="form-label">Date Range</span>
+      <div class="form-row">
+        <input type="date" value="2026-03-01" aria-label="Start date">
+        <input type="date" value="2026-03-30" aria-label="End date">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <span class="form-label">Scope</span>
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" name="scope" value="student"> Single Student
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="scope" value="classroom" checked> Classroom
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="scope" value="all"> All Classrooms
+        </label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <span class="form-label">Include</span>
+      <div class="checkbox-group">
+        <label class="checkbox-option">
+          <input type="checkbox" checked> Include chat transcripts
+        </label>
+        <label class="checkbox-option">
+          <input type="checkbox" checked> Include app interaction logs
+        </label>
+        <label class="checkbox-option">
+          <input type="checkbox"> Include AI recommendations
+        </label>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Note:</strong> Reports are generated within 10 seconds. PII is included -- handle per your district's data policy.
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn--ghost">Cancel</button>
+      <button class="btn btn--primary">Generate Report</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

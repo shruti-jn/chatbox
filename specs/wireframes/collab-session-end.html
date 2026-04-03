@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: Collaborative Session End — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .annotation strong { color: #111827; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--trigger { background: #FEF3C7; color: #92400E; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--state { background: #EEF2FF; color: #4F46E5; }
+    .label--exit { background: #ECFDF5; color: #059669; }
+    .label--error { background: #FEE2E2; color: #991B1B; }
+    .label--a11y { background: #F3E8FF; color: #7C3AED; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Collaborative Session End</h1>
+  <div class="screen-id">Screen: collab-session-end | FR: FR-COLLAB-005 | Personas: PER-001 (Student), PER-002 (Teacher) | Journeys: JRN-002</div>
+
+  <!-- Layout Zones -->
+  <div class="section">
+    <h2>Layout Zones</h2>
+    <div class="zone-map">
+      <div class="zone zone--primary">
+        <div class="zone-number">1</div>
+        <strong>Session Summary Card (in each participant's chat thread)</strong> — Appears as an AI-generated message card at the end of the collaborative session. Title: "[App Name] Session Complete" with a checkmark icon. Content (AI-generated per participant): acknowledgment of what was accomplished, key moments ("You made 12 moves and reached checkmate in 23 moves!"), and a learning reflection ("What strategy worked best for you?"). Each participant receives a personalized summary card.
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">2</div>
+        <strong>Session Stats Row (inside summary card)</strong> — Duration, number of actions taken by this participant, participants in session, final state summary (e.g., "Winner: You!" or "Score: 8/10 flashcards"). Stats are derived from the session's final state snapshot. They are factual, not generated.
+      </div>
+      <div class="zone">
+        <div class="zone-number">3</div>
+        <strong>Return to Chat Prompt (below summary card)</strong> — The AI continues the individual conversation with a follow-up prompt based on the session. Example: "Would you like to keep practicing? I can set up another chess game or try a different activity." Chat input re-activates. The collaborative session WebSocket is closed; only the individual chat WebSocket remains.
+      </div>
+      <div class="zone>">
+        <div class="zone-number">4</div>
+        <strong>LTI Grade Submission Notification (conditional)</strong> — If the classroom uses LTI grading and the app is configured for grade submission, a small badge appears on the summary card: "Grade submitted to [LMS name]." Teacher sees this in their Mission Control analytics view for the session. Students see a simplified version: "Your progress has been recorded." No grade values are shown to students.
+      </div>
+    </div>
+  </div>
+
+  <!-- Trigger Conditions -->
+  <div class="section">
+    <h2>Trigger Conditions</h2>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>Activity completes naturally:</strong> App signals activity completion via CBP (e.g., checkmate detected, all flashcards reviewed, quiz finished). ACTIVITY_COMPLETE event fires on FSM-003. Session transitions to <code>ending</code> state.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>Teacher force-closes session:</strong> Teacher clicks "End Session" on the collaborative session card in Mission Control or the student's conversation slide-out. TEACHER_END event fires. All participants receive immediate notification.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>30-minute inactivity timeout:</strong> No PLAYER_ACTION events for 30 minutes. Server fires the timeout transition from <code>active</code> to <code>ending</code>. Per FSM-003 timeout_transitions.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>All participants disconnected:</strong> ALL_DISCONNECTED event → <code>ending</code>. Session summary is generated and delivered when participants return.</p>
+    <p class="annotation"><span class="label label--trigger">SEQUENCE</span> <strong>Ending → Ended flow:</strong> On entering <code>ending</code>, generate_summary and persist_final_state actions fire. When AI summary is ready, SUMMARY_READY event fires → <code>ended</code>. deliver_summary action broadcasts summary card to all participants via WebSocket.</p>
+  </div>
+
+  <!-- API Endpoints -->
+  <div class="section">
+    <h2>API Endpoints</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>End session (teacher or creator):</strong> <code>POST /api/v1/collaborative-sessions/{session_id}/end</code> — Triggers TEACHER_END event. Response: <code>{ "status": "ending", "summary_eta_seconds": 10 }</code>. Summary is generated asynchronously.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Summary generation (internal):</strong> <code>POST /api/v1/ai/completions</code> — Internal call made by the server to generate a per-participant summary. Not client-initiated. Prompt includes session state, action log, and participant interaction counts.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>WebSocket summary delivery:</strong> <code>WebSocket /ws/collab/{session_id}</code> receives SUMMARY_READY event: <code>{ "type": "session_summary", "summary": "...", "stats": { ... } }</code>. This is the last message on the collaboration WebSocket before it closes. After delivery, the server closes the WebSocket connection.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>LTI grade submission (conditional):</strong> <code>POST /api/v1/lti/grades/{app_id}</code> — Internal call during <code>ended</code> entry action if LTI grading is configured. Not client-triggered. On success: LTI grade badge appears on summary card via WebSocket update to individual chat <code>/ws/chat/{session_id}</code>.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Individual chat WebSocket resumes:</strong> After collab session ends, the student's individual chat <code>/ws/chat/{conversation_id}</code> becomes the active connection. The AI follow-up message is delivered via this channel.</p>
+  </div>
+
+  <!-- State Transitions -->
+  <div class="section">
+    <h2>State Transitions (FSM-003: Collaborative Session Lifecycle)</h2>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Active → Ending:</strong> ACTIVITY_COMPLETE, TEACHER_END, ALL_DISCONNECTED, or 30-min timeout → <code>ending</code>. Entry actions: generate_summary (async AI call) and persist_final_state (sync DB write).</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Ending → Ended:</strong> SUMMARY_READY event → <code>ended</code>. deliver_summary action broadcasts to all participants. Entry actions on <code>ended</code>: close_connections (closes all session WebSocket connections) and submit_grades (if LTI configured).</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Student Conversation FSM-001:</strong> In the student's conversation FSM, COLLAB_ENDED event fires. Student transitions from <code>collaborative</code> → <code>app_embedded</code>. end_collab action: show session summary, return to standard app view. Student's individual conversation continues from here.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>App Instance FSM-002:</strong> Shared app instance receives SESSION_END event → <code>terminated</code>. cleanup_instance action fires: destroy iframe, release resources, persist final state.</p>
+  </div>
+
+  <!-- User Exit Paths -->
+  <div class="section">
+    <h2>User Exit Paths</h2>
+    <ul>
+      <li><strong>Engage with follow-up prompt:</strong> Student types in the chat input. The AI continues the individual conversation. The collab session is complete; only the individual chat continues.</li>
+      <li><strong>Request a new session:</strong> Student asks the AI to start a new game/activity. AI invokes the app tool again, creating a new instance (FSM-002 starts fresh). A new collaborative session can be created.</li>
+      <li><strong>Leave the platform:</strong> Student closes the tab or logs out. Session summary is preserved in conversation history. Next login shows the summary card in the chat thread.</li>
+      <li><strong>Teacher views session data:</strong> After session ends, teacher sees an analytics entry for the collaborative session in the classroom's session list. Clicking shows the session summary and participant action counts.</li>
+      <li><strong>Session summary not yet ready (loading state):</strong> If student's WebSocket receives the <code>ending</code> notification before the summary is ready, show an inline loading card: "Generating session summary..." This resolves when SUMMARY_READY fires.</li>
+    </ul>
+  </div>
+
+  <!-- Error Recovery -->
+  <div class="section">
+    <h2>Error Recovery</h2>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Summary generation fails (AI call fails):</strong> FSM error handling: default_error_state is <code>ending</code>, error_recovery_strategy is graceful_degradation. A fallback summary is generated using only the factual stats (no AI-written text): "Session lasted [X] minutes. [N] moves/actions taken." SUMMARY_READY fires with fallback content. Session still ends cleanly.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Session END POST fails (teacher action):</strong> Show inline error: "Could not end session. Try again." Session remains in <code>active</code> state. Teacher can retry. The session will eventually end via 30-min inactivity timeout if teacher cannot retry.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Student WebSocket closed before summary delivered:</strong> Summary is stored in the conversation history. When student reloads, <code>GET /conversations/{id}/messages</code> returns the summary card as a message in the thread. No data loss.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>LTI grade submission fails:</strong> Logged as a warning (not critical). Teacher sees a "Grade submission pending" badge instead of the confirmation badge. A retry is scheduled. If all retries fail, the teacher is notified with instructions to manually submit the grade to the LMS.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Final state persist fails:</strong> This is a critical failure. The system retries 3 times with exponential backoff. If all fail, a system alert is sent to the platform admin. The session summary may be incomplete. A flag is set on the session record indicating a persist failure, visible to admin.</p>
+  </div>
+
+  <!-- Accessibility Notes -->
+  <div class="section">
+    <h2>Accessibility Notes</h2>
+    <ul>
+      <li>Session summary card uses <code>role="article"</code> with <code>aria-label="Collaborative session summary for [App Name]"</code>. Screen reader announces when it appears in the chat thread.</li>
+      <li>Stats row within the card uses a <code>&lt;dl&gt;</code> (description list): <code>&lt;dt&gt;</code> for stat name, <code>&lt;dd&gt;</code> for stat value. E.g., "Duration: 18 minutes."</li>
+      <li>LTI grade badge (if present) has <code>aria-label="Grade submitted to [LMS name]"</code>. Not just a green checkmark — screen reader needs the text.</li>
+      <li>Follow-up AI prompt appears as a standard chat message. Chat input is re-enabled after session ends. Screen reader announces: "Chat input is now active. [AI prompt text]."</li>
+      <li>"Generating session summary" loading card has <code>role="status"</code>: "Generating your session summary. Please wait." Announced once when it appears. Does not repeat while loading.</li>
+    </ul>
+  </div>
+
+</body>
+</html>

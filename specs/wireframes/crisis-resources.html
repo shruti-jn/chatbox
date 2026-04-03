@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: Crisis Resources — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .annotation strong { color: #111827; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--trigger { background: #FEF3C7; color: #92400E; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--state { background: #EEF2FF; color: #4F46E5; }
+    .label--exit { background: #ECFDF5; color: #059669; }
+    .label--error { background: #FEE2E2; color: #991B1B; }
+    .label--a11y { background: #F3E8FF; color: #7C3AED; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--alert { border-color: #EF4444; background: #FEF2F2; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Crisis Resources</h1>
+  <div class="screen-id">Screen: crisis-resources | FR: FR-SAFE-009 | Persona: PER-001 (Sam the Student) | Journeys: JRN-001</div>
+
+  <!-- Layout Zones -->
+  <div class="section">
+    <h2>Layout Zones</h2>
+    <div class="zone-map">
+      <div class="zone zone--alert">
+        <div class="zone-number">1</div>
+        <strong>Crisis Message Card (full-width, top of chat thread)</strong> — Replaces or pins above the chat input. Warm, non-alarming background (soft blue, not red — avoid panic). Message: "It sounds like you might be going through something really hard. You are not alone." No AI branding on this card — it should feel like a human outreach.
+      </div>
+      <div class="zone zone--primary">
+        <div class="zone-number">2</div>
+        <strong>Crisis Resource Contacts (center, large tap targets)</strong> — Two primary resources, always shown:
+        1. 988 Suicide &amp; Crisis Lifeline: "Call or text 988 — available 24/7, free and confidential"
+        2. Crisis Text Line: "Text HOME to 741741"
+        Each row has a phone/text icon, large font, and a tap/click action. On mobile: tap-to-call / tap-to-text. On desktop: copy-to-clipboard with confirmation.
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">3</div>
+        <strong>School Contact (conditional)</strong> — If the school/district has configured a counselor contact, show: "You can also talk to your school counselor: [Counselor Name] — [contact method configured by district]." Falls back to "Talk to a trusted adult at your school." if no counselor configured.
+      </div>
+      <div class="zone">
+        <div class="zone-number">4</div>
+        <strong>Return to Chat (below resources)</strong> — A single muted link: "Return to your conversation." Intentionally de-emphasized so the crisis resources are the visual focus. Student must consciously choose to dismiss this screen.
+      </div>
+    </div>
+  </div>
+
+  <!-- Trigger Conditions -->
+  <div class="section">
+    <h2>Trigger Conditions</h2>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>Safety pipeline detection:</strong> The content safety classifier detects suicide/self-harm indicators in a student's message. Detection must occur within 200ms. The pipeline blocks the original message from being processed by the LLM and immediately pushes the crisis card to the student via WebSocket.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>No student action required:</strong> The screen is pushed — not navigated to. The crisis card appears at the top of the student's existing chat thread. It is not a new page; it overlays the chat with zero delay. Per AC-SAFE-009-01.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>Concurrent teacher alert:</strong> At the same moment the crisis card appears for the student, the teacher receives a priority safety_alert push on their Mission Control WebSocket. The teacher and student views update simultaneously.</p>
+  </div>
+
+  <!-- API Endpoints -->
+  <div class="section">
+    <h2>API Endpoints</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Crisis card delivery (server push):</strong> No client-initiated GET for this screen. The card is pushed via <code>WebSocket /ws/chat/{session_id}</code> with event type <code>crisis_intervention</code>. Payload includes: resource links (pre-configured), school counselor info (if set), audit event ID.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Tap-to-call / tap-to-text (mobile):</strong> Standard <code>tel:988</code> and <code>sms:741741?body=HOME</code> URI schemes. No API call. Native OS handles.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Log crisis resource interaction:</strong> <code>POST /api/v1/safety-alerts/{alert_id}/events</code> — Logs when student taps a resource link (e.g., <code>{ "event": "resource_clicked", "resource": "988_lifeline" }</code>). Used in audit trail. Fire-and-forget; does not block UI.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Teacher alert:</strong> Server-side: <code>WebSocket /ws/teacher/{classroom_id}</code> push with event type <code>safety_alert</code> and <code>severity: "critical"</code>. Teacher's Mission Control displays priority alert simultaneously with the student seeing the crisis card.</p>
+  </div>
+
+  <!-- State Transitions -->
+  <div class="section">
+    <h2>State Transitions</h2>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Student FSM-001:</strong> The student's conversation was in <code>active</code> state when the flagged message was sent. The crisis intervention does not directly change the FSM state — the conversation technically remains in <code>active</code> state but the AI response pipeline is blocked for this message.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Teacher FSM-006:</strong> Safety pipeline triggers SAFETY_ALERT event → teacher transitions from <code>monitoring</code> to <code>alert_triggered</code>. send_email_notification action fires for critical severity. Teacher must click REVIEW_ALERT to transition to <code>reviewing</code>.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>On "Return to chat":</strong> Crisis card dismisses. Student's conversation resumes. The next message the student sends goes through the full safety pipeline again — the intervention does not grant any bypass.</p>
+  </div>
+
+  <!-- User Exit Paths -->
+  <div class="section">
+    <h2>User Exit Paths</h2>
+    <ul>
+      <li><strong>Tap 988 (mobile):</strong> Launches phone call. Student leaves the app. App remains in background.</li>
+      <li><strong>Tap Crisis Text Line (mobile):</strong> Opens SMS app pre-filled with "HOME" to 741741. App remains in background.</li>
+      <li><strong>Copy number (desktop):</strong> Copies to clipboard. Toast: "Copied to clipboard." Student remains on screen.</li>
+      <li><strong>"Return to your conversation" link:</strong> Dismisses crisis card. Chat input becomes active again. The flagged message is NOT shown in the transcript — it was blocked. The chat resumes from the last AI response before the flagged message.</li>
+      <li><strong>Close browser/tab:</strong> No API call. Session timeout (30 min inactivity) eventually fires SESSION_END.</li>
+    </ul>
+    <p class="annotation"><strong>Important:</strong> There is no "X" close button on the crisis card. The student must use the "Return to your conversation" link to make the deliberate choice to exit. This is intentional friction per California SB 243.</p>
+  </div>
+
+  <!-- Error Recovery -->
+  <div class="section">
+    <h2>Error Recovery</h2>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Safety pipeline unavailable:</strong> Per FR-MON-002 External Dependencies: if the classifier is unavailable, messages are flagged as "unclassified" and teacher visibility is increased. In this degraded state, the crisis card is NOT shown automatically — teacher must review manually. The student sees the AI respond normally (potentially to a crisis message). This is a known acceptable failure mode, logged as a critical system event.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>WebSocket down (student side):</strong> Crisis card cannot be pushed. Server detects WebSocket failure and falls back to inserting the crisis card as a message in the conversation history so it appears on next load or WebSocket reconnect.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Crisis log POST fails:</strong> Silently retried in background. Never blocks the UI. The crisis card remains displayed regardless of log success.</p>
+  </div>
+
+  <!-- Accessibility Notes -->
+  <div class="section">
+    <h2>Accessibility Notes</h2>
+    <ul>
+      <li>Crisis card uses <code>role="alert"</code> and <code>aria-live="assertive"</code> so it is announced immediately by screen readers when it appears: "This is important. [Message text]. Resources available: 988 Suicide &amp; Crisis Lifeline, Crisis Text Line."</li>
+      <li>Resource buttons have explicit <code>aria-label</code>: "Call or text 988 — Suicide and Crisis Lifeline" and "Text HOME to 741741 — Crisis Text Line".</li>
+      <li>Color contrast for all text meets WCAG AA 4.5:1 minimum. Background is NOT red (which can be alarming and inaccessible for color-blind users).</li>
+      <li>Font size for resource contacts is minimum 18px (large enough to be legible under stress).</li>
+      <li>"Return to conversation" link is deprioritized visually but is fully keyboard accessible and announced after the resource buttons in tab order.</li>
+      <li>No auto-dismiss timer. Screen persists until student actively exits.</li>
+    </ul>
+  </div>
+
+</body>
+</html>

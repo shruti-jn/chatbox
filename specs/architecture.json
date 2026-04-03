@@ -1,0 +1,241 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "created_at": "2026-04-03T00:45:00Z",
+    "created_by": "architecture_compiler",
+    "created_by_model": "claude-opus-4-6[1m]",
+    "prd_version": "1.0.0",
+    "ai_native_level": 3
+  },
+  "project_id": "chatbridge-v2",
+  "services": [
+    {
+      "id": "svc-frontend",
+      "name": "Chatbox Frontend",
+      "technology": "Chatbox fork (Electron + React + Vite + TypeScript), Mantine v7, TanStack Router/Query, Jotai",
+      "description": "Student chat UI, Mission Control dashboard, admin portal. Electron for desktop, web build (CHATBOX_BUILD_PLATFORM=web) for Railway deployment. Renders app cards as sandboxed iframes inline in chat thread. Grade-band adaptive UI via CSS variables.",
+      "trust_boundary": "tb-public",
+      "scaling": "Static web build served by Fastify or nginx on Railway"
+    },
+    {
+      "id": "svc-api",
+      "name": "Fastify API Server",
+      "technology": "Fastify 5.x, TypeScript, Node.js 22",
+      "description": "REST API + WebSocket endpoints. Routes: auth, chat, apps, cbp, collab, classrooms, districts, analytics, consent, admin, lti, health. Middleware: RBAC, RLS tenant context, rate limiting, audit logging. Auto-OpenAPI via @fastify/swagger.",
+      "trust_boundary": "tb-authenticated-platform",
+      "scaling": "Node.js cluster mode (4 workers), auto-scale on Railway. WebSocket connections balanced across workers via Redis Pub/Sub."
+    },
+    {
+      "id": "svc-safety",
+      "name": "Content Safety Pipeline",
+      "technology": "TypeScript (co-located with API server)",
+      "description": "4-stage sequential pipeline: PII detection (regex, <50ms) → injection detection (regex, <20ms) → LLM classification (Claude Sonnet, <500ms) → crisis detection (keyword, <10ms). Total budget <600ms. Runs on every message crossing trust boundaries.",
+      "trust_boundary": "tb-authenticated-platform",
+      "scaling": "Co-located; stateless invocation. LLM classification is the bottleneck (API call)."
+    },
+    {
+      "id": "svc-ai",
+      "name": "AI Service",
+      "technology": "Vercel AI SDK v6, @anthropic-ai/sdk, TypeScript",
+      "description": "LLM orchestration: streaming chat responses, tool use (app invocation), state analysis (chess position), suggestion generation. Dynamic tool schema injection from enabled classroom apps. Context window management. inference_geo='us' for COPPA.",
+      "trust_boundary": "tb-authenticated-platform",
+      "scaling": "Co-located with API server. Async I/O handles concurrent LLM calls."
+    },
+    {
+      "id": "svc-cbp",
+      "name": "CBP Bridge Handler",
+      "technology": "TypeScript (co-located with API server)",
+      "description": "ChatBridge Bridge Protocol: JSON-RPC 2.0 over postMessage. Origin validation, schema validation (Zod, 64KB limit), PII stripping on outbound payloads. Dispatch via Redis Pub/Sub to WebSocket relay.",
+      "trust_boundary": "tb-authenticated-platform",
+      "scaling": "Co-located; stateless per-message."
+    },
+    {
+      "id": "svc-collab",
+      "name": "Collaboration Engine",
+      "technology": "TypeScript (co-located with API server)",
+      "description": "Server-authoritative event sourcing for collaborative sessions. Turn enforcement (chess). State sync via Redis Pub/Sub. Session codes for joining. Teacher observation and close.",
+      "trust_boundary": "tb-authenticated-platform",
+      "scaling": "Co-located; Redis handles cross-worker state relay."
+    },
+    {
+      "id": "svc-db",
+      "name": "PostgreSQL 16",
+      "technology": "PostgreSQL 16, Railway managed",
+      "description": "Primary data store. RLS for multi-tenant isolation (SET LOCAL per transaction). Tables: users, districts, schools, classrooms, conversations, messages, apps, district_app_catalog, app_instances, collaborative_sessions, session_participants, consent_records, audit_events, analytics_events.",
+      "trust_boundary": "tb-data",
+      "scaling": "Railway managed. Connection pool via Prisma (pool_size=10, max_overflow=5)."
+    },
+    {
+      "id": "svc-redis",
+      "name": "Redis 7",
+      "technology": "Redis 7, Railway managed, ioredis client",
+      "description": "Pub/Sub for WebSocket fan-out (per-classroom channels, CBP command channels, Mission Control channels). Session cache. Rate limiting (sliding window). Collaborative session state relay.",
+      "trust_boundary": "tb-data",
+      "scaling": "Railway managed. Single instance sufficient for V1 scale (3K concurrent connections)."
+    },
+    {
+      "id": "svc-langfuse",
+      "name": "Langfuse (self-hosted)",
+      "technology": "Langfuse Docker image, Railway container, dedicated PostgreSQL",
+      "description": "LLM observability. Traces every AI call with: prompt, response, latency, tokens, cost, model, tools, guardrails. Pseudonymous user context (no PII). US data residency via self-hosted on Railway US region.",
+      "trust_boundary": "tb-observability",
+      "scaling": "Separate Railway service with dedicated Postgres."
+    }
+  ],
+  "trust_boundaries": [
+    {"id": "tb-public", "name": "Public Internet", "description": "Untrusted. Student/teacher browsers, Electron apps."},
+    {"id": "tb-authenticated-platform", "name": "Authenticated Platform", "description": "JWT-authenticated requests. RLS tenant context set. Role validated."},
+    {"id": "tb-iframe-sandbox", "name": "Iframe Sandbox", "description": "Third-party app code. Sandboxed iframe. Communication only via CBP postMessage with origin validation."},
+    {"id": "tb-data", "name": "Data Layer", "description": "PostgreSQL (RLS enforced) + Redis. Internal network only."},
+    {"id": "tb-external-api", "name": "External APIs", "description": "Anthropic, Spotify, OpenWeatherMap, LTI platforms. Outbound only."},
+    {"id": "tb-observability", "name": "Observability", "description": "Langfuse. Pseudonymous data only. US-hosted."}
+  ],
+  "adrs": [
+    {
+      "id": "ADR-001",
+      "title": "Monoglot TypeScript with Fastify backend",
+      "status": "accepted",
+      "context": "Chatbox frontend is TypeScript/React. Backend could be Python/FastAPI (reference repo) or TypeScript/Fastify.",
+      "decision": "TypeScript/Fastify for backend. Monoglot stack with shared Zod schemas.",
+      "consequences": {
+        "positive": ["Shared types end-to-end", "Same AI SDK frontend and backend", "MCP SDK is TS-primary", "Single language for team"],
+        "negative": ["Reference Python backend must be rewritten", "Less mature ML ecosystem than Python", "Prisma RLS requires raw SQL workaround"]
+      },
+      "requirements": ["TECH-CLRFY-001"]
+    },
+    {
+      "id": "ADR-002",
+      "title": "PostgreSQL RLS for multi-tenant isolation",
+      "status": "accepted",
+      "context": "FERPA requires zero cross-district data leakage. Options: RLS, database-per-tenant, app-layer filtering.",
+      "decision": "PostgreSQL RLS with SET LOCAL per-transaction via Prisma middleware.",
+      "consequences": {
+        "positive": ["Database-level enforcement", "Single schema", "2-5% overhead acceptable"],
+        "negative": ["Complex policy debugging", "Prisma requires raw SQL for SET LOCAL"]
+      },
+      "requirements": ["FR-COMP-003", "overlay_003"]
+    },
+    {
+      "id": "ADR-003",
+      "title": "CBP: JSON-RPC 2.0 over postMessage extending MCP",
+      "status": "accepted",
+      "context": "Third-party apps need to communicate with the platform from sandboxed iframes. Options: custom REST, postMessage, WebSocket per-app.",
+      "decision": "JSON-RPC 2.0 over postMessage with origin validation, schema enforcement, PII stripping. Extends MCP with K-12 safety primitives.",
+      "consequences": {
+        "positive": ["Browser-native isolation", "MCP ecosystem compatibility", "No custom runtime"],
+        "negative": ["OAuth redirect complex in sandbox", "64KB message limit"]
+      },
+      "requirements": ["FR-STATE-001", "overlay_006"]
+    },
+    {
+      "id": "ADR-004",
+      "title": "Redis Pub/Sub for WebSocket fan-out",
+      "status": "accepted",
+      "context": "Multi-worker Node.js needs cross-worker message broadcast. Options: Redis Pub/Sub, RabbitMQ, native cluster messaging.",
+      "decision": "Redis Pub/Sub with per-classroom channels. Already in stack for caching/rate limiting.",
+      "consequences": {
+        "positive": ["Proven pattern", "Sub-ms latency", "Already in stack"],
+        "negative": ["No message persistence (fire-and-forget)", "Need reconnection handling"]
+      },
+      "requirements": ["NFR-PERF-004", "overlay_005"]
+    },
+    {
+      "id": "ADR-005",
+      "title": "Single Claude Sonnet model for all tasks",
+      "status": "accepted",
+      "context": "Could use model routing (Haiku for classification, Sonnet for chat, Opus for reasoning) or single model.",
+      "decision": "Sonnet for everything. Customer chose simplicity.",
+      "consequences": {
+        "positive": ["Simple architecture", "One model to tune/eval", "Consistent behavior"],
+        "negative": ["Higher cost than Haiku for classification", "May be slower than Opus for complex reasoning"]
+      },
+      "requirements": ["TECH-CLRFY-002"]
+    },
+    {
+      "id": "ADR-006",
+      "title": "Server-authoritative event sourcing for collaboration (no CRDTs)",
+      "status": "accepted",
+      "context": "Collaborative sessions (chess) need state sync. Options: CRDTs, server-authoritative, optimistic with rollback.",
+      "decision": "Server-authoritative via Redis Pub/Sub. Turn-based enforcement.",
+      "consequences": {
+        "positive": ["Simpler implementation", "Turn enforcement natural", "Easier debugging"],
+        "negative": ["Higher latency than CRDTs for concurrent edits (not needed for chess)"]
+      },
+      "requirements": ["FR-COLLAB-002", "FR-COLLAB-003"]
+    },
+    {
+      "id": "ADR-007",
+      "title": "Langfuse self-hosted for COPPA-compliant observability",
+      "status": "accepted",
+      "context": "Need LLM observability but student data cannot leave US infrastructure. Options: Langfuse self-hosted, LangSmith, Helicone.",
+      "decision": "Langfuse self-hosted on Railway. Pseudonymous IDs. US data residency.",
+      "consequences": {
+        "positive": ["COPPA compliant", "Full control", "Rich eval features"],
+        "negative": ["Self-hosting overhead", "Dedicated Postgres needed"]
+      },
+      "requirements": ["FR-OBS-001", "FR-COMP-004", "overlay_007"]
+    },
+    {
+      "id": "ADR-008",
+      "title": "LTI 1.3 Advantage via ltijs",
+      "status": "accepted",
+      "context": "Need LMS integration. Canvas and Schoology support LTI 1.3. Google Classroom does not.",
+      "decision": "LTI 1.3 Advantage (SSO + AGS + NRPS) via ltijs library. Google Classroom deferred to V2.",
+      "consequences": {
+        "positive": ["Standard LMS integration", "SSO + grade passback", "ltijs handles key management"],
+        "negative": ["Google Classroom (24% market) not covered in V1"]
+      },
+      "requirements": ["FR-AUTH-001", "FR-AUTH-002"]
+    }
+  ],
+  "monorepo_structure": {
+    "description": "pnpm monorepo with shared packages between Chatbox frontend and Fastify backend",
+    "packages": [
+      {"name": "@chatbridge/shared", "purpose": "Shared Zod schemas, types, CBP protocol definitions, constants", "consumers": ["frontend", "backend"]},
+      {"name": "@chatbridge/backend", "purpose": "Fastify API server, safety pipeline, CBP handler, collaboration engine", "consumers": []},
+      {"name": "@chatbridge/apps-chess", "purpose": "Chess app (iframe bundle)", "consumers": []},
+      {"name": "@chatbridge/apps-spotify", "purpose": "Spotify playlist creator (iframe bundle)", "consumers": []},
+      {"name": "@chatbridge/apps-weather", "purpose": "Weather dashboard (iframe bundle)", "consumers": []},
+      {"name": "@chatbridge/sdk", "purpose": "Developer SDK for building ChatBridge apps (CBP client library)", "consumers": ["apps-chess", "apps-spotify", "apps-weather"]}
+    ]
+  },
+  "data_flow": {
+    "student_message": "Browser → HTTPS → Fastify → Auth middleware (JWT) → RLS middleware (SET LOCAL) → Safety pipeline (4 stages) → AI Service (Sonnet streaming + tool use) → [if tool call] → CBP Dispatcher → Redis Pub/Sub → WebSocket → iframe app",
+    "app_state_update": "iframe app → postMessage → Frontend CBP handler → Origin validation + schema validation → WebSocket → Fastify → Safety check → Persist state → Update AI context → Broadcast to Mission Control via Redis",
+    "teacher_whisper": "Mission Control → WebSocket → Fastify → Store whisper → On next student message, inject into AI system prompt → AI response reflects whisper",
+    "collaborative_move": "Player A browser → WebSocket → Fastify → Validate turn order → Update game state → Redis Pub/Sub → All participants' WebSockets → Board updates"
+  },
+  "api_overview": {
+    "rest_routes": [
+      "POST /api/v1/auth/lti/launch — LTI 1.3 OIDC launch",
+      "POST /api/v1/auth/login — Platform JWT login",
+      "GET/POST /api/v1/auth/oauth/spotify/* — Spotify OAuth flow",
+      "POST /api/v1/conversations/{id}/messages — Send message",
+      "GET /api/v1/conversations/{id}/messages — Get history (paginated)",
+      "POST /api/v1/ai/completions — AI completion (internal)",
+      "POST /api/v1/apps/register — Register app",
+      "POST /api/v1/apps/{app_id}/tools/{tool_name}/invoke — Invoke tool",
+      "POST /api/v1/apps/{app_id}/commands — CBP command dispatch",
+      "PUT /api/v1/apps/instances/{id}/state — Update app state",
+      "GET /api/v1/apps/instances/{id}/state — Get app state",
+      "POST /api/v1/apps/{app_id}/submit-review — Submit for review",
+      "GET /api/v1/apps/{app_id}/review-results — Review results",
+      "POST/GET /api/v1/classrooms/* — Classroom CRUD + config",
+      "POST /api/v1/classrooms/{id}/students/{sid}/whisper — Teacher whisper",
+      "GET /api/v1/classrooms/{id}/analytics — Learning analytics",
+      "POST /api/v1/collaborative-sessions — Create session",
+      "POST /api/v1/collaborative-sessions/{code}/join — Join session",
+      "POST /api/v1/admin/apps/{app_id}/suspend — Suspend app district-wide",
+      "GET /api/v1/admin/safety-events — Safety event audit trail",
+      "GET /api/v1/admin/audit-trail — FERPA audit trail",
+      "POST /api/v1/consent/request — Parental consent request",
+      "POST /api/v1/consent/delete-request — Data deletion request",
+      "GET /api/v1/health — Health check (capability-aware)"
+    ],
+    "websocket_endpoints": [
+      "WS /api/v1/ws/chat — Student chat (streaming + app state)",
+      "WS /api/v1/ws/mission-control — Teacher monitoring (student grid + alerts)",
+      "WS /api/v1/ws/collab/{session_id} — Collaborative session (state sync)"
+    ]
+  }
+}

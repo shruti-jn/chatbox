@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: Teacher Direct Message — Behavioral Annotations</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F9FAFB; color: #111827; padding: 32px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .screen-id { color: #6B7280; font-size: 14px; margin-bottom: 24px; }
+    .section { background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .section h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #4F46E5; }
+    .annotation { font-size: 14px; color: #374151; margin-bottom: 8px; }
+    .annotation strong { color: #111827; }
+    .label { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+    .label--trigger { background: #FEF3C7; color: #92400E; }
+    .label--api { background: #FEF3C7; color: #92400E; }
+    .label--state { background: #EEF2FF; color: #4F46E5; }
+    .label--exit { background: #ECFDF5; color: #059669; }
+    .label--error { background: #FEE2E2; color: #991B1B; }
+    .label--a11y { background: #F3E8FF; color: #7C3AED; }
+    .zone-map { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+    .zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6B7280; position: relative; }
+    .zone-number { position: absolute; top: -10px; left: 12px; background: #4F46E5; color: white; font-size: 10px; font-weight: 700; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .zone--primary { border-color: #4F46E5; background: #EEF2FF; }
+    .zone--secondary { border-color: #10B981; background: #ECFDF5; }
+    ul { padding-left: 20px; margin-top: 4px; }
+    li { font-size: 14px; margin-bottom: 4px; }
+    code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+  <h1>Teacher Direct Message</h1>
+  <div class="screen-id">Screen: teacher-direct-message | FR: FR-MON-003 | Persona: PER-002 (Ms. Torres the Teacher) | Journeys: JRN-003</div>
+
+  <!-- Layout Zones -->
+  <div class="section">
+    <h2>Layout Zones</h2>
+    <div class="zone-map">
+      <div class="zone zone--primary">
+        <div class="zone-number">1</div>
+        <strong>Compose Panel (modal or slide-out)</strong> — Target student name and profile chip at top. Message text area (no character limit enforced but placeholder: "Write a message to [Student]..."). Suggested quick messages (optional chips): "Great work!", "Please re-read the instructions", "Let me know if you need help". Send button. Cancel button.
+      </div>
+      <div class="zone zone--secondary">
+        <div class="zone-number">2</div>
+        <strong>Student Conversation Preview (context pane)</strong> — Last 5 messages of the student's conversation shown read-only. Helps teacher see what the student last said before composing their message.
+      </div>
+      <div class="zone">
+        <div class="zone-number">3</div>
+        <strong>Message Preview (live)</strong> — A live preview of how the message will appear in the student's chat: the teacher's icon, "Ms. Torres" label, and message text, styled with the distinct teacher-message color (distinct from AI messages). Labeled "Student will see this."
+      </div>
+    </div>
+  </div>
+
+  <!-- Trigger Conditions -->
+  <div class="section">
+    <h2>Trigger Conditions</h2>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>From teacher-dashboard:</strong> Teacher clicks "Message" button on a student card's hover action bar or the slide-out conversation panel.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>From safety-alert-detail:</strong> Teacher selects "Send Direct Message" as intervention. The compose panel opens with conversation_id pre-filled.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>From teacher-pause-ai:</strong> Teacher checked "Also send a direct message now" during the pause flow. Compose panel opens after pause is confirmed.</p>
+    <p class="annotation"><span class="label label--trigger">TRIGGER</span> <strong>While AI is paused:</strong> If student's AI is paused, the "Message" action is surfaced more prominently on the student card (since the teacher is the only one who can communicate with the student now).</p>
+  </div>
+
+  <!-- API Endpoints -->
+  <div class="section">
+    <h2>API Endpoints</h2>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Load conversation context:</strong> <code>GET /api/v1/conversations/{conversation_id}/messages?limit=5&order=desc</code> — Last 5 messages for context preview. Called on panel open.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>Send direct message:</strong> <code>POST /api/v1/conversations/{conversation_id}/teacher-message</code> — Body: <code>{ "content": "..." }</code>. The message is stored with <code>type="teacher"</code> and pushed via WebSocket to the student's chat thread with distinct styling (teacher icon + name + different color). Returns <code>{ "message_id": "uuid", "delivered_at": "ISO8601" }</code>.</p>
+    <p class="annotation"><span class="label label--api">API</span> <strong>WebSocket (student side):</strong> Student receives <code>teacher_message</code> event on <code>/ws/chat/{session_id}</code>. The message appears immediately in the chat thread with a teacher icon and distinct color, no page refresh needed.</p>
+  </div>
+
+  <!-- State Transitions -->
+  <div class="section">
+    <h2>State Transitions</h2>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Teacher FSM-006:</strong> SEND_MESSAGE event from <code>reviewing</code> → <code>intervened</code>. log_intervention action records the direct message in the audit trail (author, timestamp, content).</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Student FSM-001 (if not paused):</strong> No state change to the conversation FSM. The teacher message is stored and delivered; it does not affect the conversation_lifecycle state machine. The student can respond with their own message.</p>
+    <p class="annotation"><span class="label label--state">FSM</span> <strong>Student FSM-001 (if paused):</strong> Conversation is in <code>paused</code> state. TEACHER_MESSAGE event is valid from paused state → remains in <code>paused</code>. deliver_teacher_message action fires.</p>
+  </div>
+
+  <!-- User Exit Paths -->
+  <div class="section">
+    <h2>User Exit Paths</h2>
+    <ul>
+      <li><strong>Send message:</strong> POST fires → success toast "Message delivered to [Student]" → panel closes → returns to invoking context (dashboard or alert detail).</li>
+      <li><strong>Cancel button:</strong> Panel closes. No API call. Returns to invoking context. If text was typed, "Discard message?" confirmation shown.</li>
+      <li><strong>Escape key:</strong> Same as Cancel.</li>
+      <li><strong>Quick message chip:</strong> Chip text populates the text area. Teacher can edit or send immediately. Clicking a chip does not auto-send.</li>
+    </ul>
+  </div>
+
+  <!-- Error Recovery -->
+  <div class="section">
+    <h2>Error Recovery</h2>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>POST fails (5xx / network):</strong> Inline error below compose area: "Message could not be delivered. Try again." Message text is preserved. Retry button. Student did not receive the message.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>POST fails (403 — not teacher's classroom):</strong> Show "You do not have permission to message this student." This should not occur in normal flow (teacher can only see their own classroom's students).</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>POST fails (404 — conversation ended):</strong> "This student's session has ended. Message not delivered." Panel closes. Student card updates to show offline status.</p>
+    <p class="annotation"><span class="label label--error">ERROR</span> <strong>Student WebSocket offline:</strong> Message is stored server-side. When student reconnects, the teacher message appears in their chat history. The POST still returns 200 with a <code>delivery_pending</code> flag. Teacher sees "Message queued — will deliver when student reconnects."</p>
+  </div>
+
+  <!-- Accessibility Notes -->
+  <div class="section">
+    <h2>Accessibility Notes</h2>
+    <ul>
+      <li>Panel is <code>role="dialog"</code> with <code>aria-modal="true"</code>. Focus trapped inside while open.</li>
+      <li>Text area has <code>aria-label="Message to [Student Name]"</code> and <code>aria-required="true"</code>.</li>
+      <li>Quick message chips use <code>role="button"</code> with <code>aria-label="Use quick message: [chip text]"</code>.</li>
+      <li>Message preview section has <code>aria-label="Preview: how student will see this message"</code> and <code>aria-live="polite"</code> so screen readers announce changes as teacher types.</li>
+      <li>Send button is disabled and <code>aria-disabled="true"</code> when text area is empty. Screen reader announces: "Send — disabled until you type a message."</li>
+    </ul>
+  </div>
+
+</body>
+</html>
