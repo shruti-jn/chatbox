@@ -10,8 +10,8 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/backend/package.json ./packages/backend/
 
 # Create minimal workspace config (backend only, no Chatbox root)
-RUN echo 'packages:\n  - packages/shared\n  - packages/backend' > pnpm-workspace.yaml
-RUN echo '{"private":true}' > package.json
+RUN printf 'packages:\n  - packages/shared\n  - packages/backend\n' > pnpm-workspace.yaml
+RUN printf '{"private":true}\n' > package.json
 
 # Install dependencies
 RUN pnpm install --no-frozen-lockfile
