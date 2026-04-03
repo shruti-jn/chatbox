@@ -5,15 +5,16 @@ WORKDIR /app
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
-# Copy workspace files + patches
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
-COPY patches/ ./patches/
-COPY release/app/package.json ./release/app/
+# Copy only backend + shared packages (not root Chatbox which needs Electron)
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/backend/package.json ./packages/backend/
 
-# Install dependencies (no frozen lockfile — workspace subset may differ)
-RUN pnpm install --filter @chatbridge/backend --filter @chatbridge/shared --no-frozen-lockfile
+# Create minimal workspace config (backend only, no Chatbox root)
+RUN echo 'packages:\n  - packages/shared\n  - packages/backend' > pnpm-workspace.yaml
+RUN echo '{"private":true}' > package.json
+
+# Install dependencies
+RUN pnpm install --no-frozen-lockfile
 
 # Copy source
 COPY packages/shared/ ./packages/shared/
