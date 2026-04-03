@@ -5,13 +5,15 @@ WORKDIR /app
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
-# Copy workspace files
+# Copy workspace files + patches
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY patches/ ./patches/
+COPY release/app/package.json ./release/app/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/backend/package.json ./packages/backend/
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile --filter @chatbridge/backend --filter @chatbridge/shared
+# Install dependencies (no frozen lockfile — workspace subset may differ)
+RUN pnpm install --filter @chatbridge/backend --filter @chatbridge/shared --no-frozen-lockfile
 
 # Copy source
 COPY packages/shared/ ./packages/shared/
