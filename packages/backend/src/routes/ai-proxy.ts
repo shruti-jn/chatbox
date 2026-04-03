@@ -18,6 +18,59 @@ import { createTrace, createSafetySpan, createGeneration, endGeneration, flushTr
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com'
 
+/**
+ * Send a safety-blocked/crisis response in the correct format.
+ * If the client requested streaming (stream: true), returns SSE events.
+ * Otherwise returns a standard JSON message.
+ */
+function sendSafetyResponse(
+  request: any,
+  reply: any,
+  body: Record<string, unknown> | undefined,
+  msgId: string,
+  text: string,
+) {
+  const model = (body?.model as string) ?? 'claude-haiku-4-5-20251001'
+  const isStreaming = body?.stream === true
+
+  if (isStreaming) {
+    const origin = request.headers.origin ?? '*'
+    reply.raw.writeHead(200, {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache',
+      'connection': 'keep-alive',
+      'access-control-allow-origin': origin,
+      'access-control-allow-credentials': 'true',
+    })
+
+    const events = [
+      `event: message_start\ndata: ${JSON.stringify({ type: 'message_start', message: { id: msgId, type: 'message', role: 'assistant', content: [], model, stop_reason: null, usage: { input_tokens: 0, output_tokens: 0 } } })}\n\n`,
+      `event: content_block_start\ndata: ${JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } })}\n\n`,
+      `event: content_block_delta\ndata: ${JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } })}\n\n`,
+      `event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: 0 })}\n\n`,
+      `event: message_delta\ndata: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: text.length } })}\n\n`,
+      `event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`,
+    ]
+
+    for (const event of events) {
+      reply.raw.write(event)
+    }
+    reply.raw.end()
+    return
+  }
+
+  // Non-streaming: return standard JSON
+  return reply.status(200).send({
+    id: msgId,
+    type: 'message',
+    role: 'assistant',
+    content: [{ type: 'text', text }],
+    model,
+    stop_reason: 'end_turn',
+    usage: { input_tokens: 0, output_tokens: 0 },
+  })
+}
+
 export async function aiProxyRoutes(server: FastifyInstance) {
   // Proxy all requests under /ai/proxy/* to Anthropic with safety interception
   server.all('/ai/proxy/*', async (request, reply) => {
@@ -65,35 +118,15 @@ export async function aiProxyRoutes(server: FastifyInstance) {
           // Block dangerous content
           if (safetyResult.severity === 'blocked') {
             flushTraces().catch(() => {})
-            return reply.status(200).send({
-              id: 'msg_blocked',
-              type: 'message',
-              role: 'assistant',
-              content: [{
-                type: 'text',
-                text: `⚠️ I wasn't able to process that message. It may have contained content that isn't appropriate for a learning environment. Could you try rephrasing your question?`,
-              }],
-              model: body.model ?? 'claude-haiku-4-5-20251001',
-              stop_reason: 'end_turn',
-              usage: { input_tokens: 0, output_tokens: 0 },
-            })
+            const blockedText = `⚠️ I wasn't able to process that message. It may have contained content that isn't appropriate for a learning environment. Could you try rephrasing your question?`
+            return sendSafetyResponse(request, reply, body, 'msg_blocked', blockedText)
           }
 
           // Crisis — return resources
           if (safetyResult.severity === 'critical') {
             flushTraces().catch(() => {})
-            return reply.status(200).send({
-              id: 'msg_crisis',
-              type: 'message',
-              role: 'assistant',
-              content: [{
-                type: 'text',
-                text: `It sounds like you might be going through a difficult time. You're not alone, and there are people who can help:\n\n📞 **988 Suicide & Crisis Lifeline**: Call or text 988\n💬 **Crisis Text Line**: Text HOME to 741741\n📱 **SAMHSA National Helpline**: 1-800-662-4357\n\nPlease reach out to one of these resources. A caring person is ready to talk with you right now.`,
-              }],
-              model: body.model ?? 'claude-haiku-4-5-20251001',
-              stop_reason: 'end_turn',
-              usage: { input_tokens: 0, output_tokens: 0 },
-            })
+            const crisisText = `It sounds like you might be going through a difficult time. You're not alone, and there are people who can help:\n\n📞 **988 Suicide & Crisis Lifeline**: Call or text 988\n💬 **Crisis Text Line**: Text HOME to 741741\n📱 **SAMHSA National Helpline**: 1-800-662-4357\n\nPlease reach out to one of these resources. A caring person is ready to talk with you right now.`
+            return sendSafetyResponse(request, reply, body, 'msg_crisis', crisisText)
           }
 
           // PII detected — replace user message with redacted version

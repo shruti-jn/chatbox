@@ -50,6 +50,7 @@ import { AssistantAvatar, SystemAvatar, UserAvatar } from '../common/Avatar'
 import { ScalableIcon } from '../common/ScalableIcon'
 import Loading from '../icons/Loading'
 import { ReasoningContentUI, ToolCallPartUI, WebSearchGroupUI } from '../message-parts/ToolCallPartUI'
+import { AppCardPartUI } from '../message-parts/AppCardPartUI'
 import { MessageAttachmentGrid } from './MessageAttachmentGrid'
 import MessageErrTips from './MessageErrTips'
 import MessageStatuses from './MessageLoading'
@@ -505,41 +506,7 @@ const _Message: FC<Props> = (props) => {
                 ) : item.type === 'tool-call' ? (
                   <ToolCallPartUI key={item.toolCallId} part={item as MessageToolCallPart} />
                 ) : (item as any).type === 'app-card' ? (
-                  <div key={(item as any).instanceId} style={{
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    margin: '8px 0',
-                    border: '1px solid #E2E8F0',
-                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-                  }}>
-                    {(item as any).status === 'active' && (item as any).url ? (
-                      <iframe
-                        src={(item as any).url}
-                        sandbox="allow-scripts"
-                        style={{ width: '100%', height: (item as any).height ?? 400, border: 'none', display: 'block' }}
-                        title={`${(item as any).appName} app`}
-                      />
-                    ) : (item as any).status === 'collapsed' ? (
-                      <div style={{ padding: '12px 16px', background: '#F0FDF4', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>✅</span>
-                        <span style={{ fontSize: '13px', color: '#166534' }}>{(item as any).summary ?? `${(item as any).appName} — completed`}</span>
-                      </div>
-                    ) : (item as any).status === 'suspended' ? (
-                      <div style={{ padding: '12px 16px', background: '#F8FAFC', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <span>⏸️</span>
-                        <span style={{ fontSize: '13px', color: '#64748B' }}>{(item as any).appName} — paused (tap to resume)</span>
-                      </div>
-                    ) : (item as any).status === 'loading' ? (
-                      <div style={{ padding: '16px', background: '#F1F5F9', animation: 'shimmer 1.5s infinite', height: 200 }}>
-                        <div style={{ fontSize: '14px', color: '#64748B' }}>Opening {(item as any).appName}...</div>
-                      </div>
-                    ) : (item as any).status === 'error' ? (
-                      <div style={{ padding: '16px', background: '#FFF1F2', border: '2px solid #FECDD3', textAlign: 'center' }}>
-                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>⚠️</div>
-                        <div style={{ color: '#E11D48', fontSize: '14px' }}>App encountered an error</div>
-                      </div>
-                    ) : null}
-                  </div>
+                  <AppCardPartUI key={(item as any).instanceId} part={item as any} />
                 ) : null
               )}
             </div>

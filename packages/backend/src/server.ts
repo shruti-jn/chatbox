@@ -15,6 +15,7 @@ import { collabRoutes } from './routes/collab.js'
 import { adminRoutes } from './routes/admin.js'
 import { analyticsRoutes } from './routes/analytics.js'
 import { aiProxyRoutes } from './routes/ai-proxy.js'
+import { appStaticRoutes } from './routes/app-static.js'
 
 const envToLogger = {
   development: { level: 'debug' },
@@ -70,6 +71,7 @@ export async function buildServer() {
   await server.register(adminRoutes, { prefix: '/api/v1' })
   await server.register(analyticsRoutes, { prefix: '/api/v1' })
   await server.register(aiProxyRoutes, { prefix: '/api/v1' })
+  await server.register(appStaticRoutes, { prefix: '/api/v1' })
 
   return server
 }
