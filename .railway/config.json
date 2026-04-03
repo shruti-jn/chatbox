@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "/Users/shruti/Software/chatbox": {
+      "projectPath": "/Users/shruti/Software/chatbox",
+      "name": "chatbridge-v2",
+      "project": "299994d1-2d7e-4f45-bfca-b5541ac74995",
+      "environment": "7c3549b8-4ef8-4f74-b673-6c138c080a1c",
+      "environmentName": "production",
+      "service": "9add471e-81c1-4df9-bab7-93b9dfdf0ecb"
+    }
+  }
+}
