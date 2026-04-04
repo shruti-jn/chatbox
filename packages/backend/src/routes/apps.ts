@@ -259,7 +259,7 @@ export async function appRoutes(server: FastifyInstance) {
     await withTenantContext(user.districtId, async (tx) => {
       await tx.appInstance.update({
         where: { id: instanceId },
-        data: { stateSnapshot: state as any, status: newStatus },
+        data: { stateSnapshot: state as any, status: newStatus as any },
       })
     })
 

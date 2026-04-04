@@ -157,6 +157,14 @@ export async function adminRoutes(server: FastifyInstance) {
     // In production, send an email to the parent with a link containing the token:
     //   `${BASE_URL}/consent/verify?token=${token}`
     // This is an external API call (e.g. SendGrid, SES) — stubbed per L-079.
+    if (process.env.NODE_ENV !== 'production') {
+      const baseUrl = process.env.BASE_URL ?? 'http://localhost:3001'
+      request.log.info({
+        consentVerifyUrl: `${baseUrl}/api/v1/consent/verify?token=${token}`,
+        studentId,
+        expiresAt: expiresAt.toISOString(),
+      }, '[DEV] COPPA consent verification URL (would be emailed to parent)')
+    }
 
     // COPPA: Do NOT return token in response — it must only travel via parent's email
     return { status: 'consent_request_sent', studentId }

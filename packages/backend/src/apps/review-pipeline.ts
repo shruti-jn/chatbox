@@ -77,6 +77,10 @@ const BLOCKED_PATTERNS = [
   /fetch\s*\(\s*["']https?:\/\/(?!localhost)/i,
   /XMLHttpRequest/i,
   /navigator\.sendBeacon/i,
+  /\beval\s*\(/i,
+  /new\s+WebSocket\s*\(/i,
+  /new\s+Image\b/i,
+  /document\.cookie/i,
 ]
 
 function scanSecurity(input: ReviewInput, opts: ReviewOptions): ReviewStageResult {
@@ -119,6 +123,10 @@ const PROFANITY_LIST = [
   'dick', 'piss', 'slut', 'whore', 'cock', 'cunt',
 ]
 
+function normalizeText(text: string): string {
+  return text.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+}
+
 function checkContent(input: ReviewInput): ReviewStageResult {
   const details: string[] = []
   let failed = false
@@ -127,10 +135,11 @@ function checkContent(input: ReviewInput): ReviewStageResult {
 
   for (const text of textsToCheck) {
     const lower = text.toLowerCase()
+    const normalized = normalizeText(text)
     for (const word of PROFANITY_LIST) {
       // Word boundary check to avoid false positives (e.g. "class" matching "ass")
       const regex = new RegExp(`\\b${word}\\b`, 'i')
-      if (regex.test(lower)) {
+      if (regex.test(lower) || normalized.includes(word)) {
         details.push(`Inappropriate word "${word}" found in text: "${text.substring(0, 50)}"`)
         failed = true
       }

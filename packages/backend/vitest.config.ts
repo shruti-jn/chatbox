@@ -6,5 +6,8 @@ export default defineConfig({
     environment: 'node',
     include: ['test/**/*.test.ts'],
     setupFiles: ['test/setup.ts'],
+    env: {
+      ALLOW_AUDIT_CLEANUP: '1',
+    },
   },
 })
