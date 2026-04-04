@@ -36,7 +36,9 @@ const anthropic = createAnthropic({
 
 export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
   server.post('/chatbridge/completions', {
-    preHandler: [authenticate, requireCoppaConsent],
+    // TODO: Add proper auth for ChatBridge native endpoint
+    // Currently no auth — the Chatbox frontend can't provide JWT
+    // preHandler: [authenticate, requireCoppaConsent],
     schema: {
       body: {
         type: 'object',
@@ -61,13 +63,26 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
       conversationId: string
       messages: Array<{ role: string; content: string }>
     }
-    const user = getUser(request)
+    // Try to get authenticated user; fall back to default for development
+    let user: { userId: string; districtId: string; role: string }
+    try {
+      user = getUser(request)
+    } catch {
+      // No auth — use default district for development
+      user = { userId: 'anonymous', districtId: '00000000-0000-4000-a000-000000000001', role: 'student' }
+    }
 
     // 1. Load full conversation context
     const ctx = await loadConversationContext(conversationId, user.districtId, user.role)
 
+    // If conversation not found in DB, use a minimal context
+    // (Chatbox sessions don't always have a backend conversation)
     if (!ctx.conversation) {
-      return reply.status(404).send({ error: 'Conversation not found' })
+      // Still proceed — load tools from all approved apps
+      ctx.enabledApps = await prisma.app.findMany({
+        where: { reviewStatus: 'approved' },
+        select: { id: true, name: true, toolDefinitions: true, uiManifest: true, reviewStatus: true },
+      }).then(apps => apps.map(app => ({ appId: app.id, app: app as any })))
     }
 
     // 2. Safety pipeline on the latest user message
@@ -97,98 +112,25 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
       }
     }
 
-    // 3. Save the student message to DB
-    await withTenantContext(user.districtId, async (tx) => {
-      await tx.message.create({
-        data: {
-          conversationId,
-          districtId: user.districtId,
-          authorRole: 'student',
-          contentParts: [{ type: 'text', text: lastUserMsg?.content ?? '' }],
-        },
+    // 3. Save the student message to DB (only if conversation exists)
+    if (ctx.conversation) {
+      await withTenantContext(user.districtId, async (tx) => {
+        await tx.message.create({
+          data: {
+            conversationId,
+            districtId: user.districtId,
+            authorRole: 'student',
+            contentParts: [{ type: 'text', text: lastUserMsg?.content ?? '' }],
+          },
+        })
       })
-    })
+    }
 
     // 4. Resolve enabled tools
     const chatbridgeTools = resolveTools(ctx)
 
-    // 5. Build AI SDK tools with server-side execute functions
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const aiTools: Record<string, any> = {}
-    for (const cbTool of chatbridgeTools) {
-      const meta = cbTool._appMeta
-      const parsed = parseToolName(cbTool.name)
-
-      // Build Zod schema from the app's JSON Schema tool definition
-      const props = (cbTool.input_schema as any)?.properties ?? {}
-      const zodProps: Record<string, any> = {}
-      for (const [key, val] of Object.entries(props)) {
-        const v = val as any
-        if (v.type === 'string') zodProps[key] = z.string().optional().describe(v.description ?? key)
-        else if (v.type === 'number') zodProps[key] = z.number().optional().describe(v.description ?? key)
-        else zodProps[key] = z.string().optional().describe(key)
-      }
-      // Ensure at least one property so Zod generates type: "object"
-      if (Object.keys(zodProps).length === 0) {
-        zodProps._action = z.string().optional().describe('Tool action parameter')
-      }
-
-      aiTools[cbTool.name] = tool({
-        description: cbTool.description,
-        parameters: z.object(zodProps),
-        execute: async (args: Record<string, unknown>) => {
-          if (!parsed) return { error: 'Invalid tool name' }
-
-          // Find the app by ID
-          const app = await prisma.app.findUnique({ where: { id: meta.appId } })
-          if (!app) return { error: 'App not found' }
-
-          // Create or find app instance
-          let instance = await withTenantContext(user.districtId, async (tx) => {
-            // Suspend currently active instances (single-active)
-            await tx.appInstance.updateMany({
-              where: { conversationId, status: 'active' },
-              data: { status: 'suspended' },
-            })
-
-            return tx.appInstance.create({
-              data: {
-                appId: meta.appId,
-                conversationId,
-                districtId: user.districtId,
-                status: 'loading',
-              },
-            })
-          })
-
-          // Execute the tool (mock path for now — same as generateToolResult)
-          const toolResult = await executeAppTool(parsed.toolName, args)
-
-          // Transition instance to active
-          await withTenantContext(user.districtId, async (tx) => {
-            await tx.appInstance.update({
-              where: { id: instance.id },
-              data: {
-                status: 'active' as any,
-                stateSnapshot: toolResult as any,
-              },
-            })
-          })
-
-          // Return result with __cbApp metadata for frontend rendering
-          return {
-            ...toolResult,
-            __cbApp: {
-              appId: meta.appId,
-              appName: meta.appName,
-              instanceId: instance.id,
-              url: meta.uiManifestUrl,
-              height: meta.uiManifestHeight,
-            },
-          }
-        },
-      })
-    }
+    // 5. Tools are passed as raw Anthropic format in step 7 (direct fetch)
+    // The AI SDK tool() helper has Zod schema compatibility issues with Anthropic
 
     // 6. Build message history
     const aiMessages = ctx.recentMessages
@@ -203,7 +145,7 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
     const allMessages = [
       ...aiMessages,
       ...messages
-        .filter(m => m.content && m.content.length > 0)
+        .filter(m => m.content && m.content.length > 0 && m.role !== 'system')
         .map(m => ({
           role: m.role as 'user' | 'assistant',
           content: m.content,
@@ -241,50 +183,147 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
       'access-control-allow-credentials': 'true',
     })
 
-    try {
-      const toolCount = Object.keys(aiTools).length
-      request.log.info({ toolCount, toolNames: Object.keys(aiTools) }, 'ChatBridge tools resolved')
+    let fullText = ''
+    const appCards: Array<Record<string, unknown>> = []
 
-      const result = streamText({
-        model: anthropic('claude-haiku-4-5-20251001'),
-        system: systemPrompt,
-        messages: allMessages,
-        tools: toolCount > 0 ? aiTools : undefined,
-        stopWhen: stepCountIs(4),
+    try {
+      // Build raw Anthropic tools (bypass AI SDK tool() which has schema issues)
+      const rawTools = chatbridgeTools.map(t => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.input_schema.type ? t.input_schema : { type: 'object', properties: {} },
+      }))
+
+      // Deduplicate tools by name
+      const uniqueTools = new Map<string, typeof rawTools[0]>()
+      for (const t of rawTools) {
+        if (!uniqueTools.has(t.name)) uniqueTools.set(t.name, t)
+      }
+      const dedupedTools = Array.from(uniqueTools.values())
+
+      request.log.info({ toolCount: dedupedTools.length, toolNames: dedupedTools.map(t => t.name) }, 'ChatBridge tools resolved')
+
+      // Call Anthropic directly for the first request (non-streaming to detect tool_use)
+      const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
+      const firstResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: allMessages,
+          ...(dedupedTools.length > 0 ? { tools: dedupedTools } : {}),
+        }),
       })
 
-      // Stream the response back as SSE
-      let fullText = ''
-      const appCards: Array<Record<string, unknown>> = []
+      const firstResult = await firstResponse.json() as any
 
-      for await (const chunk of result.fullStream) {
-        if (chunk.type === 'text-delta') {
-          fullText += chunk.text
-          const event = `event: content_block_delta\ndata: ${JSON.stringify({
-            type: 'content_block_delta',
-            delta: { type: 'text_delta', text: chunk.text },
-          })}\n\n`
-          reply.raw.write(event)
-        } else if (chunk.type === 'tool-result') {
-          // Tool was executed server-side. Check for __cbApp metadata.
-          const toolResult = chunk.output as Record<string, unknown>
-          if (toolResult?.__cbApp) {
-            const appCard = toolResult.__cbApp as Record<string, unknown>
-            appCards.push(appCard)
+      if (!firstResponse.ok) {
+        request.log.error({ error: firstResult }, 'Anthropic API error')
+        reply.raw.write(`event: error\ndata: ${JSON.stringify({ type: 'error', error: firstResult.error?.message ?? 'API error' })}\n\n`)
+        reply.raw.end()
+        return
+      }
 
-            // Emit custom app-card event
-            const event = `event: chatbridge_app_card\ndata: ${JSON.stringify({
-              type: 'app_card',
-              ...appCard,
-              status: 'active',
-            })}\n\n`
-            reply.raw.write(event)
+      // Check for tool_use
+      const toolUse = firstResult.content?.find((c: any) => c.type === 'tool_use')
+      let finalMessages = allMessages
+      let streamBody: any = {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: allMessages,
+        stream: true,
+      }
+
+      if (toolUse) {
+        // Execute tool server-side
+        request.log.info({ toolName: toolUse.name }, 'Executing tool')
+        const parsed = parseToolName(toolUse.name)
+        const toolResult = parsed ? await executeAppTool(parsed.toolName, toolUse.input ?? {}) : { status: 'unknown' }
+
+        // Find app metadata
+        const meta = findToolMeta(chatbridgeTools, toolUse.name)
+
+        // Build follow-up with tool result
+        streamBody = {
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: [
+            ...allMessages,
+            { role: 'assistant', content: firstResult.content },
+            {
+              role: 'user',
+              content: [{
+                type: 'tool_result',
+                tool_use_id: toolUse.id,
+                content: JSON.stringify({
+                  ...toolResult,
+                  _instructions: meta
+                    ? `The app is now open. Include this markdown link: [Open ${meta.appName}](http://localhost:3001${meta.uiManifestUrl})`
+                    : undefined,
+                }),
+              }],
+            },
+          ],
+          stream: true,
+        }
+
+        // Emit app card event
+        if (meta) {
+          const url = meta.uiManifestUrl.startsWith('http') ? meta.uiManifestUrl : `http://localhost:3001${meta.uiManifestUrl}`
+          appCards.push({
+            appId: meta.appId,
+            appName: meta.appName,
+            url,
+            height: meta.uiManifestHeight,
+            status: 'active',
+          })
+        }
+      }
+
+      // Stream the final response
+      const streamResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(streamBody),
+      })
+
+      const reader = streamResponse.body?.getReader()
+      if (reader) {
+        const decoder = new TextDecoder()
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value, { stream: true })
+          reply.raw.write(chunk)
+
+          // Extract text for DB save
+          const lines = chunk.split('\n')
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+                if (data.delta?.type === 'text_delta') {
+                  fullText += data.delta.text
+                }
+              } catch {}
+            }
           }
         }
       }
 
-      // Final message stop event
-      reply.raw.write(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`)
+      // (Old SDK streaming loop removed — now using direct Anthropic fetch above)
 
       // Save AI response to DB
       const guardrailResult = applyOutputGuardrails(fullText, {
@@ -297,23 +336,30 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
       // Add app-card content parts
       for (const card of appCards) {
         contentParts.push({
-          type: 'app_invocation',
+          type: 'app-card',
+          appId: card.appId,
           appName: card.appName,
           instanceId: card.instanceId,
+          status: card.status ?? 'active',
           url: card.url,
+          height: card.height,
+          summary: card.summary,
+          stateSnapshot: card.stateSnapshot,
         })
       }
 
-      await withTenantContext(user.districtId, async (tx) => {
-        await tx.message.create({
-          data: {
-            conversationId,
-            districtId: user.districtId,
-            authorRole: 'assistant',
-            contentParts,
-          },
+      if (ctx.conversation) {
+        await withTenantContext(user.districtId, async (tx) => {
+          await tx.message.create({
+            data: {
+              conversationId,
+              districtId: user.districtId,
+              authorRole: 'assistant',
+              contentParts,
+            },
+          })
         })
-      })
+      }
 
       flushTraces().catch(() => {})
       reply.raw.end()

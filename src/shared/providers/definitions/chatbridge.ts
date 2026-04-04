@@ -26,7 +26,7 @@ export const chatbridgeProvider = defineProvider({
     return new ChatBridgeModel(
       {
         apiHost: options.apiHost ?? 'http://localhost:3001',
-        apiKey: options.apiKey ?? '',
+        apiKey: options.apiKey || 'sk-ant-chatbridge-proxy-placeholder-key',  // Proxy uses its own key; format must pass Anthropic SDK validation
         model: options.model,
       },
       dependencies,

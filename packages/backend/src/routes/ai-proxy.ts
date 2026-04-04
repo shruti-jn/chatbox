@@ -209,7 +209,9 @@ export async function aiProxyRoutes(server: FastifyInstance) {
     }
 
     // Pass through API key from request or use server's key
-    const apiKey = (request.headers['x-api-key'] as string) ?? process.env.ANTHROPIC_API_KEY
+    // Always use the server's API key for Anthropic — frontend key is ignored.
+    // This ensures the proxy works without requiring the frontend to have a key.
+    const apiKey = process.env.ANTHROPIC_API_KEY ?? (request.headers['x-api-key'] as string)
     if (apiKey) {
       headers['x-api-key'] = apiKey
     }
@@ -257,7 +259,7 @@ export async function aiProxyRoutes(server: FastifyInstance) {
 
           // Make a second Anthropic call with the tool result
           const followUpMessages = [
-            ...(body.messages as any[]),
+            ...((body?.messages ?? []) as any[]),
             { role: 'assistant', content: firstResult.content },
             {
               role: 'user',
