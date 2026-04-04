@@ -205,7 +205,7 @@ export function AppCardPartUI({ part, onStateUpdate, onCompletion, onExpand }: A
           src={part.url}
           onLoad={handleLoad}
           onError={handleError}
-          sandbox="allow-scripts"
+          sandbox="allow-scripts allow-same-origin"
           style={{
             width: '100%',
             height: part.height ?? 400,
