@@ -11,6 +11,7 @@ import { verifyJWT } from '../middleware/auth.js'
 import type { JWTPayload } from '@chatbridge/shared'
 import { prisma, withTenantContext } from '../middleware/rls.js'
 import { runSafetyPipeline } from '../safety/pipeline.js'
+import { getRedisClient } from '../lib/redis.js'
 
 /** Grade bands that require parental consent (under-13) — mirrors coppa.ts */
 const COPPA_GRADE_BANDS = new Set(['k2', 'g35'])
@@ -34,6 +35,51 @@ async function checkCoppaConsent(user: JWTPayload): Promise<boolean> {
 const chatConnections = new Map<string, Set<WebSocket>>() // conversationId → sockets
 const missionControlConnections = new Map<string, Set<WebSocket>>() // classroomId → sockets
 const collabConnections = new Map<string, Set<WebSocket>>() // sessionId → sockets
+const appInstanceConnections = new Map<string, WebSocket>() // instanceId → socket
+
+/** Check if a WS client is connected for a given app instance */
+export function hasActiveAppConnection(instanceId: string): boolean {
+  return appInstanceConnections.has(instanceId)
+}
+
+/** Register a WS connection for a given app instance */
+export function registerAppConnection(instanceId: string, socket: WebSocket): void {
+  appInstanceConnections.set(instanceId, socket)
+}
+
+/** Remove a WS connection for a given app instance */
+export function unregisterAppConnection(instanceId: string): void {
+  appInstanceConnections.delete(instanceId)
+}
+
+/**
+ * Send a CBP command to the WS client for the given instanceId.
+ * Returns true if sent, false if no connection exists.
+ */
+export function sendCommandToApp(instanceId: string, command: Record<string, unknown>): boolean {
+  const socket = appInstanceConnections.get(instanceId)
+  if (!socket) return false
+  try {
+    socket.send(JSON.stringify(command))
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Publish an app state update to Redis cbp:state:{instanceId}.
+ * Called when the frontend sends an app_state_update WS message.
+ */
+export async function handleAppStateUpdate(
+  instanceId: string,
+  state: Record<string, unknown>,
+): Promise<void> {
+  const client = getRedisClient()
+  await client.connect().catch(() => { /* already connected */ })
+  const channel = `cbp:state:${instanceId}`
+  await client.publish(channel, JSON.stringify(state))
+}
 
 export async function websocketRoutes(server: FastifyInstance) {
   // WS /ws/chat — Student chat
@@ -56,6 +102,7 @@ export async function websocketRoutes(server: FastifyInstance) {
     }
 
     const conversationId = (request.query as Record<string, string>)?.conversationId
+    const instanceId = (request.query as Record<string, string>)?.instanceId
 
     if (conversationId) {
       if (!chatConnections.has(conversationId)) {
@@ -64,12 +111,23 @@ export async function websocketRoutes(server: FastifyInstance) {
       chatConnections.get(conversationId)!.add(socket as any)
     }
 
+    // Register app instance connection if instanceId provided
+    if (instanceId) {
+      registerAppConnection(instanceId, socket as any)
+    }
+
     socket.on('message', async (raw: Buffer) => {
       try {
         const msg = JSON.parse(raw.toString())
 
         if (msg.type === 'ping') {
           socket.send(JSON.stringify({ type: 'pong' }))
+          return
+        }
+
+        // Handle app state updates — forward to Redis for CBP dispatch
+        if (msg.type === 'app_state_update' && typeof msg.instanceId === 'string' && msg.state) {
+          await handleAppStateUpdate(msg.instanceId, msg.state)
           return
         }
 
@@ -142,6 +200,9 @@ export async function websocketRoutes(server: FastifyInstance) {
     socket.on('close', () => {
       if (conversationId) {
         chatConnections.get(conversationId)?.delete(socket as any)
+      }
+      if (instanceId) {
+        unregisterAppConnection(instanceId)
       }
     })
   })

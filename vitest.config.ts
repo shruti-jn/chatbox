@@ -24,6 +24,7 @@ export default defineConfig(({ mode }) => ({
       '@': path.resolve(__dirname, './src/renderer'),
       src: path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, 'src/shared'),
+      '@chatbridge/shared': path.resolve(__dirname, 'packages/shared/src/index.ts'),
     },
   },
 }))

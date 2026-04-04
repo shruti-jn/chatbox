@@ -153,6 +153,55 @@ describe('App Registration and Tool Invocation', () => {
     expect([400, 422]).toContain(res.statusCode)
   })
 
+  // ====== Layer 3: CBP dispatch fallback tests ======
+
+  it('tool invoke without WS client uses generateToolResult fallback', async () => {
+    const appId = await registerAndApproveApp(teacherToken, {
+      ...validAppPayload,
+      name: 'Chess Fallback Test',
+    })
+
+    // No WS client connected for this instance — should fall back to mock
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/v1/apps/${appId}/tools/start_game/invoke`,
+      headers: { authorization: `Bearer ${studentToken}` },
+      payload: { parameters: {}, conversationId },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = JSON.parse(res.body)
+    expect(body.toolName).toBe('start_game')
+    expect(body.result).toBeDefined()
+    expect(body.result.fen).toBeDefined()
+    expect(body.result.status).toBe('new_game')
+    // Must complete within 5s (no timeout)
+    expect(body.latencyMs).toBeLessThan(5000)
+  })
+
+  it('tool invoke with make_move returns fallback result within timeout', async () => {
+    const appId = await registerAndApproveApp(teacherToken, {
+      ...validAppPayload,
+      name: 'Chess Move Fallback',
+      toolDefinitions: [
+        { name: 'start_game', description: 'Start a chess game', inputSchema: { type: 'object' } },
+        { name: 'make_move', description: 'Make a move', inputSchema: { type: 'object' } },
+      ],
+    })
+
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/v1/apps/${appId}/tools/make_move/invoke`,
+      headers: { authorization: `Bearer ${studentToken}` },
+      payload: { parameters: { move: 'e4' }, conversationId },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = JSON.parse(res.body)
+    expect(body.toolName).toBe('make_move')
+    expect(body.result.status).toBe('move_made')
+  })
+
   // ====== Tool invocation tests ======
 
   it('POST /apps/:id/tools/:name/invoke calls tool and returns result', async () => {

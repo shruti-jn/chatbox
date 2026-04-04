@@ -1,0 +1,82 @@
+{
+  "checkpoint": "CP-3",
+  "date": "2026-04-04",
+  "baseline": "Corrected mockups on Chatbox shell (Phase 2.5 rebuild)",
+  "screens": [
+    {
+      "page": "student-chat",
+      "viewport": "1479x812",
+      "scores": {
+        "layout_structure": 0.80,
+        "design_tokens": 0.65,
+        "information_hierarchy": 0.65,
+        "anti_reference_distance": 0.85,
+        "workspace_authenticity": 0.70
+      },
+      "composite": 0.73,
+      "verdict": "PARTIAL",
+      "notes": "Same as CP-2 baseline. No new frontend changes in CP-3. Chatbox shell intact, safety banner visible, app card still renders as link (SHR-145 deferred)."
+    },
+    {
+      "page": "chess-app-iframe",
+      "viewport": "1479x812",
+      "scores": {
+        "layout_structure": 0.90,
+        "design_tokens": 0.70,
+        "information_hierarchy": 0.85,
+        "anti_reference_distance": 0.90,
+        "workspace_authenticity": 0.85
+      },
+      "composite": 0.84,
+      "verdict": "PASS",
+      "notes": "Chess board renders correctly with pieces, move indicator (yellow square), status bar ('White to move'). Clean layout centered on page. Drag-and-drop and resign button added in CP-3."
+    },
+    {
+      "page": "swagger-ui",
+      "viewport": "1479x812",
+      "scores": {
+        "layout_structure": 1.0,
+        "design_tokens": 1.0,
+        "information_hierarchy": 1.0,
+        "anti_reference_distance": 1.0,
+        "workspace_authenticity": 1.0
+      },
+      "composite": 1.0,
+      "verdict": "PASS",
+      "notes": "41 endpoints listed. All CP-3 routes present: apps/register, submit-review, review-results, instances/suspend/resume/terminate, admin endpoints, consent, whisper, classrooms. OAS 3.0 spec."
+    },
+    {
+      "page": "teacher-dashboard",
+      "verdict": "DEFERRED",
+      "reason": "No frontend route exists. API endpoints verified in behavioral verification (B5-B8). Frontend integration deferred to CP-4."
+    },
+    {
+      "page": "admin-catalog",
+      "verdict": "DEFERRED",
+      "reason": "No frontend route exists. API endpoints verified (B1 registration, B7 review pipeline). Frontend deferred to CP-4."
+    },
+    {
+      "page": "consent-flow",
+      "verdict": "DEFERRED",
+      "reason": "No frontend route exists. API endpoints verified (B9 consent request, B11 verify). Frontend deferred to CP-4."
+    },
+    {
+      "page": "teacher-whisper",
+      "verdict": "DEFERRED",
+      "reason": "No frontend route exists. API endpoint verified in behavioral tests and whisper.test.ts (7 tests). Frontend deferred to CP-4."
+    },
+    {
+      "page": "teacher-config",
+      "verdict": "DEFERRED",
+      "reason": "No frontend route exists. API endpoint verified (PATCH /classrooms/:id/config). Frontend deferred to CP-4."
+    },
+    {
+      "page": "safety-alert-detail",
+      "verdict": "DEFERRED",
+      "reason": "No frontend route exists. Safety events queryable via admin API (B5). Frontend deferred to CP-4."
+    }
+  ],
+  "overall_verdict": "PARTIAL",
+  "overall_score": 0.73,
+  "notes": "CP-3 is API-focused. 3 screens verified visually (chat, chess, swagger). 6 screens deferred (API-only, no frontend routes). Chat view unchanged from CP-2 (PARTIAL 0.73). Chess app PASS (0.84). Swagger PASS (1.0). Frontend integration for teacher/admin views is CP-4 scope."
+}

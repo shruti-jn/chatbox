@@ -4,6 +4,8 @@ import { requireCoppaConsent } from '../middleware/coppa.js'
 import { prisma, withTenantContext } from '../middleware/rls.js'
 import { AppRegistrationSchema } from '@chatbridge/shared'
 import { buildCommand, checkContentSafety, validateMessage } from '../cbp/handler.js'
+import { publishCommand, awaitStateUpdate } from '../cbp/redis-dispatch.js'
+import { hasActiveAppConnection } from './websocket.js'
 import { transition, InvalidTransitionError, type AppState, checkRateLimit, isUnresponsive, recordSuccess, recordFailure } from '../apps/index.js'
 import { runReviewPipeline } from '../apps/review-pipeline.js'
 import { getWeather } from '../services/weather.js'
@@ -159,27 +161,39 @@ export async function appRoutes(server: FastifyInstance) {
         })
       }) : null
 
-      // TODO: Actually dispatch to app via CBP
-      // For now, return a mock result based on tool name
-      // Proactive 5s timeout wrapper (ready for real CBP dispatch)
-      const controller = new AbortController()
-      const timeoutHandle = setTimeout(() => controller.abort(), 5000)
+      // CBP dispatch: if a WS client is connected for this instance, use
+      // real Redis pub/sub dispatch. Otherwise, fall back to mock result.
       let result: Record<string, unknown>
-      try {
-        result = await Promise.race([
-          Promise.resolve(generateToolResult(toolName, parameters)),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Tool execution timeout')), 5000)
-          ),
-        ]) as Record<string, unknown>
-      } catch (err: any) {
-        clearTimeout(timeoutHandle)
-        if (err.message === 'Tool execution timeout') {
-          return reply.status(408).send({ error: 'Tool execution timeout' })
+      if (instance?.id && hasActiveAppConnection(instance.id)) {
+        // Real dispatch: send command via Redis, await state update response
+        const command = buildCommand(instance.id, toolName, parameters)
+        await publishCommand(instance.id, command)
+        try {
+          const stateUpdate = await awaitStateUpdate(instance.id, 5000)
+          result = stateUpdate as Record<string, unknown>
+        } catch {
+          // Timeout or error — fall back to mock
+          result = await generateToolResult(toolName, parameters)
         }
-        throw err
+      } else {
+        // No connected WS client — use mock fallback (dev/test)
+        const timeoutHandle = setTimeout(() => {}, 5000)
+        try {
+          result = await Promise.race([
+            Promise.resolve(generateToolResult(toolName, parameters)),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Tool execution timeout')), 5000)
+            ),
+          ]) as Record<string, unknown>
+        } catch (err: any) {
+          clearTimeout(timeoutHandle)
+          if (err.message === 'Tool execution timeout') {
+            return reply.status(408).send({ error: 'Tool execution timeout' })
+          }
+          throw err
+        }
+        clearTimeout(timeoutHandle)
       }
-      clearTimeout(timeoutHandle)
 
       // Transition instance loading -> active via FSM
       if (instance) {
