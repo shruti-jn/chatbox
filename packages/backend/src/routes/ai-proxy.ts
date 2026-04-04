@@ -16,6 +16,7 @@ import type { FastifyInstance } from 'fastify'
 import { runSafetyPipeline } from '../safety/pipeline.js'
 import { createTrace, createSafetySpan, createGeneration, endGeneration, flushTraces } from '../observability/langfuse.js'
 import { loadPrompt } from '../prompts/registry.js'
+import { prisma } from '../middleware/rls.js'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com'
 
@@ -161,6 +162,43 @@ export async function aiProxyRoutes(server: FastifyInstance) {
       const hasSystem = msgs.some(m => m.role === 'system' && (m.content as string)?.includes('ChatBridge'))
       if (!hasSystem) {
         body.messages = [{ role: 'user', content: chatbridgeSystemPrompt }, { role: 'assistant', content: 'Understood! I\'m ready to help students learn. I\'ll suggest our apps when appropriate.' }, ...msgs]
+      }
+    }
+
+    // Inject ChatBridge app tools into the Anthropic request
+    // The AI will receive real tool definitions and emit tool_use blocks
+    if (body && (path === 'v1/messages' || path === 'messages')) {
+      try {
+        const approvedApps = await prisma.app.findMany({
+          where: { reviewStatus: 'approved' },
+          select: { name: true, toolDefinitions: true },
+        })
+
+        const tools: Array<{ name: string; description: string; input_schema: Record<string, unknown> }> = []
+        for (const app of approvedApps) {
+          const defs = app.toolDefinitions as Array<{ name: string; description: string; inputSchema?: Record<string, unknown> }>
+          if (!Array.isArray(defs)) continue
+          for (const t of defs) {
+            tools.push({
+              name: `${app.name.toLowerCase().replace(/\s+/g, '_')}__${t.name}`,
+              description: `[${app.name}] ${t.description}`,
+              input_schema: t.inputSchema ?? { type: 'object', properties: {} },
+            })
+          }
+        }
+
+        // Deduplicate by tool name
+        const uniqueTools = new Map<string, typeof tools[0]>()
+        for (const t of tools) {
+          if (!uniqueTools.has(t.name)) uniqueTools.set(t.name, t)
+        }
+        const dedupedTools = Array.from(uniqueTools.values())
+
+        if (dedupedTools.length > 0 && !body.tools) {
+          body.tools = dedupedTools
+        }
+      } catch (err) {
+        request.log.warn(err, 'Failed to inject ChatBridge tools')
       }
     }
 

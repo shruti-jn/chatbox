@@ -17,7 +17,7 @@
 
 import type { FastifyInstance } from 'fastify'
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { streamText, stepCountIs } from 'ai'
+import { streamText, stepCountIs, tool } from 'ai'
 import { z } from 'zod'
 import { authenticate, getUser } from '../middleware/auth.js'
 import { requireCoppaConsent } from '../middleware/coppa.js'
@@ -119,9 +119,23 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
       const meta = cbTool._appMeta
       const parsed = parseToolName(cbTool.name)
 
-      aiTools[cbTool.name] = {
+      // Build Zod schema from the app's JSON Schema tool definition
+      const props = (cbTool.input_schema as any)?.properties ?? {}
+      const zodProps: Record<string, any> = {}
+      for (const [key, val] of Object.entries(props)) {
+        const v = val as any
+        if (v.type === 'string') zodProps[key] = z.string().optional().describe(v.description ?? key)
+        else if (v.type === 'number') zodProps[key] = z.number().optional().describe(v.description ?? key)
+        else zodProps[key] = z.string().optional().describe(key)
+      }
+      // Ensure at least one property so Zod generates type: "object"
+      if (Object.keys(zodProps).length === 0) {
+        zodProps._action = z.string().optional().describe('Tool action parameter')
+      }
+
+      aiTools[cbTool.name] = tool({
         description: cbTool.description,
-        parameters: z.object({}),
+        parameters: z.object(zodProps),
         execute: async (args: Record<string, unknown>) => {
           if (!parsed) return { error: 'Invalid tool name' }
 
@@ -173,7 +187,7 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
             },
           }
         },
-      }
+      })
     }
 
     // 6. Build message history
@@ -196,7 +210,7 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
         })),
     ]
 
-    const systemPrompt = assembleSystemPrompt({
+    let systemPrompt = assembleSystemPrompt({
       classroomConfig: ctx.aiConfig,
       gradeBand: ctx.gradeBand as any,
       toolSchemas: chatbridgeTools.map(t => ({ name: t.name })),
@@ -212,6 +226,11 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
       stateUpdatedAt: ctx.activeAppInstance?.updatedAt ?? null,
     })
 
+    // Tool-use directive: when tools are available, the AI must use them for app requests
+    if (chatbridgeTools.length > 0) {
+      systemPrompt += '\n\nIMPORTANT: You have tools for interactive apps. When a student explicitly requests an app (e.g., "let\'s play chess", "open the chess board", "start a game"), you MUST call the appropriate tool. Do not just describe the app or give instructions — call the tool so the app opens inline. Available tools: ' + chatbridgeTools.map(t => t.name).join(', ') + '.'
+    }
+
     // 7. Call Anthropic with tools via Vercel AI SDK
     const origin = request.headers.origin ?? '*'
     reply.raw.writeHead(200, {
@@ -223,12 +242,15 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
     })
 
     try {
+      const toolCount = Object.keys(aiTools).length
+      request.log.info({ toolCount, toolNames: Object.keys(aiTools) }, 'ChatBridge tools resolved')
+
       const result = streamText({
         model: anthropic('claude-haiku-4-5-20251001'),
         system: systemPrompt,
         messages: allMessages,
-        tools: Object.keys(aiTools).length > 0 ? aiTools : undefined,
-        stopWhen: stepCountIs(4), // Up to 3 tool calls + 1 final response
+        tools: toolCount > 0 ? aiTools : undefined,
+        stopWhen: stepCountIs(4),
       })
 
       // Stream the response back as SSE
