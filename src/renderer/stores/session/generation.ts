@@ -207,17 +207,6 @@ export async function generate(
           }
         }
 
-        // Build ChatBridge context if this session uses a ChatBridge provider with a join code
-        const providerSettings = settings as any
-        const chatbridgeJoinCode = providerSettings?.chatbridgeJoinCode
-          ?? providerSettings?.providerSettings?.chatbridgeJoinCode
-        const chatbridgeContext = chatbridgeJoinCode ? {
-          joinCode: chatbridgeJoinCode,
-          apiHost: providerSettings?.apiHost ?? providerSettings?.providerSettings?.apiHost ?? 'http://localhost:3001',
-          apiKey: providerSettings?.apiKey ?? providerSettings?.providerSettings?.apiKey ?? '',
-          conversationId: session.id,
-        } : undefined
-
         const { result } = await streamText(model, {
           sessionId: session.id,
           messages: promptMsgs,
@@ -232,10 +221,30 @@ export async function generate(
           providerOptions: settings.providerOptions,
           knowledgeBase,
           webBrowsing,
-          chatbridgeContext,
         })
-        // Post-process: convert app link patterns in text to app-card content parts
-        const processedParts = processAppCards(targetMsg.contentParts)
+        // Post-process against the finalized generation result rather than the
+        // cached message state. The cached state can lag the last streamed delta,
+        // which would cause markdown app links or __cbApp tool metadata to be missed.
+        let processedParts = processAppCards(result.contentParts ?? targetMsg.contentParts)
+
+        // Fallback: if processAppCards didn't find app cards, try concatenating
+        // all text parts and scanning again (handles split-across-chunks case)
+        const hasAppCard = processedParts.some((p: any) => p.type === 'app-card')
+        if (!hasAppCard) {
+          const fullText = processedParts
+            .filter((p: any) => p.type === 'text')
+            .map((p: any) => p.text)
+            .join('')
+          if (fullText.length > 0) {
+            const concatenated = [{ type: 'text' as const, text: fullText }]
+            const retried = processAppCards(concatenated as any)
+            if (retried.some((p: any) => p.type === 'app-card')) {
+              // Replace text parts with the processed result
+              const nonText = processedParts.filter((p: any) => p.type !== 'text')
+              processedParts = [...nonText, ...retried] as any
+            }
+          }
+        }
 
         targetMsg = {
           ...targetMsg,
