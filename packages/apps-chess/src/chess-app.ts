@@ -231,23 +231,31 @@ class ChessApp {
 
   private updateStatus() {
     this.statusEl.className = 'status-bar'
+    let headerText = ''
 
     if (this.game.isCheckmate()) {
       const winner = this.game.turn() === 'w' ? 'Black' : 'White'
       this.statusEl.textContent = `Checkmate! ${winner} wins!`
       this.statusEl.classList.add('gameover')
+      headerText = `Checkmate — ${winner} wins`
     } else if (this.game.isStalemate()) {
       this.statusEl.textContent = 'Stalemate — draw!'
       this.statusEl.classList.add('gameover')
+      headerText = 'Stalemate'
     } else if (this.game.isDraw()) {
       this.statusEl.textContent = 'Game drawn'
       this.statusEl.classList.add('gameover')
+      headerText = 'Draw'
     } else if (this.game.isCheck()) {
       this.statusEl.textContent = `${this.game.turn() === 'w' ? 'White' : 'Black'} is in check!`
       this.statusEl.classList.add('check')
+      headerText = `${this.game.turn() === 'w' ? 'White' : 'Black'} in check`
     } else {
-      this.statusEl.textContent = `${this.game.turn() === 'w' ? 'White' : 'Black'} to move`
+      headerText = `${this.game.turn() === 'w' ? 'White' : 'Black'} to move`
+      this.statusEl.textContent = headerText
     }
+
+    this.updateHeaderStatus(headerText)
   }
 
   private render() {
@@ -340,14 +348,19 @@ class ChessApp {
       btn.textContent = 'Resign'
       btn.style.cssText =
         'margin-top:12px;padding:8px 24px;background:#E11D48;color:white;border:none;border-radius:8px;' +
-        'font-size:14px;font-family:inherit;cursor:pointer;width:min(100%,480px);'
+        'font-size:14px;font-family:inherit;cursor:pointer;width:100%;max-width:480px;'
       btn.addEventListener('click', () => this.resign())
-      // Insert after error element
+      // Insert after error element (inside card body)
       this.errorEl.insertAdjacentElement('afterend', btn)
     }
 
     // Hide resign button when game is over or suspended
     btn.style.display = (this.game.isGameOver() || this.suspended) ? 'none' : 'block'
+  }
+
+  private updateHeaderStatus(text: string) {
+    const headerStatus = document.getElementById('header-status')
+    if (headerStatus) headerStatus.textContent = text
   }
 }
 

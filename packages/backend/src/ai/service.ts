@@ -27,6 +27,8 @@ export interface AIContext {
   gradeBand: GradeBand
   activeAppState: Record<string, unknown> | null
   activeAppName: string | null
+  activeAppStatus?: 'active' | 'suspended' | null
+  stateUpdatedAt?: Date | null
   enabledToolSchemas: Record<string, CoreTool>
   whisperGuidance: string | null
   asyncGuidance: string | null
@@ -47,6 +49,8 @@ function buildSystemPrompt(ctx: AIContext): string {
     safetyInstructions: null,
     activeAppState: ctx.activeAppState,
     activeAppName: ctx.activeAppName,
+    activeAppStatus: ctx.activeAppStatus,
+    stateUpdatedAt: ctx.stateUpdatedAt,
   })
 }
 
@@ -63,13 +67,21 @@ export interface StreamResult {
 export async function generateResponse(ctx: AIContext): Promise<any> {
   const systemPrompt = buildSystemPrompt(ctx)
 
+  // Only pass tools to streamText if they are proper AI SDK tool definitions.
+  // enabledToolSchemas may contain metadata-only entries ({ description }) for
+  // prompt context — these are NOT valid AI SDK tools and must not be sent to
+  // the Anthropic API. Tool invocation goes through /apps/:id/tools/:name/invoke.
+  const hasValidTools = Object.keys(ctx.enabledToolSchemas).length > 0
+    && Object.values(ctx.enabledToolSchemas).every(
+      (t: any) => t && typeof t.parameters === 'object' && t.parameters.type
+    )
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const streamOptions: any = {
     model: anthropic('claude-haiku-4-5-20251001'),
     system: systemPrompt,
     messages: ctx.messages,
-    tools: ctx.enabledToolSchemas,
-    maxSteps: 3, // Allow up to 3 tool call rounds
+    ...(hasValidTools ? { tools: ctx.enabledToolSchemas, maxSteps: 3 } : {}),
     onStepFinish: ({ toolCalls }: { toolCalls?: Array<{ toolName: string }> }) => {
       // Log tool calls for observability
       if (toolCalls && toolCalls.length > 0) {

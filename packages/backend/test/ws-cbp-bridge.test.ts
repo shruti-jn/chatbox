@@ -111,7 +111,7 @@ describe('WebSocket CBP Bridge — Layer 2', () => {
     // Give subscription time
     await new Promise((r) => setTimeout(r, 100))
 
-    await handleAppStateUpdate(instanceId, statePayload)
+    await handleAppStateUpdate(instanceId, statePayload, undefined)
 
     const msg = await received
     expect(JSON.parse(msg)).toEqual(statePayload)

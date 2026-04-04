@@ -153,6 +153,43 @@ export async function chatRoutes(server: FastifyInstance) {
       })
     })
 
+    // Look up active app instance for this conversation
+    const activeInstance = await withTenantContext(user.districtId, async (tx) => {
+      return tx.appInstance.findFirst({
+        where: {
+          conversationId,
+          status: { in: ['active', 'suspended'] },
+        },
+        include: { app: { select: { name: true, toolDefinitions: true } } },
+        orderBy: { updatedAt: 'desc' },
+      })
+    })
+
+    // Look up enabled apps for tool schemas
+    const enabledApps = conversation?.classroomId
+      ? await withTenantContext(user.districtId, async (tx) => {
+          return tx.classroomAppConfig.findMany({
+            where: { classroomId: conversation!.classroomId, enabled: true },
+            include: { app: { select: { name: true, toolDefinitions: true } } },
+          })
+        })
+      : []
+
+    // Build tool name list for system prompt context (tells AI what tools exist)
+    // NOTE: We do NOT pass these as actual AI SDK tools — tool invocations go
+    // through /apps/:id/tools/:name/invoke, not through AI function calling.
+    // The enabledToolSchemas record is used by assembleSystemPrompt to list
+    // available tools in the system prompt.
+    const enabledToolSchemas: Record<string, any> = {}
+    for (const config of enabledApps) {
+      const tools = config.app.toolDefinitions as Array<{ name: string; description: string }>
+      if (Array.isArray(tools)) {
+        for (const t of tools) {
+          enabledToolSchemas[t.name] = { description: t.description }
+        }
+      }
+    }
+
     // Build AI context
     const aiConfig = (conversation?.classroom?.aiConfig as Record<string, any>) ?? { mode: 'direct' }
     const gradeBand = conversation?.classroom?.gradeBand ?? 'g68'
@@ -180,9 +217,15 @@ export async function chatRoutes(server: FastifyInstance) {
           asyncGuidance: aiConfig.asyncGuidance,
         },
         gradeBand: gradeBand as any,
-        activeAppState: null,
-        activeAppName: null,
-        enabledToolSchemas: {},
+        activeAppState: activeInstance?.status === 'active'
+          ? (activeInstance.stateSnapshot as Record<string, unknown> | null)
+          : null,
+        activeAppName: activeInstance?.status === 'active'
+          ? activeInstance.app.name
+          : null,
+        activeAppStatus: (activeInstance?.status as any) ?? null,
+        stateUpdatedAt: activeInstance?.updatedAt ?? null,
+        enabledToolSchemas,
         whisperGuidance: whisper ? ((whisper.contentParts as any[])?.[0]?.text ?? null) : null,
         asyncGuidance: aiConfig.asyncGuidance ?? null,
       })

@@ -74,11 +74,26 @@ export function sendCommandToApp(instanceId: string, command: Record<string, unk
 export async function handleAppStateUpdate(
   instanceId: string,
   state: Record<string, unknown>,
+  districtId?: string,
 ): Promise<void> {
   const client = getRedisClient()
   await client.connect().catch(() => { /* already connected */ })
   const channel = `cbp:state:${instanceId}`
   await client.publish(channel, JSON.stringify(state))
+
+  // Persist state snapshot to DB so chat route can read it
+  if (districtId) {
+    try {
+      await withTenantContext(districtId, async (tx) => {
+        await tx.appInstance.update({
+          where: { id: instanceId },
+          data: { stateSnapshot: state as any },
+        })
+      })
+    } catch (err) {
+      console.warn(`[CBP] Failed to persist state for instance ${instanceId}:`, err)
+    }
+  }
 }
 
 export async function websocketRoutes(server: FastifyInstance) {
@@ -125,9 +140,9 @@ export async function websocketRoutes(server: FastifyInstance) {
           return
         }
 
-        // Handle app state updates — forward to Redis for CBP dispatch
+        // Handle app state updates — forward to Redis for CBP dispatch + persist to DB
         if (msg.type === 'app_state_update' && typeof msg.instanceId === 'string' && msg.state) {
-          await handleAppStateUpdate(msg.instanceId, msg.state)
+          await handleAppStateUpdate(msg.instanceId, msg.state, user.districtId)
           return
         }
 

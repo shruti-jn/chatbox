@@ -8,16 +8,46 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'DM Sans', system-ui, sans-serif;
-      background: #F8FAFC;
+      background: #F9FAFB;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 16px;
       min-height: 100%;
     }
+    .cb-app-card {
+      max-width: 520px;
+      width: 100%;
+      margin: 0 auto;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+    .cb-app-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid #E2E8F0;
+      font-family: 'Inter', 'Roboto', sans-serif;
+      font-size: 14px;
+      color: #374151;
+    }
+    .cb-app-icon { font-size: 20px; }
+    .cb-app-name { font-weight: 600; }
+    .cb-app-status { margin-left: auto; color: #6B7280; font-size: 12px; }
+    .cb-app-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
     .board-container {
       position: relative;
-      width: min(100%, 480px);
+      width: 100%;
+      max-width: 480px;
       aspect-ratio: 1;
     }
     .board {
@@ -56,10 +86,11 @@
     .piece:active { cursor: grabbing; }
 
     .status-bar {
-      width: min(100%, 480px);
+      width: 100%;
+      max-width: 480px;
       padding: 12px 16px;
       margin-top: 12px;
-      background: white;
+      background: #F9FAFB;
       border-radius: 8px;
       border: 1px solid #E2E8F0;
       font-size: 14px;
@@ -78,11 +109,20 @@
   </style>
 </head>
 <body>
-  <div class="board-container">
-    <div class="board" id="board"></div>
+  <div class="cb-app-card">
+    <div class="cb-app-header">
+      <span class="cb-app-icon">♞</span>
+      <span class="cb-app-name">Chess</span>
+      <span class="cb-app-status" id="header-status">White to move</span>
+    </div>
+    <div class="cb-app-body">
+      <div class="board-container">
+        <div class="board" id="board"></div>
+      </div>
+      <div class="status-bar" id="status">White to move</div>
+      <div class="error-msg" id="error"></div>
+    </div>
   </div>
-  <div class="status-bar" id="status">White to move</div>
-  <div class="error-msg" id="error"></div>
 
   <script type="module" src="/src/chess-app.ts"></script>
 </body>
