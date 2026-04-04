@@ -17,8 +17,9 @@ import { adminRoutes } from './routes/admin.js'
 import { analyticsRoutes } from './routes/analytics.js'
 import { aiProxyRoutes } from './routes/ai-proxy.js'
 import { appStaticRoutes } from './routes/app-static.js'
+import { chatbridgeCompletionsRoutes } from './routes/chatbridge-completions.js'
 import { validateEnv } from './lib/env.js'
-import { setTenantContext } from './middleware/rls.js'
+import { setTenantContext, prisma } from './middleware/rls.js'
 
 const envToLogger = {
   development: { level: 'debug' },
@@ -110,6 +111,7 @@ export async function buildServer() {
   await server.register(adminRoutes, { prefix: '/api/v1' })
   await server.register(analyticsRoutes, { prefix: '/api/v1' })
   await server.register(aiProxyRoutes, { prefix: '/api/v1' })
+  await server.register(chatbridgeCompletionsRoutes, { prefix: '/api/v1' })
   await server.register(appStaticRoutes, { prefix: '/api/v1' })
 
   // RLS middleware: SET LOCAL app.tenant_id for authenticated requests
@@ -159,6 +161,44 @@ export async function buildServer() {
   return server
 }
 
+/**
+ * Register built-in apps via Prisma at startup (equivalent to POST /apps/register).
+ * A6: Chess app must be registered at startup, not just manually seeded.
+ */
+export async function registerBuiltInApps() {
+  const CHESS_TOOLS = [
+    { name: 'start_game', description: 'Start a new chess game', inputSchema: { type: 'object' } },
+    { name: 'make_move', description: 'Make a chess move', inputSchema: { type: 'object', properties: { move: { type: 'string' } } } },
+    { name: 'get_legal_moves', description: 'Get legal moves for current position', inputSchema: { type: 'object', properties: { fen: { type: 'string' } } } },
+  ]
+
+  const CHESS_DATA = {
+    name: 'Chess',
+    description: 'Interactive chess game with AI analysis',
+    toolDefinitions: CHESS_TOOLS,
+    uiManifest: { url: '/api/v1/apps/chess/ui/', width: 600, height: 600 },
+    permissions: { compute: true },
+    complianceMetadata: { coppaCompliant: true, ferpaCompliant: true },
+    version: '1.0.0',
+    reviewStatus: 'approved' as const,
+  }
+
+  const existing = await prisma.app.findFirst({ where: { name: 'Chess' } })
+  if (!existing) {
+    await prisma.app.create({ data: CHESS_DATA })
+  } else {
+    // Always ensure built-in app has correct tools, URL, and approval status
+    await prisma.app.update({
+      where: { id: existing.id },
+      data: {
+        toolDefinitions: CHESS_TOOLS,
+        uiManifest: CHESS_DATA.uiManifest,
+        reviewStatus: 'approved',
+      },
+    })
+  }
+}
+
 // Start server
 async function start() {
   // F4: Validate required env vars before anything else
@@ -173,6 +213,11 @@ async function start() {
 
   try {
     await server.listen({ port, host })
+
+    // A6: Register built-in apps at startup (not just via seed)
+    await registerBuiltInApps()
+    server.log.info('Built-in apps registered')
+
     server.log.info(`ChatBridge v2 API running on ${host}:${port}`)
     server.log.info(`Swagger UI: http://localhost:${port}/docs`)
     server.log.info(`OpenAPI JSON: http://localhost:${port}/docs/json`)
