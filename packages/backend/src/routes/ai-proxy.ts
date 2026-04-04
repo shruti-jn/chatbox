@@ -15,6 +15,7 @@
 import type { FastifyInstance } from 'fastify'
 import { runSafetyPipeline } from '../safety/pipeline.js'
 import { createTrace, createSafetySpan, createGeneration, endGeneration, flushTraces } from '../observability/langfuse.js'
+import { loadPrompt } from '../prompts/registry.js'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com'
 
@@ -118,14 +119,14 @@ export async function aiProxyRoutes(server: FastifyInstance) {
           // Block dangerous content
           if (safetyResult.severity === 'blocked') {
             flushTraces().catch(() => {})
-            const blockedText = `⚠️ I wasn't able to process that message. It may have contained content that isn't appropriate for a learning environment. Could you try rephrasing your question?`
+            const blockedText = loadPrompt('blocked_message', 'v1')
             return sendSafetyResponse(request, reply, body, 'msg_blocked', blockedText)
           }
 
           // Crisis — return resources
           if (safetyResult.severity === 'critical') {
             flushTraces().catch(() => {})
-            const crisisText = `It sounds like you might be going through a difficult time. You're not alone, and there are people who can help:\n\n📞 **988 Suicide & Crisis Lifeline**: Call or text 988\n💬 **Crisis Text Line**: Text HOME to 741741\n📱 **SAMHSA National Helpline**: 1-800-662-4357\n\nPlease reach out to one of these resources. A caring person is ready to talk with you right now.`
+            const crisisText = loadPrompt('crisis_response', 'v1')
             return sendSafetyResponse(request, reply, body, 'msg_crisis', crisisText)
           }
 
@@ -153,15 +154,7 @@ export async function aiProxyRoutes(server: FastifyInstance) {
 
     // Inject ChatBridge system prompt with app awareness
     if (body?.messages && Array.isArray(body.messages)) {
-      const chatbridgeSystemPrompt = `You are a helpful AI assistant in the ChatBridge K-12 learning platform. You have access to these educational apps that students can use:
-
-1. **Chess** - Interactive chess game. When a student wants to play chess, tell them the chess board is opening and include this exact markdown link: [🎮 Open Chess Board](http://localhost:3001/api/v1/apps/chess/ui/)
-
-2. **Weather** - Weather dashboard. When a student asks about weather, tell them the weather dashboard is opening and include: [🌤️ Open Weather Dashboard](http://localhost:3001/api/v1/apps/weather/ui/?location=CITY) (replace CITY with the requested city)
-
-3. **Spotify** - Playlist creator. When a student wants music, tell them about the Spotify integration and include: [🎵 Open Spotify Playlist Creator](http://localhost:3001/api/v1/apps/spotify/ui/?mock=playlist)
-
-Always be helpful, educational, and age-appropriate. When a student clearly requests an app, respond with a brief message AND include the link to open it.`
+      const chatbridgeSystemPrompt = loadPrompt('proxy_system', 'v2')
 
       // Prepend as system message if not already present
       const msgs = body.messages as Array<{ role: string; content: string }>

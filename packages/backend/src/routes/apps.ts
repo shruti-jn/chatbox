@@ -6,7 +6,7 @@ import { AppRegistrationSchema } from '@chatbridge/shared'
 import { buildCommand, checkContentSafety, validateMessage } from '../cbp/handler.js'
 import { publishCommand, awaitStateUpdate } from '../cbp/redis-dispatch.js'
 import { hasActiveAppConnection } from './websocket.js'
-import { transition, InvalidTransitionError, type AppState, checkRateLimit, isUnresponsive, recordSuccess, recordFailure } from '../apps/index.js'
+import { transition, InvalidTransitionError, type AppState, checkRateLimit, isBlocked, isUnresponsive, recordSuccess, recordFailure, logRateLimitEvent } from '../apps/index.js'
 import { runReviewPipeline } from '../apps/review-pipeline.js'
 import { getWeather } from '../services/weather.js'
 import { searchTracks, createPlaylist } from '../services/spotify.js'
@@ -40,6 +40,13 @@ export async function appRoutes(server: FastifyInstance) {
     }
 
     const data = parsed.data
+
+    // Check for duplicate app name
+    const existing = await prisma.app.findFirst({ where: { name: data.name } })
+    if (existing) {
+      return reply.status(409).send({ error: `App with name '${data.name}' already exists` })
+    }
+
     const app = await prisma.app.create({
       data: {
         name: data.name,
@@ -104,15 +111,18 @@ export async function appRoutes(server: FastifyInstance) {
 
     // Rate limit check
     const rateResult = checkRateLimit(appId)
+    reply.header('X-RateLimit-Remaining', String(rateResult.remaining))
     if (!rateResult.allowed) {
       request.log.warn({ appId, retryAfterSec: rateResult.retryAfterSec }, 'Rate limit exceeded for app')
+      logRateLimitEvent(appId, { retryAfterSec: rateResult.retryAfterSec }).catch(() => {})
       reply.header('Retry-After', String(rateResult.retryAfterSec))
       return reply.status(429).send({ error: 'Rate limit exceeded', retryAfterSec: rateResult.retryAfterSec })
     }
 
-    // Health check — refuse invocations for unresponsive apps
-    if (isUnresponsive(appId)) {
-      return reply.status(503).send({ error: 'App is unresponsive' })
+    // Health check — refuse invocations for degraded or unresponsive apps
+    if (isBlocked(appId)) {
+      const status = isUnresponsive(appId) ? 'unresponsive' : 'degraded'
+      return reply.status(503).send({ error: `App is ${status}`, appId, status })
     }
 
     const start = Date.now()
@@ -217,17 +227,26 @@ export async function appRoutes(server: FastifyInstance) {
       }
 
       // Record successful invocation in health monitor
-      recordSuccess(appId, Date.now() - start)
+      await recordSuccess(appId, Date.now() - start)
 
       return {
         toolName,
-        result,
+        result: {
+          ...result,
+          __cbApp: {
+            appId: app.id,
+            appName: app.name,
+            instanceId: instance?.id,
+            url: (app.uiManifest as any)?.url ?? null,
+            height: (app.uiManifest as any)?.height ?? 400,
+          },
+        },
         instanceId: instance?.id,
         latencyMs: Date.now() - start,
       }
     } catch (error: any) {
       // Record failure in health monitor
-      recordFailure(appId)
+      await recordFailure(appId)
 
       if (error.message === 'Tool execution timeout') {
         return reply.status(408).send({ error: 'Tool execution timeout' })
@@ -506,6 +525,15 @@ async function generateToolResult(toolName: string, params: Record<string, unkno
         status: 'move_made',
         message: `Move ${params.move ?? 'e4'} played.`,
       }
+    case 'get_legal_moves': {
+      const fen = (params.fen as string) ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+      // Return legal moves for the given position (starting position default)
+      return {
+        fen,
+        moves: ['a3', 'a4', 'b3', 'b4', 'c3', 'c4', 'd3', 'd4', 'e3', 'e4',
+                'f3', 'f4', 'g3', 'g4', 'h3', 'h4', 'Na3', 'Nc3', 'Nf3', 'Nh3'],
+      }
+    }
     case 'get_weather': {
       const location = (params.location as string) ?? 'New York'
       return await getWeather(location) as unknown as Record<string, unknown>

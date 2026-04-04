@@ -34,6 +34,7 @@ import { trackEvent } from '@/utils/track'
 import * as chatStore from '../chatStore'
 import { settingsStore } from '../settingsStore'
 import { uiStore } from '../uiStore'
+import { processAppCards } from './app-card-processor'
 import { createNewFork, findMessageLocation } from './forks'
 import { insertMessageAfter, modifyMessage } from './messages'
 
@@ -206,6 +207,17 @@ export async function generate(
           }
         }
 
+        // Build ChatBridge context if this session uses a ChatBridge provider with a join code
+        const providerSettings = settings as any
+        const chatbridgeJoinCode = providerSettings?.chatbridgeJoinCode
+          ?? providerSettings?.providerSettings?.chatbridgeJoinCode
+        const chatbridgeContext = chatbridgeJoinCode ? {
+          joinCode: chatbridgeJoinCode,
+          apiHost: providerSettings?.apiHost ?? providerSettings?.providerSettings?.apiHost ?? 'http://localhost:3001',
+          apiKey: providerSettings?.apiKey ?? providerSettings?.providerSettings?.apiKey ?? '',
+          conversationId: session.id,
+        } : undefined
+
         const { result } = await streamText(model, {
           sessionId: session.id,
           messages: promptMsgs,
@@ -220,9 +232,14 @@ export async function generate(
           providerOptions: settings.providerOptions,
           knowledgeBase,
           webBrowsing,
+          chatbridgeContext,
         })
+        // Post-process: convert app link patterns in text to app-card content parts
+        const processedParts = processAppCards(targetMsg.contentParts)
+
         targetMsg = {
           ...targetMsg,
+          contentParts: processedParts,
           generating: false,
           cancel: undefined,
           tokensUsed: targetMsg.tokensUsed ?? estimateTokensFromMessages([...promptMsgs, targetMsg]),
