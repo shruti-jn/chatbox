@@ -227,19 +227,119 @@ export async function aiProxyRoutes(server: FastifyInstance) {
     }
 
     try {
+      const isStreaming = body?.stream === true
+      const injectedTools = body?.tools as Array<{ name: string }> | undefined
+
+      // If tools were injected, make the FIRST call non-streaming so we can
+      // detect tool_use and execute server-side before streaming the final response
+      const firstCallBody = injectedTools?.length
+        ? { ...body, stream: false }
+        : body
+
       const response = await fetch(targetUrl, {
         method: request.method as string,
         headers,
-        body: body ? JSON.stringify(body) : undefined,
+        body: firstCallBody ? JSON.stringify(firstCallBody) : undefined,
       })
 
-      // Stream the response back
+      // If we injected tools, check for tool_use in the response
+      if (injectedTools?.length && response.ok) {
+        const firstResult = await response.json() as {
+          id: string; model: string; role: string; content: any[]; stop_reason: string; usage: any
+        }
+
+        const toolUse = firstResult.content?.find((c: any) => c.type === 'tool_use')
+
+        if (toolUse) {
+          // Execute the tool server-side
+          request.log.info({ toolName: toolUse.name, toolId: toolUse.id }, 'Executing tool server-side')
+          const toolResult = await executeProxyTool(toolUse.name, toolUse.input ?? {})
+
+          // Make a second Anthropic call with the tool result
+          const followUpMessages = [
+            ...(body.messages as any[]),
+            { role: 'assistant', content: firstResult.content },
+            {
+              role: 'user',
+              content: [{
+                type: 'tool_result',
+                tool_use_id: toolUse.id,
+                content: JSON.stringify(toolResult.result),
+              }],
+            },
+          ]
+
+          const followUpBody = {
+            ...body,
+            messages: followUpMessages,
+            // Keep streaming for the final response
+          }
+
+          const followUpResponse = await fetch(targetUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(followUpBody),
+          })
+
+          // If the original request was streaming, pipe the follow-up response
+          const followUpContentType = followUpResponse.headers.get('content-type') ?? 'application/json'
+
+          if (isStreaming && followUpContentType.includes('text/event-stream')) {
+            const origin = request.headers.origin ?? '*'
+            reply.raw.writeHead(followUpResponse.status, {
+              'content-type': 'text/event-stream',
+              'cache-control': 'no-cache',
+              'connection': 'keep-alive',
+              'access-control-allow-origin': origin,
+              'access-control-allow-credentials': 'true',
+            })
+
+            const reader = followUpResponse.body?.getReader()
+            if (reader) {
+              const decoder = new TextDecoder()
+              while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+                reply.raw.write(decoder.decode(value, { stream: true }))
+              }
+            }
+
+            // Emit app-card event if tool result has __cbApp
+            if (toolResult.__cbApp) {
+              const appCardEvent = `event: chatbridge_app_card\ndata: ${JSON.stringify({
+                type: 'app_card',
+                ...toolResult.__cbApp,
+                status: 'active',
+              })}\n\n`
+              reply.raw.write(appCardEvent)
+            }
+
+            reply.raw.end()
+            return
+          } else {
+            // Non-streaming follow-up
+            const followUpText = await followUpResponse.text()
+            return reply.status(followUpResponse.status).send(followUpText)
+          }
+        }
+
+        // No tool_use — just return the first result as-is
+        if (isStreaming) {
+          // Client expected streaming but we made a non-streaming call.
+          // Convert to SSE format.
+          return sendSafetyResponse(request, reply, body, firstResult.id,
+            firstResult.content?.find((c: any) => c.type === 'text')?.text ?? '')
+        } else {
+          return reply.status(response.status).send(JSON.stringify(firstResult))
+        }
+      }
+
+      // No tools injected — original transparent proxy behavior
       const contentType = response.headers.get('content-type') ?? 'application/json'
       reply.header('content-type', contentType)
       reply.status(response.status)
 
       if (contentType.includes('text/event-stream')) {
-        // Streaming response — pipe through
         const origin = request.headers.origin ?? '*'
         reply.raw.writeHead(response.status, {
           'content-type': 'text/event-stream',
@@ -260,7 +360,6 @@ export async function aiProxyRoutes(server: FastifyInstance) {
         }
         reply.raw.end()
       } else {
-        // Non-streaming — send complete response
         const responseBody = await response.text()
         return reply.send(responseBody)
       }
@@ -280,4 +379,62 @@ export async function aiProxyRoutes(server: FastifyInstance) {
       })
     }
   })
+}
+
+/**
+ * Execute a tool call server-side. Returns result + optional __cbApp metadata.
+ */
+async function executeProxyTool(
+  namespacedName: string,
+  input: Record<string, unknown>,
+): Promise<{ result: Record<string, unknown>; __cbApp?: Record<string, unknown> }> {
+  // Parse tool name: chess__start_game -> appName=chess, toolName=start_game
+  const parts = namespacedName.split('__')
+  const toolName = parts.length === 2 ? parts[1] : namespacedName
+
+  // Look up the app
+  const appName = parts.length === 2 ? parts[0] : ''
+  const app = await prisma.app.findFirst({
+    where: { name: { contains: appName, mode: 'insensitive' }, reviewStatus: 'approved' },
+    select: { id: true, name: true, uiManifest: true },
+  })
+
+  // Execute the tool (mock for now — same as generateToolResult)
+  let result: Record<string, unknown>
+  switch (toolName) {
+    case 'start_game':
+      result = {
+        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        status: 'new_game',
+        message: 'Chess game started! White to move.',
+      }
+      break
+    case 'make_move':
+      result = {
+        fen: input.fen ?? 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+        status: 'move_made',
+        message: `Move ${input.move ?? 'e4'} played.`,
+      }
+      break
+    case 'get_legal_moves':
+      result = {
+        fen: input.fen ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        moves: ['a3', 'a4', 'b3', 'b4', 'c3', 'c4', 'd3', 'd4', 'e3', 'e4',
+                'f3', 'f4', 'g3', 'g4', 'h3', 'h4', 'Na3', 'Nc3', 'Nf3', 'Nh3'],
+      }
+      break
+    default:
+      result = { status: 'ok', toolName }
+  }
+
+  // Build __cbApp metadata if we found the app
+  const uiManifest = app?.uiManifest as { url?: string; height?: number } | null
+  const cbApp = app ? {
+    appId: app.id,
+    appName: app.name,
+    url: uiManifest?.url ?? `/api/v1/apps/${appName}/ui/`,
+    height: uiManifest?.height ?? 500,
+  } : undefined
+
+  return { result, __cbApp: cbApp }
 }
