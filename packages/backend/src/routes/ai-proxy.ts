@@ -264,7 +264,16 @@ export async function aiProxyRoutes(server: FastifyInstance) {
               content: [{
                 type: 'tool_result',
                 tool_use_id: toolUse.id,
-                content: JSON.stringify(toolResult.result),
+                content: JSON.stringify({
+                  ...toolResult.result,
+                  _instructions: toolResult.__cbApp
+                    ? (() => {
+                        const url = toolResult.__cbApp.url as string
+                        const fullUrl = url.startsWith('http') ? url : `http://localhost:3001${url}`
+                        return `The app is now open. Include this exact markdown link in your response so the student can see it: [Open ${toolResult.__cbApp.appName}](${fullUrl})`
+                      })()
+                    : undefined,
+                }),
               }],
             },
           ]
@@ -304,9 +313,22 @@ export async function aiProxyRoutes(server: FastifyInstance) {
               }
             }
 
-            // App card metadata is available in toolResult.__cbApp
-            // The frontend app-card-processor handles inline rendering
-            // from text patterns or tool results — no custom SSE event needed
+            // Inject a deterministic app-card marker AFTER the AI response.
+            // This is a standard Anthropic content_block with a hidden marker
+            // that the frontend app-card-processor will detect and convert to
+            // an inline iframe. The marker is always present when a tool executed.
+            if (toolResult.__cbApp) {
+              const cb = toolResult.__cbApp as Record<string, unknown>
+              const url = (cb.url as string)?.startsWith('http') ? cb.url : `http://localhost:3001${cb.url}`
+              const marker = `\n\n[Open ${cb.appName}](${url})`
+
+              // Emit as a new content block in Anthropic SSE format
+              const idx = 99 // high index to not conflict with existing blocks
+              reply.raw.write(`event: content_block_start\ndata: ${JSON.stringify({ type: 'content_block_start', index: idx, content_block: { type: 'text', text: '' } })}\n\n`)
+              reply.raw.write(`event: content_block_delta\ndata: ${JSON.stringify({ type: 'content_block_delta', index: idx, delta: { type: 'text_delta', text: marker } })}\n\n`)
+              reply.raw.write(`event: content_block_stop\ndata: ${JSON.stringify({ type: 'content_block_stop', index: idx })}\n\n`)
+            }
+
             reply.raw.end()
             return
           } else {
@@ -385,12 +407,18 @@ async function executeProxyTool(
   const parts = namespacedName.split('__')
   const toolName = parts.length === 2 ? parts[1] : namespacedName
 
-  // Look up the app
+  // Look up the app — prefer exact name match, fall back to contains
   const appName = parts.length === 2 ? parts[0] : ''
-  const app = await prisma.app.findFirst({
-    where: { name: { contains: appName, mode: 'insensitive' }, reviewStatus: 'approved' },
+  let app = await prisma.app.findFirst({
+    where: { name: { equals: appName, mode: 'insensitive' }, reviewStatus: 'approved' },
     select: { id: true, name: true, uiManifest: true },
   })
+  if (!app) {
+    app = await prisma.app.findFirst({
+      where: { name: { contains: appName, mode: 'insensitive' }, reviewStatus: 'approved' },
+      select: { id: true, name: true, uiManifest: true },
+    })
+  }
 
   // Execute the tool (mock for now — same as generateToolResult)
   let result: Record<string, unknown>
