@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { buildServer } from '../src/server.js'
 import { signJWT } from '../src/middleware/auth.js'
-import { prisma } from '../src/middleware/rls.js'
+import { prisma, ownerPrisma } from '../src/middleware/rls.js'
 import type { FastifyInstance } from 'fastify'
 
 describe('Brief Test Scenarios — Full E2E Flow', () => {
@@ -28,25 +28,25 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
     server = await buildServer()
     await server.ready()
 
-    // Create full test environment
-    const district = await prisma.district.create({ data: { name: 'E2E Test District' } })
+    // Create full test environment (owner role bypasses RLS for seeding)
+    const district = await ownerPrisma.district.create({ data: { name: 'E2E Test District' } })
     districtId = district.id
 
-    const teacher = await prisma.user.create({
+    const teacher = await ownerPrisma.user.create({
       data: { districtId, role: 'teacher', displayName: 'E2E Teacher' },
     })
     teacherId = teacher.id
 
-    const student = await prisma.user.create({
+    const student = await ownerPrisma.user.create({
       data: { districtId, role: 'student', displayName: 'E2E Student', gradeBand: 'g68' },
     })
     studentId = student.id
 
-    const admin = await prisma.user.create({
+    const admin = await ownerPrisma.user.create({
       data: { districtId, role: 'district_admin', displayName: 'E2E Admin' },
     })
 
-    const classroom = await prisma.classroom.create({
+    const classroom = await ownerPrisma.classroom.create({
       data: {
         districtId, teacherId, name: 'E2E Math Class',
         joinCode: 'E2ETEST', gradeBand: 'g68',
@@ -55,7 +55,7 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
     })
     classroomId = classroom.id
 
-    const conversation = await prisma.conversation.create({
+    const conversation = await ownerPrisma.conversation.create({
       data: { districtId, classroomId, studentId },
     })
     conversationId = conversation.id
@@ -64,9 +64,10 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
     teacherToken = signJWT({ userId: teacherId, role: 'teacher', districtId })
     adminToken = signJWT({ userId: admin.id, role: 'district_admin', districtId })
 
-    // Register chess app
+    // Register chess app (requires teacher/admin auth + non-empty permissions)
     const chessRes = await server.inject({
       method: 'POST', url: '/api/v1/apps/register',
+      headers: { authorization: `Bearer ${teacherToken}` },
       payload: {
         name: 'Chess', description: 'Interactive chess game',
         toolDefinitions: [
@@ -74,8 +75,8 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
           { name: 'make_move', description: 'Make a chess move', inputSchema: { type: 'object', properties: { move: { type: 'string' } } } },
           { name: 'get_board_state', description: 'Get current board state', inputSchema: { type: 'object' } },
         ],
-        uiManifest: { url: 'http://localhost:5173', width: 500, height: 500 },
-        permissions: {}, complianceMetadata: {}, version: '1.0.0',
+        uiManifest: { url: 'https://chess.chatbridge.app', width: 500, height: 500 },
+        permissions: { network: true }, complianceMetadata: {}, version: '1.0.0',
       },
     })
     chessAppId = JSON.parse(chessRes.body).appId
@@ -83,19 +84,24 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
     // Register weather app
     const weatherRes = await server.inject({
       method: 'POST', url: '/api/v1/apps/register',
+      headers: { authorization: `Bearer ${teacherToken}` },
       payload: {
         name: 'Weather', description: 'Weather dashboard',
         toolDefinitions: [
           { name: 'get_weather', description: 'Get weather for a location', inputSchema: { type: 'object', properties: { location: { type: 'string' } } } },
         ],
-        uiManifest: { url: 'http://localhost:5174', width: 480, height: 400 },
-        permissions: {}, complianceMetadata: {}, version: '1.0.0',
+        uiManifest: { url: 'https://weather.chatbridge.app', width: 480, height: 400 },
+        permissions: { network: true }, complianceMetadata: {}, version: '1.0.0',
       },
     })
     weatherAppId = JSON.parse(weatherRes.body).appId
 
+    // Submit apps for review (auto-approves in dev/test)
+    await server.inject({ method: 'POST', url: `/api/v1/apps/${chessAppId}/submit-review`, headers: { authorization: `Bearer ${teacherToken}` } })
+    await server.inject({ method: 'POST', url: `/api/v1/apps/${weatherAppId}/submit-review`, headers: { authorization: `Bearer ${teacherToken}` } })
+
     // Approve apps in district catalog
-    await prisma.districtAppCatalog.createMany({
+    await ownerPrisma.districtAppCatalog.createMany({
       data: [
         { districtId, appId: chessAppId, status: 'approved' },
         { districtId, appId: weatherAppId, status: 'approved' },
@@ -103,7 +109,7 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
     })
 
     // Enable apps in classroom
-    await prisma.classroomAppConfig.createMany({
+    await ownerPrisma.classroomAppConfig.createMany({
       data: [
         { classroomId, appId: chessAppId, districtId, enabled: true },
         { classroomId, appId: weatherAppId, districtId, enabled: true },
@@ -112,18 +118,18 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
   })
 
   afterAll(async () => {
-    // Clean up in reverse dependency order
-    await prisma.toolInvocation.deleteMany({ where: { districtId } })
-    await prisma.safetyEvent.deleteMany({ where: { districtId } })
-    await prisma.appInstance.deleteMany({ where: { districtId } })
-    await prisma.message.deleteMany({ where: { districtId } })
-    await prisma.classroomAppConfig.deleteMany({ where: { districtId } })
-    await prisma.districtAppCatalog.deleteMany({ where: { districtId } })
-    await prisma.conversation.deleteMany({ where: { districtId } })
-    await prisma.classroom.deleteMany({ where: { districtId } })
-    await prisma.app.deleteMany({ where: { id: { in: [chessAppId, weatherAppId] } } })
-    await prisma.user.deleteMany({ where: { districtId } })
-    await prisma.district.delete({ where: { id: districtId } })
+    // Clean up in reverse dependency order (owner role bypasses RLS)
+    await ownerPrisma.toolInvocation.deleteMany({ where: { districtId } })
+    await ownerPrisma.safetyEvent.deleteMany({ where: { districtId } })
+    await ownerPrisma.appInstance.deleteMany({ where: { districtId } })
+    await ownerPrisma.message.deleteMany({ where: { districtId } })
+    await ownerPrisma.classroomAppConfig.deleteMany({ where: { districtId } })
+    await ownerPrisma.districtAppCatalog.deleteMany({ where: { districtId } })
+    await ownerPrisma.conversation.deleteMany({ where: { districtId } })
+    await ownerPrisma.classroom.deleteMany({ where: { districtId } })
+    await ownerPrisma.app.deleteMany({ where: { id: { in: [chessAppId, weatherAppId].filter(Boolean) } } })
+    await ownerPrisma.user.deleteMany({ where: { districtId } })
+    await ownerPrisma.district.delete({ where: { id: districtId } })
     await server.close()
   })
 
@@ -147,7 +153,7 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
 
   // === SCENARIO 2: App UI Renders (API side — creates instance) ===
   it('Scenario 2: Third-party app instance created with correct state', async () => {
-    const instances = await prisma.appInstance.findMany({
+    const instances = await ownerPrisma.appInstance.findMany({
       where: { conversationId, appId: chessAppId },
     })
 
@@ -159,7 +165,7 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
 
   // === SCENARIO 3: Completion Signaling ===
   it('Scenario 3: App completion updates instance state', async () => {
-    const instance = await prisma.appInstance.findFirst({
+    const instance = await ownerPrisma.appInstance.findFirst({
       where: { conversationId, appId: chessAppId, status: 'active' },
     })
 
@@ -217,7 +223,7 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
     expect(body.result.location).toBeDefined()
 
     // Chess should now be suspended (single-active constraint)
-    const chessInstances = await prisma.appInstance.findMany({
+    const chessInstances = await ownerPrisma.appInstance.findMany({
       where: { conversationId, appId: chessAppId },
       orderBy: { createdAt: 'desc' },
     })
@@ -292,16 +298,17 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
     // Create a temporary app to suspend
     const tmpRes = await server.inject({
       method: 'POST', url: '/api/v1/apps/register',
+      headers: { authorization: `Bearer ${teacherToken}` },
       payload: {
         name: 'TempApp', description: 'Temporary',
-        toolDefinitions: [{ name: 'test', description: 'Test', inputSchema: {} }],
-        uiManifest: { url: 'http://localhost:9999' },
-        permissions: {}, complianceMetadata: {}, version: '1.0.0',
+        toolDefinitions: [{ name: 'test', description: 'Test', inputSchema: { type: 'object' } }],
+        uiManifest: { url: 'https://temp.chatbridge.app' },
+        permissions: { network: true }, complianceMetadata: {}, version: '1.0.0',
       },
     })
     const tmpAppId = JSON.parse(tmpRes.body).appId
 
-    await prisma.districtAppCatalog.create({
+    await ownerPrisma.districtAppCatalog.create({
       data: { districtId, appId: tmpAppId, status: 'approved' },
     })
 
@@ -316,14 +323,14 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
     expect(body.status).toBe('suspended')
 
     // Verify catalog entry is suspended
-    const catalog = await prisma.districtAppCatalog.findFirst({
+    const catalog = await ownerPrisma.districtAppCatalog.findFirst({
       where: { appId: tmpAppId, districtId },
     })
     expect(catalog?.status).toBe('suspended')
 
     // Clean up
-    await prisma.districtAppCatalog.deleteMany({ where: { appId: tmpAppId } })
-    await prisma.app.delete({ where: { id: tmpAppId } })
+    await ownerPrisma.districtAppCatalog.deleteMany({ where: { appId: tmpAppId } })
+    await ownerPrisma.app.delete({ where: { id: tmpAppId } })
   })
 
   // === ADDITIONAL: Safety Event Audit ===
@@ -404,7 +411,7 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
     expect(body.crisisResources[0]).toContain('988')
 
     // Safety event should be logged
-    const events = await prisma.safetyEvent.findMany({
+    const events = await ownerPrisma.safetyEvent.findMany({
       where: { districtId, eventType: 'crisis_detected' },
       orderBy: { createdAt: 'desc' },
     })

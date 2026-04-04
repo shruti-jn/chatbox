@@ -83,6 +83,11 @@ export class ChatBridgeApp {
     })
   }
 
+  /** Alias for sendState (backwards compatibility) */
+  sendStateUpdate(state: Record<string, unknown>): void {
+    this.sendState(state)
+  }
+
   /** Signal that the app has completed its task */
   signalCompletion(result: Record<string, unknown>): void {
     this.sendState({
@@ -96,9 +101,23 @@ export class ChatBridgeApp {
     return this.instanceId
   }
 
+  /** Get the configured target origin for postMessage */
+  getTargetOrigin(): string {
+    return this.targetOrigin
+  }
+
+  private get targetOrigin(): string {
+    // Use first configured origin if available and not wildcard
+    const origins = Array.from(this.allowedOrigins)
+    if (origins.length > 0 && !this.allowedOrigins.has('*')) {
+      return origins[0]
+    }
+    return '*'
+  }
+
   private send(method: string, params: Record<string, unknown>) {
     const msg = { jsonrpc: '2.0', method, params }
-    window.parent.postMessage(JSON.stringify(msg), '*')
+    window.parent.postMessage(JSON.stringify(msg), this.targetOrigin)
   }
 }
 

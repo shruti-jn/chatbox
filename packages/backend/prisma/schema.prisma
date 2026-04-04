@@ -195,6 +195,7 @@ model ClassroomAppConfig {
   districtId  String   @map("district_id") // Denormalized for RLS
   enabled     Boolean  @default(true)
   enabledAt   DateTime @default(now()) @map("enabled_at")
+  enabledBy   String?  @map("enabled_by") // Audit trail: JWT userId who toggled
 
   classroom Classroom @relation(fields: [classroomId], references: [id])
   app       App       @relation(fields: [appId], references: [id])
@@ -347,6 +348,8 @@ model ParentalConsent {
   districtId      String        @map("district_id")
   parentEmailHash String        @map("parent_email_hash")
   consentStatus   ConsentStatus @default(pending) @map("consent_status")
+  consentToken    String?       @map("consent_token")
+  tokenExpiresAt  DateTime?     @map("token_expires_at")
   consentDate     DateTime?     @map("consent_date")
   revokedDate     DateTime?     @map("revoked_date")
   createdAt       DateTime      @default(now()) @map("created_at")
@@ -355,6 +358,7 @@ model ParentalConsent {
   district District @relation(fields: [districtId], references: [id])
 
   @@index([districtId])
+  @@index([consentToken])
   @@map("parental_consents")
 }
 

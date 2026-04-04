@@ -290,6 +290,61 @@ export async function chatRoutes(server: FastifyInstance) {
     }
   })
 
+  // GET /conversations — List conversations for authenticated user
+  server.get('/conversations', {
+    preHandler: [authenticate, requireCoppaConsent],
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          classroomId: { type: 'string' },
+          limit: { type: 'integer', default: 50 },
+          offset: { type: 'integer', default: 0 },
+        },
+      },
+    },
+  }, async (request) => {
+    const { classroomId, limit = 50, offset = 0 } = request.query as {
+      classroomId?: string
+      limit?: number
+      offset?: number
+    }
+    const user = getUser(request)
+
+    const conversations = await withTenantContext(user.districtId, async (tx) => {
+      return tx.conversation.findMany({
+        where: {
+          studentId: user.userId,
+          ...(classroomId ? { classroomId } : {}),
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: limit + 1,
+        skip: offset,
+        include: {
+          classroom: { select: { id: true, name: true } },
+          _count: { select: { messages: true } },
+        },
+      })
+    })
+
+    const hasMore = conversations.length > limit
+    const result = hasMore ? conversations.slice(0, limit) : conversations
+
+    return {
+      conversations: result.map(c => ({
+        id: c.id,
+        classroomId: c.classroomId,
+        classroom: c.classroom,
+        title: c.title,
+        messageCount: c._count.messages,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+      })),
+      hasMore,
+      total: result.length,
+    }
+  })
+
   // POST /conversations — Create a new conversation
   server.post('/conversations', {
     preHandler: [authenticate, requireCoppaConsent],

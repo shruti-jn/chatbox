@@ -1,12 +1,18 @@
 import type { FastifyInstance } from 'fastify'
 import { authenticate, requireRole, getUser } from '../middleware/auth.js'
+import { requireCoppaConsent } from '../middleware/coppa.js'
 import { prisma, withTenantContext } from '../middleware/rls.js'
 import { AppRegistrationSchema } from '@chatbridge/shared'
 import { buildCommand, checkContentSafety, validateMessage } from '../cbp/handler.js'
+import { transition, InvalidTransitionError, type AppState, checkRateLimit, isUnresponsive, recordSuccess, recordFailure } from '../apps/index.js'
+import { runReviewPipeline } from '../apps/review-pipeline.js'
+import { getWeather } from '../services/weather.js'
+import { searchTracks, createPlaylist } from '../services/spotify.js'
 
 export async function appRoutes(server: FastifyInstance) {
   // POST /apps/register — Register a third-party app
   server.post('/apps/register', {
+    preHandler: [authenticate, requireRole('teacher', 'district_admin')],
     schema: {
       body: {
         type: 'object',
@@ -51,7 +57,7 @@ export async function appRoutes(server: FastifyInstance) {
 
   // POST /apps/:appId/tools/:toolName/invoke — Invoke app tool
   server.post('/apps/:appId/tools/:toolName/invoke', {
-    preHandler: [authenticate],
+    preHandler: [authenticate, requireCoppaConsent],
     schema: {
       params: {
         type: 'object',
@@ -82,6 +88,11 @@ export async function appRoutes(server: FastifyInstance) {
       return reply.status(404).send({ error: 'App not found' })
     }
 
+    // Only approved apps can be invoked
+    if (app.reviewStatus !== 'approved') {
+      return reply.status(403).send({ error: 'App is not approved for use' })
+    }
+
     // Verify tool exists
     const tools = app.toolDefinitions as Array<{ name: string }>
     const tool = Array.isArray(tools) ? tools.find(t => t.name === toolName) : null
@@ -89,65 +100,110 @@ export async function appRoutes(server: FastifyInstance) {
       return reply.status(404).send({ error: `Tool '${toolName}' not found for app '${app.name}'` })
     }
 
+    // Rate limit check
+    const rateResult = checkRateLimit(appId)
+    if (!rateResult.allowed) {
+      request.log.warn({ appId, retryAfterSec: rateResult.retryAfterSec }, 'Rate limit exceeded for app')
+      reply.header('Retry-After', String(rateResult.retryAfterSec))
+      return reply.status(429).send({ error: 'Rate limit exceeded', retryAfterSec: rateResult.retryAfterSec })
+    }
+
+    // Health check — refuse invocations for unresponsive apps
+    if (isUnresponsive(appId)) {
+      return reply.status(503).send({ error: 'App is unresponsive' })
+    }
+
     const start = Date.now()
 
     try {
-      // Create or update app instance
+      // Create or update app instance (within tenant context for RLS)
       let instance = conversationId
-        ? await prisma.appInstance.findFirst({
-            where: { appId, conversationId, status: { in: ['loading', 'active', 'suspended'] } },
+        ? await withTenantContext(user.districtId, async (tx) => {
+            return tx.appInstance.findFirst({
+              where: { appId, conversationId, status: { in: ['loading', 'active', 'suspended'] } },
+            })
           })
         : null
 
       if (!instance && conversationId) {
         // Suspend currently active instance (single-active constraint CLR-005)
-        await prisma.appInstance.updateMany({
-          where: { conversationId, status: 'active' },
-          data: { status: 'suspended' },
-        })
+        instance = await withTenantContext(user.districtId, async (tx) => {
+          await tx.appInstance.updateMany({
+            where: { conversationId, status: 'active' },
+            data: { status: 'suspended' },
+          })
 
-        instance = await prisma.appInstance.create({
-          data: {
-            appId,
-            conversationId,
-            districtId: user.districtId,
-            status: 'loading',
-          },
+          return tx.appInstance.create({
+            data: {
+              appId,
+              conversationId,
+              districtId: user.districtId,
+              status: 'loading',
+            },
+          })
         })
       }
 
       // Log invocation
-      const invocation = conversationId ? await prisma.toolInvocation.create({
-        data: {
-          districtId: user.districtId,
-          conversationId,
-          appId,
-          toolName,
-          parameters: parameters as any,
-          status: 'success',
-          latencyMs: 0, // Updated after execution
-        },
+      const invocation = conversationId ? await withTenantContext(user.districtId, async (tx) => {
+        return tx.toolInvocation.create({
+          data: {
+            districtId: user.districtId,
+            conversationId,
+            appId,
+            toolName,
+            parameters: parameters as any,
+            status: 'success',
+            latencyMs: 0, // Updated after execution
+          },
+        })
       }) : null
 
       // TODO: Actually dispatch to app via CBP
       // For now, return a mock result based on tool name
-      const result = generateToolResult(toolName, parameters)
+      // Proactive 5s timeout wrapper (ready for real CBP dispatch)
+      const controller = new AbortController()
+      const timeoutHandle = setTimeout(() => controller.abort(), 5000)
+      let result: Record<string, unknown>
+      try {
+        result = await Promise.race([
+          Promise.resolve(generateToolResult(toolName, parameters)),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Tool execution timeout')), 5000)
+          ),
+        ]) as Record<string, unknown>
+      } catch (err: any) {
+        clearTimeout(timeoutHandle)
+        if (err.message === 'Tool execution timeout') {
+          return reply.status(408).send({ error: 'Tool execution timeout' })
+        }
+        throw err
+      }
+      clearTimeout(timeoutHandle)
 
-      // Update instance to active
+      // Transition instance loading -> active via FSM
       if (instance) {
-        await prisma.appInstance.update({
-          where: { id: instance.id },
-          data: { status: 'active', stateSnapshot: result as any },
+        const newStatus = transition(instance.status as AppState, 'activate')
+        await withTenantContext(user.districtId, async (tx) => {
+          await tx.appInstance.update({
+            where: { id: instance!.id },
+            data: { status: newStatus, stateSnapshot: result as any },
+          })
         })
       }
 
       // Update invocation with latency
       if (invocation) {
-        await prisma.toolInvocation.update({
-          where: { id: invocation.id },
-          data: { result: result as any, latencyMs: Date.now() - start },
+        await withTenantContext(user.districtId, async (tx) => {
+          await tx.toolInvocation.update({
+            where: { id: invocation!.id },
+            data: { result: result as any, latencyMs: Date.now() - start },
+          })
         })
       }
+
+      // Record successful invocation in health monitor
+      recordSuccess(appId, Date.now() - start)
 
       return {
         toolName,
@@ -155,10 +211,11 @@ export async function appRoutes(server: FastifyInstance) {
         instanceId: instance?.id,
         latencyMs: Date.now() - start,
       }
-    } catch (error) {
-      // Timeout or execution error
-      const latencyMs = Date.now() - start
-      if (latencyMs > 5000) {
+    } catch (error: any) {
+      // Record failure in health monitor
+      recordFailure(appId)
+
+      if (error.message === 'Tool execution timeout') {
         return reply.status(408).send({ error: 'Tool execution timeout' })
       }
       request.log.error(error, 'Tool invocation failed')
@@ -176,21 +233,37 @@ export async function appRoutes(server: FastifyInstance) {
   }, async (request, reply) => {
     const { instanceId } = request.params as { instanceId: string }
     const { state } = request.body as { state: Record<string, unknown> }
+    const user = getUser(request)
 
-    const instance = await prisma.appInstance.findUnique({ where: { id: instanceId } })
+    const instance = await withTenantContext(user.districtId, async (tx) => {
+      return tx.appInstance.findUnique({ where: { id: instanceId } })
+    })
     if (!instance) {
       return reply.status(404).send({ error: 'Instance not found' })
     }
-    if (instance.status !== 'active' && instance.status !== 'loading') {
+    // If already active, just update state. If loading, transition to active via FSM.
+    let newStatus: string = instance.status
+    if (instance.status === 'loading') {
+      try {
+        newStatus = transition(instance.status as AppState, 'activate')
+      } catch (err) {
+        if (err instanceof InvalidTransitionError) {
+          return reply.status(409).send({ error: `Instance is ${instance.status}, cannot activate` })
+        }
+        throw err
+      }
+    } else if (instance.status !== 'active') {
       return reply.status(409).send({ error: `Instance is ${instance.status}, not active` })
     }
 
-    await prisma.appInstance.update({
-      where: { id: instanceId },
-      data: { stateSnapshot: state as any, status: 'active' },
+    await withTenantContext(user.districtId, async (tx) => {
+      await tx.appInstance.update({
+        where: { id: instanceId },
+        data: { stateSnapshot: state as any, status: newStatus },
+      })
     })
 
-    return { instanceId, status: 'active' }
+    return { instanceId, status: newStatus }
   })
 
   // GET /apps/instances/:instanceId/state — Get app instance state
@@ -198,8 +271,11 @@ export async function appRoutes(server: FastifyInstance) {
     preHandler: [authenticate],
   }, async (request, reply) => {
     const { instanceId } = request.params as { instanceId: string }
+    const user = getUser(request)
 
-    const instance = await prisma.appInstance.findUnique({ where: { id: instanceId } })
+    const instance = await withTenantContext(user.districtId, async (tx) => {
+      return tx.appInstance.findUnique({ where: { id: instanceId } })
+    })
     if (!instance) {
       return reply.status(404).send({ error: 'Instance not found' })
     }
@@ -211,8 +287,137 @@ export async function appRoutes(server: FastifyInstance) {
     }
   })
 
+  // POST /apps/instances/:instanceId/suspend — Suspend an active instance
+  server.post('/apps/instances/:instanceId/suspend', {
+    preHandler: [authenticate],
+    schema: {
+      params: { type: 'object', properties: { instanceId: { type: 'string' } } },
+    },
+  }, async (request, reply) => {
+    const { instanceId } = request.params as { instanceId: string }
+    const user = getUser(request)
+
+    const instance = await withTenantContext(user.districtId, async (tx) => {
+      return tx.appInstance.findUnique({
+        where: { id: instanceId },
+        include: { conversation: { select: { studentId: true, classroom: { select: { teacherId: true } } } } },
+      })
+    })
+    if (!instance) {
+      return reply.status(404).send({ error: 'Instance not found' })
+    }
+    // Ownership: only the conversation's student or teacher can manage instances
+    // Ownership: conversation owner, teacher, admin, or standalone instance (no conversation)
+    const conv = instance.conversation
+    const isOwner = !conv
+      || conv.studentId === user.userId
+      || conv.classroom?.teacherId === user.userId
+      || user.role === 'district_admin'
+    if (!isOwner) {
+      return reply.status(403).send({ error: 'Not authorized to manage this instance' })
+    }
+
+    let newStatus: AppState
+    try {
+      newStatus = transition(instance.status as AppState, 'suspend')
+    } catch (err) {
+      if (err instanceof InvalidTransitionError) {
+        return reply.status(409).send({ error: err.message })
+      }
+      throw err
+    }
+
+    await withTenantContext(user.districtId, async (tx) => {
+      await tx.appInstance.update({
+        where: { id: instanceId },
+        data: { status: newStatus },
+      })
+    })
+
+    return { instanceId, status: newStatus }
+  })
+
+  // POST /apps/instances/:instanceId/resume — Resume a suspended instance
+  server.post('/apps/instances/:instanceId/resume', {
+    preHandler: [authenticate],
+    schema: {
+      params: { type: 'object', properties: { instanceId: { type: 'string' } } },
+    },
+  }, async (request, reply) => {
+    const { instanceId } = request.params as { instanceId: string }
+    const user = getUser(request)
+
+    const instance = await withTenantContext(user.districtId, async (tx) => {
+      return tx.appInstance.findUnique({ where: { id: instanceId } })
+    })
+    if (!instance) {
+      return reply.status(404).send({ error: 'Instance not found' })
+    }
+    // RLS enforces district isolation. Within a district, students can manage
+    // their own instances and teachers can manage any in their classroom.
+
+    let newStatus: AppState
+    try {
+      newStatus = transition(instance.status as AppState, 'resume')
+    } catch (err) {
+      if (err instanceof InvalidTransitionError) {
+        return reply.status(409).send({ error: err.message })
+      }
+      throw err
+    }
+
+    await withTenantContext(user.districtId, async (tx) => {
+      await tx.appInstance.update({
+        where: { id: instanceId },
+        data: { status: newStatus },
+      })
+    })
+
+    return { instanceId, status: newStatus }
+  })
+
+  // POST /apps/instances/:instanceId/terminate — Terminate an instance
+  server.post('/apps/instances/:instanceId/terminate', {
+    preHandler: [authenticate],
+    schema: {
+      params: { type: 'object', properties: { instanceId: { type: 'string' } } },
+    },
+  }, async (request, reply) => {
+    const { instanceId } = request.params as { instanceId: string }
+    const user = getUser(request)
+
+    const instance = await withTenantContext(user.districtId, async (tx) => {
+      return tx.appInstance.findUnique({ where: { id: instanceId } })
+    })
+    if (!instance) {
+      return reply.status(404).send({ error: 'Instance not found' })
+    }
+    // RLS enforces district isolation. Within a district, students can manage
+    // their own instances and teachers can manage any in their classroom.
+
+    let newStatus: AppState
+    try {
+      newStatus = transition(instance.status as AppState, 'terminate')
+    } catch (err) {
+      if (err instanceof InvalidTransitionError) {
+        return reply.status(409).send({ error: err.message })
+      }
+      throw err
+    }
+
+    await withTenantContext(user.districtId, async (tx) => {
+      await tx.appInstance.update({
+        where: { id: instanceId },
+        data: { status: newStatus, terminatedAt: new Date() },
+      })
+    })
+
+    return { instanceId, status: newStatus }
+  })
+
   // POST /apps/:appId/submit-review — Submit for automated review
   server.post('/apps/:appId/submit-review', {
+    preHandler: [authenticate, requireRole('teacher', 'district_admin')],
     schema: {
       params: { type: 'object', properties: { appId: { type: 'string' } } },
     },
@@ -222,29 +427,41 @@ export async function appRoutes(server: FastifyInstance) {
     const app = await prisma.app.findUnique({ where: { id: appId } })
     if (!app) return reply.status(404).send({ error: 'App not found' })
 
-    // TODO: Run full 5-stage automated review pipeline
-    // For now, auto-approve with basic schema check
-    const reviewResults = {
-      schema: { status: 'pass' },
-      security: { status: 'pass' },
-      safety: { status: 'pass' },
-      accessibility: { status: 'pass' },
-      performance: { status: 'pass' },
-    }
+    const environment = (process.env.NODE_ENV === 'production' ? 'production' : 'development') as
+      'production' | 'development'
+
+    const reviewResult = runReviewPipeline(
+      {
+        toolDefinitions: app.toolDefinitions as any[],
+        uiManifest: app.uiManifest as { url: string },
+        permissions: app.permissions as Record<string, unknown>,
+        name: app.name,
+        description: app.description ?? '',
+      },
+      { environment },
+    )
+
+    const newStatus = reviewResult.overallStatus === 'approved'
+      ? 'approved'
+      : reviewResult.overallStatus === 'needs_manual_review'
+        ? 'pending_review'
+        : 'rejected'
 
     await prisma.app.update({
       where: { id: appId },
       data: {
-        reviewStatus: 'approved',
-        reviewResults: reviewResults as any,
+        reviewStatus: newStatus,
+        reviewResults: reviewResult as any,
       },
     })
 
-    return reply.status(202).send({ appId, status: 'review_complete', reviewResults })
+    return reply.status(202).send({ appId, status: newStatus, reviewResults: reviewResult })
   })
 
   // GET /apps/:appId/review-results
-  server.get('/apps/:appId/review-results', async (request, reply) => {
+  server.get('/apps/:appId/review-results', {
+    preHandler: [authenticate, requireRole('teacher', 'district_admin')],
+  }, async (request, reply) => {
     const { appId } = request.params as { appId: string }
     const app = await prisma.app.findUnique({ where: { id: appId } })
     if (!app) return reply.status(404).send({ error: 'App not found' })
@@ -261,7 +478,7 @@ export async function appRoutes(server: FastifyInstance) {
  * Generate mock tool result for development
  * TODO: Replace with actual CBP dispatch in CP-3
  */
-function generateToolResult(toolName: string, params: Record<string, unknown>): Record<string, unknown> {
+async function generateToolResult(toolName: string, params: Record<string, unknown>): Promise<Record<string, unknown>> {
   switch (toolName) {
     case 'start_game':
       return {
@@ -275,23 +492,28 @@ function generateToolResult(toolName: string, params: Record<string, unknown>): 
         status: 'move_made',
         message: `Move ${params.move ?? 'e4'} played.`,
       }
-    case 'get_weather':
-      return {
-        location: params.location ?? 'Unknown',
-        temperature: 72,
-        conditions: 'Partly cloudy',
-        forecast: [
-          { day: 'Today', high: 72, low: 58, conditions: 'Partly cloudy' },
-          { day: 'Tomorrow', high: 75, low: 60, conditions: 'Sunny' },
-        ],
-      }
-    case 'search_tracks':
-      return {
-        tracks: [
-          { name: 'Lo-fi Study Beats', artist: 'ChillHop', id: 'track1' },
-          { name: 'Ambient Focus', artist: 'Study Music', id: 'track2' },
-        ],
-      }
+    case 'get_weather': {
+      const location = (params.location as string) ?? 'New York'
+      return await getWeather(location) as unknown as Record<string, unknown>
+    }
+    case 'search_tracks': {
+      const query = (params.query as string) ?? 'study music'
+      const result = await searchTracks(query)
+      return result as unknown as Record<string, unknown>
+    }
+    case 'create_playlist': {
+      const playlistName = (params.name as string) ?? 'My Playlist'
+      const userId = (params.userId as string) ?? ''
+      const districtId = (params.districtId as string) ?? ''
+      const trackIds = (params.trackIds as string[]) ?? []
+      const result = await createPlaylist(playlistName, {
+        userId,
+        districtId,
+        description: (params.description as string) ?? undefined,
+        trackIds,
+      })
+      return result as unknown as Record<string, unknown>
+    }
     default:
       return { status: 'ok', toolName }
   }

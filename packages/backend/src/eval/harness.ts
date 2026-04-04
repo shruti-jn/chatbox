@@ -187,3 +187,55 @@ export async function runEvalHarness(): Promise<EvalSummary> {
     timestamp: new Date().toISOString(),
   }
 }
+
+/**
+ * CLI entry point
+ * Usage:
+ *   npx tsx packages/backend/src/eval/harness.ts --mode=stub
+ *   npx tsx packages/backend/src/eval/harness.ts --mode=live
+ *
+ * Stub mode: skip real LLM calls, use mock responses (default eval behavior)
+ * Live mode: use real ANTHROPIC_API_KEY for AI-dependent scenarios
+ */
+async function main() {
+  const modeArg = process.argv.find(a => a.startsWith('--mode='))
+  if (!modeArg) return // Not invoked as CLI
+
+  const mode = modeArg.split('=')[1] as 'stub' | 'live'
+
+  if (mode === 'live' && !process.env.ANTHROPIC_API_KEY) {
+    console.error('ERROR: --mode=live requires ANTHROPIC_API_KEY environment variable')
+    process.exit(1)
+  }
+
+  console.log(`\n🔬 ChatBridge Eval Harness — mode: ${mode}`)
+  console.log(`Running ${mode === 'stub' ? 'without' : 'with'} real LLM calls...\n`)
+
+  // Set environment hint for downstream code
+  process.env.EVAL_MODE = mode
+
+  const summary = await runEvalHarness()
+
+  console.log(`\n=== EVAL SUMMARY ===`)
+  console.log(`Pass rate: ${summary.passRate}%`)
+  console.log(`Passed: ${summary.passed}/${summary.totalScenarios}`)
+  console.log(`\nDimension averages:`)
+  for (const [dim, avg] of Object.entries(summary.dimensionAverages)) {
+    console.log(`  ${dim}: ${avg}`)
+  }
+
+  if (summary.failed > 0) {
+    console.log(`\nFailed scenarios:`)
+    for (const r of summary.results.filter(r => !r.passed)) {
+      console.log(`  #${r.scenarioId} (${r.category}): ${r.details}`)
+    }
+  }
+
+  console.log(`\nTimestamp: ${summary.timestamp}`)
+  process.exit(summary.failed > 0 ? 1 : 0)
+}
+
+main().catch((err) => {
+  console.error('Eval harness failed:', err)
+  process.exit(2)
+})

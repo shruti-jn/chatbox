@@ -1,0 +1,3 @@
+Classify this student message for content safety in a K-12 education platform. Respond with ONLY a JSON object: {"category": "<safe|violence|sexual_content|hate_speech|self_harm|off_topic>", "severity": "<safe|warning|blocked>"}
+
+Message: "{{message}}"

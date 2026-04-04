@@ -17,12 +17,20 @@ class ChessApp {
   private statusEl: HTMLElement
   private errorEl: HTMLElement
   private instanceId: string | null = null
+  private suspended = false
+  private dragFromSquare: string | null = null
+  private allowedOrigin: string = '*'
 
   constructor() {
     this.game = new Chess()
     this.boardEl = document.getElementById('board')!
     this.statusEl = document.getElementById('status')!
     this.errorEl = document.getElementById('error')!
+
+    // In production, restrict origin; in dev, accept all
+    this.allowedOrigin = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? '*'
+      : window.location.origin
 
     this.render()
     this.setupCBP()
@@ -32,6 +40,9 @@ class ChessApp {
   private setupCBP() {
     // Listen for CBP commands from platform
     window.addEventListener('message', (event) => {
+      // Origin validation: in dev accept all, in prod check specific origin
+      if (this.allowedOrigin !== '*' && event.origin !== this.allowedOrigin) return
+
       try {
         const msg = JSON.parse(typeof event.data === 'string' ? event.data : JSON.stringify(event.data))
         if (msg.jsonrpc !== '2.0') return
@@ -73,7 +84,15 @@ class ChessApp {
 
   private handleLifecycle(params: Record<string, unknown>) {
     // Handle suspend/resume/terminate
-    if (params.event === 'terminate') {
+    if (params.event === 'suspend') {
+      this.suspended = true
+      this.selectedSquare = null
+      this.validMoves = []
+      this.render()
+    } else if (params.event === 'resume') {
+      this.suspended = false
+      this.render()
+    } else if (params.event === 'terminate') {
       this.postCBP('state_update', {
         instance_id: this.instanceId ?? 'unknown',
         state: { ...this.getState(), terminated: true },
@@ -134,8 +153,35 @@ class ChessApp {
     return `${COLS[col]}${8 - row}`
   }
 
+  resign() {
+    if (this.game.isGameOver() || this.suspended) return
+
+    const loser = this.game.turn() === 'w' ? 'White' : 'Black'
+    const winner = this.game.turn() === 'w' ? 'black_wins' : 'white_wins'
+
+    this.statusEl.textContent = `${loser} resigned. ${loser === 'White' ? 'Black' : 'White'} wins!`
+    this.statusEl.className = 'status-bar gameover'
+
+    this.postCBP('state_update', {
+      instance_id: this.instanceId ?? 'pending',
+      state: {
+        ...this.getState(),
+        completed: true,
+        result: 'resignation',
+        resultMessage: `${loser} resigned.`,
+        winner,
+      },
+    })
+
+    // Disable further interaction by marking game over visually
+    this.suspended = true
+    this.render()
+  }
+
   private handleSquareClick(square: string) {
     this.errorEl.textContent = ''
+
+    if (this.suspended) return
 
     if (this.game.isGameOver()) {
       this.errorEl.textContent = 'Game is over!'
@@ -228,8 +274,35 @@ class ChessApp {
 
         if (piece) {
           const pieceKey = `${piece.color}${piece.type}`
-          el.innerHTML = `<span class="piece">${PIECES[pieceKey] ?? ''}</span>`
+          const span = document.createElement('span')
+          span.className = 'piece'
+          span.textContent = PIECES[pieceKey] ?? ''
+
+          // Enable drag on current player's pieces
+          if (!this.suspended && !this.game.isGameOver() && piece.color === this.game.turn()) {
+            span.draggable = true
+            span.addEventListener('dragstart', (e) => {
+              this.dragFromSquare = square
+              e.dataTransfer!.effectAllowed = 'move'
+              e.dataTransfer!.setData('text/plain', square)
+            })
+          }
+          el.appendChild(span)
         }
+
+        // Allow drop on all squares
+        el.addEventListener('dragover', (e) => {
+          e.preventDefault()
+          e.dataTransfer!.dropEffect = 'move'
+        })
+
+        el.addEventListener('drop', (e) => {
+          e.preventDefault()
+          if (this.dragFromSquare) {
+            this.handleDrop(this.dragFromSquare, square)
+            this.dragFromSquare = null
+          }
+        })
 
         el.addEventListener('click', () => this.handleSquareClick(square))
         this.boardEl.appendChild(el)
@@ -237,8 +310,47 @@ class ChessApp {
     }
 
     this.updateStatus()
+    this.renderResignButton()
+  }
+
+  private handleDrop(from: string, to: string) {
+    if (this.suspended || this.game.isGameOver()) return
+
+    this.errorEl.textContent = ''
+    try {
+      const move = this.game.move({ from, to, promotion: 'q' })
+      if (move) {
+        this.lastMove = { from, to }
+        this.selectedSquare = null
+        this.validMoves = []
+        this.render()
+        this.updateStatus()
+        this.sendStateUpdate()
+      }
+    } catch {
+      this.errorEl.textContent = 'Invalid move'
+    }
+  }
+
+  private renderResignButton() {
+    let btn = document.getElementById('resign-btn') as HTMLButtonElement | null
+    if (!btn) {
+      btn = document.createElement('button')
+      btn.id = 'resign-btn'
+      btn.textContent = 'Resign'
+      btn.style.cssText =
+        'margin-top:12px;padding:8px 24px;background:#E11D48;color:white;border:none;border-radius:8px;' +
+        'font-size:14px;font-family:inherit;cursor:pointer;width:min(100%,480px);'
+      btn.addEventListener('click', () => this.resign())
+      // Insert after error element
+      this.errorEl.insertAdjacentElement('afterend', btn)
+    }
+
+    // Hide resign button when game is over or suspended
+    btn.style.display = (this.game.isGameOver() || this.suspended) ? 'none' : 'block'
   }
 }
 
-// Initialize
-new ChessApp()
+// Initialize and expose for testing
+const app = new ChessApp()
+;(window as any).__chessApp = app
