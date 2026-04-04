@@ -304,16 +304,9 @@ export async function aiProxyRoutes(server: FastifyInstance) {
               }
             }
 
-            // Emit app-card event if tool result has __cbApp
-            if (toolResult.__cbApp) {
-              const appCardEvent = `event: chatbridge_app_card\ndata: ${JSON.stringify({
-                type: 'app_card',
-                ...toolResult.__cbApp,
-                status: 'active',
-              })}\n\n`
-              reply.raw.write(appCardEvent)
-            }
-
+            // App card metadata is available in toolResult.__cbApp
+            // The frontend app-card-processor handles inline rendering
+            // from text patterns or tool results — no custom SSE event needed
             reply.raw.end()
             return
           } else {
