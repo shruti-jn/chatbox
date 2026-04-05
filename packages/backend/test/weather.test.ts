@@ -154,3 +154,40 @@ describe('Weather Service', () => {
     expect(result.temperature).toBeDefined()
   })
 })
+
+describe('Weather Service — Live Integration', () => {
+  const isLive = process.env.LIVE_TESTS === 'true'
+  // Read API key before any test teardown can delete it from env
+  const liveApiKey = '787c8fe0ed7c9b0545eaed90fb0640da'
+
+  it.skipIf(!isLive)('fetches real weather for New York from OpenWeatherMap', async () => {
+    // Restore real fetch (un-stub so live HTTP calls go through)
+    vi.unstubAllGlobals()
+
+    // Set real API key and clear any cached state
+    process.env.OPENWEATHER_API_KEY = liveApiKey
+    _testHelpers.clearCache()
+
+    const result = await getWeather('New York')
+
+    // Must be real data, not fallback
+    expect(result.fallback).toBeFalsy()
+    expect(result.warning).toBeUndefined()
+
+    // Temperature must be physically plausible
+    expect(result.temperature).toBeGreaterThan(-50)
+    expect(result.temperature).toBeLessThan(150)
+
+    // Must have all required fields
+    expect(result.conditions).toBeTruthy()
+    expect(result.humidity).toBeGreaterThanOrEqual(0)
+    expect(result.humidity).toBeLessThanOrEqual(100)
+    expect(result.windSpeed).toBeGreaterThanOrEqual(0)
+    expect(result.icon).toBeTruthy()
+    expect(result.forecast).toBeInstanceOf(Array)
+    expect(result.forecast.length).toBeGreaterThan(0)
+    expect(result.location).toBeTruthy()
+
+    console.log(`[LIVE] New York weather: ${result.temperature}°F, ${result.conditions}, humidity: ${result.humidity}%`)
+  }, 10000)
+})

@@ -16,7 +16,7 @@ import { detectCrisis, type CrisisResult, CRISIS_RESOURCES } from './crisis-dete
 import { loadPromptWithVars } from '../prompts/registry.js'
 
 export type Severity = 'safe' | 'warning' | 'blocked' | 'critical'
-export type Category = 'safe' | 'pii_detected' | 'injection_detected' | 'violence' | 'sexual_content' | 'hate_speech' | 'self_harm' | 'off_topic' | 'crisis'
+export type Category = 'safe' | 'pii_detected' | 'injection_detected' | 'violence' | 'sexual_content' | 'hate_speech' | 'self_harm' | 'off_topic' | 'crisis' | 'unauthorized_access'
 
 export interface ClassificationResult {
   severity: Severity
@@ -117,6 +117,47 @@ export async function runSafetyPipeline(text: string): Promise<ClassificationRes
       originalIntent: injection.extractedIntent,
       redactedMessage: pii.redactedMessage,
       crisisResources: [],
+      piiFound: pii.piiFound.map(p => p.type),
+      processingTimeMs: Date.now() - start,
+      stages: { pii, injection, llmClassification: null, crisis },
+    }
+  }
+
+  // Stage 2.5: Violence / harmful content detection (regex, <10ms)
+  const VIOLENCE_PATTERNS = [
+    /\b(?:make|build|create|construct)\s+(?:a\s+)?(?:weapon|bomb|explosive|gun|knife)/i,
+    /\bhow\s+to\s+(?:harm|hurt|kill|attack|poison|injure)\b/i,
+    /\b(?:instructions|steps|guide)\s+(?:for|to)\s+(?:violence|destruction|terrorism)\b/i,
+  ]
+  const isViolent = VIOLENCE_PATTERNS.some(p => p.test(pii.redactedMessage))
+  if (isViolent) {
+    const crisis = detectCrisis(text)
+    return {
+      severity: 'blocked',
+      category: 'violence',
+      originalIntent: null,
+      redactedMessage: pii.redactedMessage,
+      crisisResources: crisis.isCrisis ? crisis.resources : [],
+      piiFound: pii.piiFound.map(p => p.type),
+      processingTimeMs: Date.now() - start,
+      stages: { pii, injection, llmClassification: null, crisis },
+    }
+  }
+
+  // Stage 2.6: Unauthorized data access detection (regex, <10ms)
+  const UNAUTHORIZED_PATTERNS = [
+    /\b(?:show|get|list|give|display|export)\s+(?:me\s+)?(?:all|every)\s+(?:student|user|teacher|admin)\s+(?:conversations?|messages?|data|records?|info)/i,
+    /\b(?:access|view|read)\s+(?:other|another)\s+(?:student|district|school|class)/i,
+  ]
+  const isUnauthorized = UNAUTHORIZED_PATTERNS.some(p => p.test(pii.redactedMessage))
+  if (isUnauthorized) {
+    const crisis = detectCrisis(text)
+    return {
+      severity: 'blocked',
+      category: 'unauthorized_access',
+      originalIntent: null,
+      redactedMessage: pii.redactedMessage,
+      crisisResources: crisis.isCrisis ? crisis.resources : [],
       piiFound: pii.piiFound.map(p => p.type),
       processingTimeMs: Date.now() - start,
       stages: { pii, injection, llmClassification: null, crisis },

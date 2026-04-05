@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatBridge GitHub</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100%;
+      padding: 16px;
+    }
+    .github-card {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #30363d;
+    }
+    .github-logo { font-size: 32px; }
+    .header-info h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-bottom: 4px;
+    }
+    .header-info .username {
+      font-size: 13px;
+      color: #8b949e;
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 16px;
+      margin-bottom: 12px;
+    }
+    .repos-list, .activity-list { list-style: none; }
+    .repo-item {
+      padding: 12px;
+      margin-bottom: 8px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      transition: border-color 0.2s;
+    }
+    .repo-item:hover {
+      border-color: #58a6ff;
+    }
+    .repo-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #58a6ff;
+      margin-bottom: 4px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .repo-name:hover {
+      text-decoration: underline;
+    }
+    .repo-desc {
+      font-size: 12px;
+      color: #8b949e;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .repo-meta {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 12px;
+      color: #8b949e;
+    }
+    .language-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      background: #0d1117;
+      border-radius: 12px;
+    }
+    .language-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #58a6ff;
+    }
+    .stars {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .activity-item {
+      padding: 12px;
+      margin-bottom: 8px;
+      background: #161b22;
+      border-left: 3px solid #30363d;
+      border-radius: 2px;
+    }
+    .activity-type {
+      font-size: 12px;
+      font-weight: 600;
+      color: #58a6ff;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .activity-desc {
+      font-size: 13px;
+      color: #c9d1d9;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+    .activity-time {
+      font-size: 12px;
+      color: #8b949e;
+    }
+    .auth-prompt {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .auth-prompt p {
+      margin-bottom: 16px;
+      color: #8b949e;
+      line-height: 1.5;
+    }
+    .connect-btn {
+      padding: 12px 32px;
+      background: #238636;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .connect-btn:hover {
+      background: #2ea043;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #8b949e;
+    }
+    .error {
+      text-align: center;
+      padding: 40px 20px;
+      color: #f85149;
+    }
+    .view-on-github {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 8px 16px;
+      background: transparent;
+      color: #58a6ff;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      font-size: 12px;
+      text-decoration: none;
+      transition: border-color 0.2s;
+    }
+    .view-on-github:hover {
+      border-color: #58a6ff;
+      background: rgba(88, 166, 255, 0.05);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 24px;
+      color: #8b949e;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="loading">🐙 Loading GitHub...</div>
+  </div>
+  <script type="module" src="/src/github-app.ts"></script>
+</body>
+</html>

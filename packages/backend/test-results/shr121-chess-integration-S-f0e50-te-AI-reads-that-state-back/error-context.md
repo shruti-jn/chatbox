@@ -1,0 +1,83 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e9] [cursor=pointer]:
+        - img [ref=e10]
+        - generic [ref=e11]: Chatbox
+      - button [ref=e12] [cursor=pointer]:
+        - img [ref=e14]
+    - generic [ref=e17]:
+      - paragraph [ref=e18]: Chat
+      - button [ref=e19] [cursor=pointer]:
+        - img [ref=e21]
+      - button [ref=e24] [cursor=pointer]:
+        - img [ref=e26]
+    - button [ref=e33]:
+      - generic [ref=e34] [cursor=pointer]:
+        - img [ref=e37]
+        - generic [ref=e39]: SHR-121 Chess E2E
+    - status [ref=e40]
+    - generic [ref=e41]:
+      - generic [ref=e43]:
+        - button [ref=e44] [cursor=pointer]:
+          - generic [ref=e46]:
+            - img [ref=e47]
+            - text: New Chat
+        - button [ref=e49] [cursor=pointer]:
+          - generic [ref=e51]:
+            - img [ref=e52]
+            - text: Create Image
+      - generic [ref=e56] [cursor=pointer]:
+        - img [ref=e58]
+        - generic [ref=e61]: My Copilots
+      - generic [ref=e62] [cursor=pointer]:
+        - img [ref=e64]
+        - generic [ref=e66]: Settings
+      - generic [ref=e67] [cursor=pointer]:
+        - img [ref=e69]
+        - generic [ref=e72]: Help
+      - generic [ref=e73] [cursor=pointer]:
+        - img [ref=e75]
+        - generic [ref=e81]: About
+  - generic [ref=e87]:
+    - generic [ref=e88]:
+      - img [ref=e89]
+      - paragraph [ref=e94]: What can I help you with today?
+    - generic [ref=e97]:
+      - generic [ref=e98]:
+        - paragraph [ref=e99]: Welcome to Chatbox!
+        - paragraph [ref=e100]: Login to start chatting with AI
+      - generic [ref=e101]:
+        - button [ref=e102] [cursor=pointer]:
+          - generic [ref=e104]: Login Chatbox AI
+        - button [ref=e105] [cursor=pointer]:
+          - generic [ref=e107]: Other options
+    - generic [ref=e109]:
+      - generic [ref=e110]:
+        - generic [ref=e111]:
+          - textbox [active] [ref=e114]:
+            - /placeholder: Type your question here...
+          - button [disabled] [ref=e115]:
+            - img [ref=e117]
+        - generic [ref=e120]:
+          - generic [ref=e121]:
+            - button [ref=e122] [cursor=pointer]:
+              - img [ref=e123]
+            - button [ref=e125] [cursor=pointer]:
+              - img [ref=e126]
+            - button [disabled] [ref=e136] [cursor=pointer]:
+              - img [ref=e137]
+            - button [ref=e141] [cursor=pointer]:
+              - img [ref=e142]
+          - generic [ref=e146]:
+            - generic [ref=e147] [cursor=pointer]:
+              - img [ref=e148]
+              - generic [ref=e151]: "0"
+            - button [ref=e153] [cursor=pointer]:
+              - paragraph [ref=e154]: chatbridge-haiku
+              - img [ref=e155]
+      - paragraph [ref=e157]: AI-generated content may be inaccurate. Please verify important information.
+```

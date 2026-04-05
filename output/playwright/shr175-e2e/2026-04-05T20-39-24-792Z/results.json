@@ -1,0 +1,90 @@
+[
+  {
+    "name": "clean-publish-and-registry-contract",
+    "passed": true,
+    "summary": {
+      "slug": "shr175-1-clean-2026-04-05t20-39-24-792z",
+      "scanRunStatus": "completed",
+      "publishedUrl": "https://plugins.chatbridge.app/shr175-1-clean-2026-04-05t20-39-24-792z/v1.0.0/",
+      "toolCount": 1
+    }
+  },
+  {
+    "name": "scan-blocker-stops-pipeline",
+    "passed": true,
+    "summary": {
+      "slug": "shr175-2-blocker-2026-04-05t20-39-24-792z",
+      "versionStatus": "scan_failed",
+      "scanDisposition": "fail"
+    }
+  },
+  {
+    "name": "review-reject-blocks-publish",
+    "passed": true,
+    "summary": {
+      "slug": "shr175-3-reject-2026-04-05t20-39-24-792z",
+      "reviewOutcome": "rejected"
+    }
+  },
+  {
+    "name": "waiver-publish-records-controls",
+    "passed": true,
+    "summary": {
+      "slug": "shr175-4-waive-2026-04-05t20-39-24-792z",
+      "publishedUrl": "https://plugins.chatbridge.app/shr175-4-waive-2026-04-05t20-39-24-792z/v1.0.0/",
+      "waiverApprovedBy": "platform-admin"
+    }
+  },
+  {
+    "name": "security-escalation-blocks-release",
+    "passed": true,
+    "summary": {
+      "slug": "shr175-5-escalate-2026-04-05t20-39-24-792z",
+      "reviewOutcome": "escalated",
+      "versionStatus": "awaiting_review"
+    }
+  },
+  {
+    "name": "rollback-switches-active-version",
+    "passed": true,
+    "summary": {
+      "slug": "shr175-6-rollback-2026-04-05t20-39-24-792z",
+      "beforeRollback": "1.1.0",
+      "afterRollback": "1.0.0"
+    }
+  },
+  {
+    "name": "district-override-scopes-runtime-visibility",
+    "passed": true,
+    "summary": {
+      "slug": "shr175-7-district-2026-04-05t20-39-24-792z",
+      "districtAVisible": false,
+      "districtBVisible": true
+    }
+  },
+  {
+    "name": "suspend-and-reinstate-controls-runtime",
+    "passed": true,
+    "summary": {
+      "slug": "shr175-8-suspend-2026-04-05t20-39-24-792z",
+      "killSwitchActiveDuringSuspension": true
+    }
+  },
+  {
+    "name": "runtime-violation-threshold-auto-suspends",
+    "passed": true,
+    "summary": {
+      "slug": "shr175-9-runtime-2026-04-05t20-39-24-792z",
+      "incidentCount": 3,
+      "suspended": true
+    }
+  },
+  {
+    "name": "unsafe-archive-is-rejected",
+    "passed": true,
+    "summary": {
+      "slug": "shr175-10-unsafe-2026-04-05t20-39-24-792z",
+      "error": "artifact_inventory_unsafe_path:shr175-10-unsafe-2026-04-05t20-39-24-792z"
+    }
+  }
+]

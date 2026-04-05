@@ -1,0 +1,17 @@
+{
+  "name": "@chatbridge/apps-github",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "typescript": "5.7.3",
+    "vite": "6.3.5"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-arm64-gnu": "^4.60.1"
+  }
+}
