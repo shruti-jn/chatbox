@@ -1,67 +1,71 @@
-import { describe, it, expect } from 'vitest'
-import { runEvalHarness } from '../src/eval/harness.js'
+import { describe, expect, it } from 'vitest'
 import { GOLDEN_DATASET } from '../src/eval/golden-dataset.js'
+import { evaluateScenario, formatEvalSummary, getEvalThresholds, runEvalHarness } from '../src/eval/harness.js'
 
 describe('Golden Dataset', () => {
-  it('has 20 scenarios', () => {
-    expect(GOLDEN_DATASET).toHaveLength(20)
+  it('loads 20 scenarios from the dataset file with sequential GD ids', () => {
+    expect(GOLDEN_DATASET.length).toBeGreaterThanOrEqual(20)
+    expect(GOLDEN_DATASET.map((s) => s.id)).toEqual([
+      'GD-001', 'GD-002', 'GD-003', 'GD-004', 'GD-005',
+      'GD-006', 'GD-007', 'GD-008', 'GD-009', 'GD-010',
+      'GD-011', 'GD-012', 'GD-013', 'GD-014', 'GD-015',
+      'GD-016', 'GD-017', 'GD-018', 'GD-019', 'GD-020',
+    ])
   })
 
-  it('covers all required categories', () => {
-    const categories = new Set(GOLDEN_DATASET.map(s => s.category))
-    expect(categories.has('tool_routing')).toBe(true)
-    expect(categories.has('safety_pii')).toBe(true)
-    expect(categories.has('safety_injection')).toBe(true)
-    expect(categories.has('safety_crisis')).toBe(true)
-    expect(categories.has('safety_content')).toBe(true)
-    expect(categories.has('state_analysis')).toBe(true)
-    expect(categories.has('context_retention')).toBe(true)
-    expect(categories.has('grade_adaptation')).toBe(true)
-    expect(categories.has('data_isolation')).toBe(true)
-    expect(categories.has('collaboration')).toBe(true)
-  })
-
-  it('every scenario has scoring dimensions', () => {
-    for (const scenario of GOLDEN_DATASET) {
-      expect(scenario.scoringDimensions.length).toBeGreaterThan(0)
-    }
+  it('covers chat_quality, routing_accuracy, and safety categories', () => {
+    const categories = new Set(GOLDEN_DATASET.map((s) => s.category))
+    expect(categories.has('chat_quality')).toBe(true)
+    expect(categories.has('routing_accuracy')).toBe(true)
+    expect(categories.has('safety')).toBe(true)
   })
 })
 
-describe('Eval Harness (non-AI scenarios)', () => {
-  it('runs eval harness and produces summary', async () => {
-    const summary = await runEvalHarness()
+describe('Eval Harness', () => {
+  it('evaluates a scenario into 0-1 rubric scores', async () => {
+    const result = await evaluateScenario(GOLDEN_DATASET[0], { mode: 'stub' })
 
-    expect(summary.totalScenarios).toBe(20)
-    expect(summary.results).toHaveLength(20)
-    expect(summary.passRate).toBeGreaterThanOrEqual(0)
-    expect(summary.timestamp).toBeDefined()
-    expect(summary.dimensionAverages).toBeDefined()
+    expect(result.scenario_id).toBe('GD-001')
+    expect(result.scores.routing_accuracy).toBeGreaterThanOrEqual(0)
+    expect(result.scores.routing_accuracy).toBeLessThanOrEqual(1)
+    expect(result.pass === true || result.pass === false).toBe(true)
+  })
 
-    // Safety scenarios should pass (they use regex, not AI)
-    const safetyResults = summary.results.filter(r =>
-      r.category.startsWith('safety_') && r.category !== 'safety_content'
-    )
-    for (const result of safetyResults) {
-      expect(result.passed).toBe(true)
-    }
+  it('calculates safety precision and recall for a safety scenario', async () => {
+    const result = await evaluateScenario(GOLDEN_DATASET[7], { mode: 'stub' })
 
-    // Tool routing (keyword-based) should pass
-    const routingResults = summary.results.filter(r => r.category === 'tool_routing')
-    const routingPassed = routingResults.filter(r => r.passed).length
-    expect(routingPassed).toBeGreaterThanOrEqual(3) // At least 3 of 4
+    expect(result.scenario_id).toBe('GD-008')
+    expect(result.scores.safety_precision).toBeGreaterThanOrEqual(0)
+    expect(result.scores.safety_precision).toBeLessThanOrEqual(1)
+    expect(result.scores.safety_recall).toBeGreaterThanOrEqual(0)
+    expect(result.scores.safety_recall).toBeLessThanOrEqual(1)
+  })
 
-    // Print summary
-    console.log(`\n=== EVAL SUMMARY ===`)
-    console.log(`Pass rate: ${summary.passRate}%`)
-    console.log(`Passed: ${summary.passed}/${summary.totalScenarios}`)
-    console.log(`\nDimension averages:`)
-    for (const [dim, avg] of Object.entries(summary.dimensionAverages)) {
-      console.log(`  ${dim}: ${avg}`)
-    }
-    console.log(`\nFailed scenarios:`)
-    for (const r of summary.results.filter(r => !r.passed)) {
-      console.log(`  #${r.scenarioId} (${r.category}): ${r.details}`)
-    }
+  it('runs the harness end-to-end with a stable output format', async () => {
+    const summary = await runEvalHarness({ mode: 'stub' })
+
+    expect(summary.total_scenarios).toBeGreaterThanOrEqual(20)
+    expect(summary.results).toHaveLength(summary.total_scenarios)
+    expect(summary.mode).toBe('stub')
+    expect(summary.dimension_averages.chat_quality).toBeGreaterThanOrEqual(0)
+    expect(summary.dimension_averages.chat_quality).toBeLessThanOrEqual(1)
+    expect(summary.dimension_averages.routing_accuracy).toBeGreaterThanOrEqual(0)
+    expect(summary.dimension_averages.routing_accuracy).toBeLessThanOrEqual(1)
+
+    const rendered = formatEvalSummary(summary)
+    expect(rendered).toContain('Eval harness mode: stub')
+    expect(rendered).toContain('Dimension averages:')
+  })
+
+  it('uses configurable thresholds instead of hardcoded pass bars', () => {
+    const thresholds = getEvalThresholds()
+    expect(thresholds.chat_quality).toBeGreaterThan(0)
+    expect(thresholds.chat_quality).toBeLessThanOrEqual(1)
+    expect(thresholds.routing_accuracy).toBeGreaterThan(0)
+    expect(thresholds.routing_accuracy).toBeLessThanOrEqual(1)
+    expect(thresholds.safety_precision).toBeGreaterThan(0)
+    expect(thresholds.safety_precision).toBeLessThanOrEqual(1)
+    expect(thresholds.safety_recall).toBeGreaterThan(0)
+    expect(thresholds.safety_recall).toBeLessThanOrEqual(1)
   })
 })

@@ -6,7 +6,6 @@ import {
   createRoute,
   createRouter,
   RouterProvider,
-  useLocation,
 } from '@tanstack/react-router'
 import clsx from 'clsx'
 import { type FC, useCallback, useEffect } from 'react'
@@ -37,7 +36,10 @@ export type SettingsModalProps = {}
 
 export const SettingsModal: FC<SettingsModalProps> = (props) => {
   const { t } = useTranslation()
-  const location = useLocation()
+  const location = router.state.location as unknown as {
+    pathname: string
+    search: Record<string, unknown> & { settings?: string }
+  }
   const { needRoomForMacWindowControls } = useNeedRoomForWinControls()
 
   useEffect(() => {
@@ -47,8 +49,8 @@ export const SettingsModal: FC<SettingsModalProps> = (props) => {
   }, [location.search.settings])
 
   const onClose = useCallback(() => {
-    const { settings: _, ...otherSearch } = router.state.location.search
-    router.navigate({
+    const { settings: _, ...otherSearch } = (router.state.location.search || {}) as Record<string, unknown>
+    ;(router.navigate as any)({
       to: router.state.location.pathname,
       search: otherSearch,
     })
@@ -109,11 +111,11 @@ export default SettingsModal
 
 export function navigateToSettings(path?: string) {
   if (window.matchMedia(`(max-width:${getThemeDesign('light', 16, 'en').breakpoints?.values?.sm || 640}px)`).matches) {
-    router.navigate({
+    ;(router.navigate as any)({
       to: `/settings${path ? (path.startsWith('/') ? path : `/${path}`) : ''}`,
     })
   } else {
-    router.navigate({
+    ;(router.navigate as any)({
       to: router.state.location.pathname,
       search: {
         settings: `/settings${path ? (path.startsWith('/') ? path : `/${path}`) : ''}`,

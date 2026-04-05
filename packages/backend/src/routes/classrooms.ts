@@ -3,6 +3,7 @@ import type { InputJsonValue } from '@prisma/client/runtime/library'
 import { authenticate, requireRole, getUser } from '../middleware/auth.js'
 import { withTenantContext, prisma, ownerPrisma } from '../middleware/rls.js'
 import { AIConfigSchema } from '@chatbridge/shared'
+import { detectAndRedactPII } from '../safety/pii-detector.js'
 import crypto from 'crypto'
 
 export async function classroomRoutes(server: FastifyInstance) {
@@ -135,7 +136,7 @@ export async function classroomRoutes(server: FastifyInstance) {
 
   // PATCH /classrooms/:id/config — Update classroom config
   server.patch('/classrooms/:id/config', {
-    preHandler: [authenticate, requireRole('teacher')],
+    preHandler: [authenticate, requireRole('teacher', 'district_admin')],
     schema: {
       security: [{ bearerAuth: [] }],
       params: { type: 'object', properties: { id: { type: 'string' } } },
@@ -359,7 +360,7 @@ export async function classroomRoutes(server: FastifyInstance) {
       toolName: string
       description: string
       parameters: Record<string, unknown>
-      uiManifest: { url: string | null; height: number }
+      uiManifest: { url: string | null; height: number; width?: number; displayMode: 'inline' | 'panel' }
     }> = []
 
     for (const config of classroom.appConfigs) {
@@ -372,7 +373,7 @@ export async function classroomRoutes(server: FastifyInstance) {
         description?: string
         inputSchema?: Record<string, unknown>
       }>
-      const manifest = app.uiManifest as { url?: string; height?: number } | null
+      const manifest = app.uiManifest as { url?: string; height?: number; width?: number; displayMode?: 'inline' | 'panel' } | null
 
       if (!Array.isArray(toolDefs)) continue
 
@@ -386,6 +387,8 @@ export async function classroomRoutes(server: FastifyInstance) {
           uiManifest: {
             url: manifest?.url ?? null,
             height: manifest?.height ?? 400,
+            width: manifest?.width,
+            displayMode: manifest?.displayMode === 'panel' ? 'panel' : 'inline',
           },
         })
       }
@@ -400,15 +403,37 @@ export async function classroomRoutes(server: FastifyInstance) {
 
   // POST /classrooms/:id/students/:studentId/whisper — Teacher whisper
   server.post('/classrooms/:id/students/:studentId/whisper', {
-    preHandler: [authenticate, requireRole('teacher')],
+    preHandler: [authenticate, requireRole('teacher', 'district_admin')],
     schema: {
       security: [{ bearerAuth: [] }],
-      body: { type: 'object', required: ['guidance'], properties: { guidance: { type: 'string', maxLength: 2000 } } },
+      body: {
+        type: 'object',
+        properties: {
+          guidance: { type: 'string', maxLength: 2000 },
+          text: { type: 'string', maxLength: 2000 },
+        },
+        anyOf: [
+          { required: ['guidance'] },
+          { required: ['text'] },
+        ],
+      },
     },
-  }, async (request) => {
+  }, async (request, reply) => {
     const { id, studentId } = request.params as { id: string; studentId: string }
-    const { guidance } = request.body as { guidance: string }
+    const { guidance, text } = request.body as { guidance?: string; text?: string }
     const user = getUser(request)
+    const whisperText = typeof text === 'string' && text.trim().length > 0
+      ? text.trim()
+      : typeof guidance === 'string' && guidance.trim().length > 0
+        ? guidance.trim()
+        : null
+
+    if (!whisperText) {
+      return reply.status(400).send({ error: 'Whisper text is required' })
+    }
+
+    const pii = detectAndRedactPII(whisperText)
+    const storedText = pii.hadPII ? pii.redactedMessage : whisperText
 
     // Store whisper as a teacher_whisper message in the student's active conversation
     // Use withTenantContext for RLS enforcement + filter by classroomId to prevent cross-district whisper
@@ -427,18 +452,22 @@ export async function classroomRoutes(server: FastifyInstance) {
           conversationId: conversation.id,
           districtId: user.districtId,
           authorRole: 'teacher_whisper',
-          contentParts: [{ type: 'text', text: guidance }],
+          contentParts: [{
+            type: 'text',
+            text: storedText,
+            ...(pii.hadPII ? { redactionApplied: true, piiTypes: pii.piiFound.map((match) => match.type) } : {}),
+          }],
           whisperAuthorId: user.userId,
         },
       })
 
-      return { success: true, conversationId: conversation.id }
+      return { success: true, conversationId: conversation.id, redacted: pii.hadPII }
     })
 
     if (result.error === 'no_conversation') {
-      return { error: 'No active conversation for this student' }
+      return reply.status(404).send({ error: 'No active conversation for this student' })
     }
 
-    return { success: true, conversationId: result.conversationId }
+    return { success: true, conversationId: result.conversationId, redacted: result.redacted }
   })
 }

@@ -30,6 +30,8 @@ interface Config {
   uuid: string
 }
 
+type GeminiAspectRatio = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9'
+
 // 将chatboxAIFetch移到类内部作为私有方法
 
 export default class ChatboxAI extends AbstractAISDKModel implements ModelInterface {
@@ -142,7 +144,7 @@ export default class ChatboxAI extends AbstractAISDKModel implements ModelInterf
         responseModalities: ['TEXT', 'IMAGE'],
       }
       if (params.aspectRatio && params.aspectRatio !== 'auto') {
-        providerOptions.imageConfig = { aspectRatio: params.aspectRatio }
+        providerOptions.imageConfig = { aspectRatio: params.aspectRatio as GeminiAspectRatio }
       }
 
       const result = streamText({

@@ -99,6 +99,32 @@
     }
     .status-bar.check { border-color: #F43F5E; color: #E11D48; }
     .status-bar.gameover { border-color: #4F46E5; color: #4F46E5; font-weight: 600; }
+    .controls {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .difficulty-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+    }
+    .difficulty-select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #CBD5E1;
+      border-radius: 8px;
+      background: #FFFFFF;
+      color: #0F172A;
+      font: inherit;
+    }
+    .difficulty-caption {
+      font-size: 12px;
+      color: #64748B;
+    }
 
     .error-msg {
       color: #E11D48;
@@ -120,6 +146,7 @@
         <div class="board" id="board"></div>
       </div>
       <div class="status-bar" id="status">White to move</div>
+      <div class="controls" id="controls"></div>
       <div class="error-msg" id="error"></div>
     </div>
   </div>

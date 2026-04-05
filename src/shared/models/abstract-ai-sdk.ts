@@ -536,7 +536,7 @@ export default abstract class AbstractAISDKModel implements ModelInterface {
   private handleError(error: unknown, context: string = ''): never {
     if (APICallError.isInstance(error)) {
       const responseBody = this.sanitizeResponseBody(error.statusCode, error.responseBody)
-      throw new ApiError(`Error from ${this.name}${context}`, responseBody, error.statusCode)
+      throw new ApiError(`Error from ${this.name}${context}`, responseBody)
     }
     if (error instanceof ApiError) {
       throw error

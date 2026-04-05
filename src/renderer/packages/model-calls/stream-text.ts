@@ -36,7 +36,6 @@ import {
 import fileToolSet from './toolsets/file'
 import { getToolSet } from './toolsets/knowledge-base'
 import websearchToolSet, { parseLinkTool, webSearchTool } from './toolsets/web-search'
-import { useAppToolsStore } from '@/stores/appToolsStore'
 
 /**
  * 处理搜索结果并返回模型响应的通用函数
@@ -133,12 +132,6 @@ export async function streamText(
     providerOptions?: ProviderOptions
     knowledgeBase?: Pick<KnowledgeBase, 'id' | 'name'>
     webBrowsing?: boolean
-    chatbridgeContext?: {
-      joinCode: string
-      apiHost: string
-      apiKey: string
-      conversationId: string
-    }
   },
   signal?: AbortSignal
 ): Promise<{ result: StreamTextResult; coreMessages: ModelMessage[] }> {
@@ -320,18 +313,6 @@ export async function streamText(
       tools = {
         ...tools,
         ...fileToolSet.tools,
-      }
-    }
-
-    // 5. ChatBridge app tools (from classroom-enabled apps)
-    if (params.chatbridgeContext) {
-      const { joinCode, apiHost, apiKey, conversationId } = params.chatbridgeContext
-      try {
-        await useAppToolsStore.getState().fetchManifest(joinCode, apiHost)
-        const appTools = useAppToolsStore.getState().buildAppToolSet({ apiHost, apiKey, conversationId })
-        tools = { ...tools, ...appTools }
-      } catch (err) {
-        console.warn('Failed to load ChatBridge app tools:', err)
       }
     }
 

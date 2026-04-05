@@ -9,8 +9,17 @@
  */
 
 import type { CBPMessage, CBPStateUpdate, CBPCommand } from '@chatbridge/shared'
+import type { ToolDefinition, UIManifest } from '@chatbridge/shared'
 
 export type LifecycleEvent = 'activate' | 'suspend' | 'resume' | 'terminate'
+export type StateUpdate = Record<string, unknown>
+export type ToolSchema = ToolDefinition
+export interface AppConfig {
+  name?: string
+  version?: string
+  uiManifest?: UIManifest
+  allowedOrigins?: string[]
+}
 
 export interface ChatBridgeAppOptions {
   /** Allowed parent origins for postMessage validation */
@@ -31,6 +40,7 @@ export class ChatBridgeApp {
   private instanceId: string | null = null
   private options: ChatBridgeAppOptions
   private allowedOrigins: Set<string>
+  private registeredTools = new Map<string, ToolSchema>()
 
   constructor(options: ChatBridgeAppOptions = {}) {
     this.options = options
@@ -86,6 +96,40 @@ export class ChatBridgeApp {
   /** Alias for sendState (backwards compatibility) */
   sendStateUpdate(state: Record<string, unknown>): void {
     this.sendState(state)
+  }
+
+  onActivate(handler: NonNullable<ChatBridgeAppOptions['onActivate']>): this {
+    this.options.onActivate = handler
+    return this
+  }
+
+  onSuspend(handler: NonNullable<ChatBridgeAppOptions['onSuspend']>): this {
+    this.options.onSuspend = handler
+    return this
+  }
+
+  onResume(handler: NonNullable<ChatBridgeAppOptions['onResume']>): this {
+    this.options.onResume = handler
+    return this
+  }
+
+  onTerminate(handler: NonNullable<ChatBridgeAppOptions['onTerminate']>): this {
+    this.options.onTerminate = handler
+    return this
+  }
+
+  onCommand(handler: NonNullable<ChatBridgeAppOptions['onCommand']>): this {
+    this.options.onCommand = handler
+    return this
+  }
+
+  registerTool(tool: ToolSchema): this {
+    this.registeredTools.set(tool.name, tool)
+    return this
+  }
+
+  getRegisteredTools(): ToolSchema[] {
+    return Array.from(this.registeredTools.values())
   }
 
   /** Signal that the app has completed its task */

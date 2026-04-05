@@ -65,11 +65,12 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
     adminToken = signJWT({ userId: admin.id, role: 'district_admin', districtId })
 
     // Register chess app (requires teacher/admin auth + non-empty permissions)
+    // Use unique names to avoid conflict with built-in apps registered at startup
     const chessRes = await server.inject({
       method: 'POST', url: '/api/v1/apps/register',
       headers: { authorization: `Bearer ${teacherToken}` },
       payload: {
-        name: 'Chess', description: 'Interactive chess game',
+        name: `Chess E2E ${Date.now()}`, description: 'Interactive chess game',
         toolDefinitions: [
           { name: 'start_game', description: 'Start a new chess game', inputSchema: { type: 'object' } },
           { name: 'make_move', description: 'Make a chess move', inputSchema: { type: 'object', properties: { move: { type: 'string' } } } },
@@ -86,7 +87,7 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
       method: 'POST', url: '/api/v1/apps/register',
       headers: { authorization: `Bearer ${teacherToken}` },
       payload: {
-        name: 'Weather', description: 'Weather dashboard',
+        name: `Weather E2E ${Date.now()}`, description: 'Weather dashboard',
         toolDefinitions: [
           { name: 'get_weather', description: 'Get weather for a location', inputSchema: { type: 'object', properties: { location: { type: 'string' } } } },
         ],
@@ -128,6 +129,12 @@ describe('Brief Test Scenarios — Full E2E Flow', () => {
     await ownerPrisma.conversation.deleteMany({ where: { districtId } })
     await ownerPrisma.classroom.deleteMany({ where: { districtId } })
     await ownerPrisma.app.deleteMany({ where: { id: { in: [chessAppId, weatherAppId].filter(Boolean) } } })
+    // Audit events have FK to users — delete them first with the immutability escape hatch
+    await ownerPrisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.allow_audit_cleanup', 'true', true)`
+      await tx.auditEvent.deleteMany({ where: { districtId } })
+      await tx.safetyEvent.deleteMany({ where: { districtId } })
+    })
     await ownerPrisma.user.deleteMany({ where: { districtId } })
     await ownerPrisma.district.delete({ where: { id: districtId } })
     await server.close()

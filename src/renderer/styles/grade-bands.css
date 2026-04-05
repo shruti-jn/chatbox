@@ -1,0 +1,109 @@
+/*
+ * Grade-Band Adaptive CSS Variables
+ *
+ * 4 grade bands driven by [data-grade-band] attribute on <html>.
+ * Each band defines 5 CSS custom properties that cascade to all components.
+ * No component-level variants — single adaptive UI via CSS cascade (CLR-001).
+ *
+ * Bands: k2 (K–2), g35 (3–5), g68 (6–8), g912 (9–12)
+ * Variables per band:
+ *   --cb-font-size           Base body font size
+ *   --cb-line-height         Base line height
+ *   --cb-touch-target        Minimum interactive element size
+ *   --cb-spacing-base        Base spacing unit
+ *   --cb-information-density  Multiplier for content density (1 = loose, higher = denser)
+ */
+
+/* ── DM Sans ─────────────────────────────────────────────────────── */
+
+:root {
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ── K-2: Playful, large, accessible for young learners ───────── */
+
+[data-grade-band="k2"] {
+  --cb-font-size: 20px;
+  --cb-line-height: 1.8;
+  --cb-touch-target: 56px;
+  --cb-spacing-base: 1.25rem;
+  --cb-information-density: 0.7;
+
+  font-size: var(--cb-font-size);
+  line-height: var(--cb-line-height);
+}
+
+/* ── 3-5: Slightly smaller, still generous ────────────────────── */
+
+[data-grade-band="g35"] {
+  --cb-font-size: 17px;
+  --cb-line-height: 1.65;
+  --cb-touch-target: 48px;
+  --cb-spacing-base: 1rem;
+  --cb-information-density: 0.8;
+
+  font-size: var(--cb-font-size);
+  line-height: var(--cb-line-height);
+}
+
+/* ── 6-8: Transitional, approaching standard ──────────────────── */
+
+[data-grade-band="g68"] {
+  --cb-font-size: 16px;
+  --cb-line-height: 1.5;
+  --cb-touch-target: 44px;
+  --cb-spacing-base: 0.875rem;
+  --cb-information-density: 0.9;
+
+  font-size: var(--cb-font-size);
+  line-height: var(--cb-line-height);
+}
+
+/* ── 9-12: Mature, standard density ───────────────────────────── */
+
+[data-grade-band="g912"] {
+  --cb-font-size: 15px;
+  --cb-line-height: 1.4;
+  --cb-touch-target: 40px;
+  --cb-spacing-base: 0.75rem;
+  --cb-information-density: 1;
+
+  font-size: var(--cb-font-size);
+  line-height: var(--cb-line-height);
+}
+
+/* ── Utility: Apply touch-target sizing to interactive elements ── */
+
+[data-grade-band] button,
+[data-grade-band] a,
+[data-grade-band] input,
+[data-grade-band] select,
+[data-grade-band] textarea,
+[data-grade-band] [role="button"] {
+  min-height: var(--cb-touch-target);
+  min-width: var(--cb-touch-target);
+}
+
+/* ── Utility: Apply spacing-base to common layout gaps ─────────── */
+
+[data-grade-band] .cb-stack > * + * {
+  margin-top: var(--cb-spacing-base);
+}
+
+/* ── K-2 visual softness: rounded corners ─────────────────────── */
+
+[data-grade-band="k2"] .cb-card,
+[data-grade-band="k2"] button,
+[data-grade-band="k2"] input,
+[data-grade-band="k2"] [role="button"] {
+  border-radius: 1rem;
+}
+
+/* ── 9-12 visual sharpness: crisp corners ─────────────────────── */
+
+[data-grade-band="g912"] .cb-card,
+[data-grade-band="g912"] button,
+[data-grade-band="g912"] input,
+[data-grade-band="g912"] [role="button"] {
+  border-radius: 0.25rem;
+}

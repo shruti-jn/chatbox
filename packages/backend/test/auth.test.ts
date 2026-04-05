@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { buildServer } from '../src/server.js'
 import { signJWT, verifyJWT } from '../src/middleware/auth.js'
-import { prisma } from '../src/middleware/rls.js'
+import { prisma, ownerPrisma } from '../src/middleware/rls.js'
 import type { FastifyInstance } from 'fastify'
 import crypto from 'crypto'
 
@@ -45,16 +45,16 @@ describe('Auth: RBAC enforcement', () => {
     await server.ready()
 
     // Create test district and users
-    const district = await prisma.district.create({ data: { name: 'Test District' } })
+    const district = await ownerPrisma.district.create({ data: { name: 'Test District' } })
     districtId = district.id
 
-    const student = await prisma.user.create({
+    const student = await ownerPrisma.user.create({
       data: { districtId, role: 'student', displayName: 'Test Student', gradeBand: 'g68' },
     })
-    const teacher = await prisma.user.create({
+    const teacher = await ownerPrisma.user.create({
       data: { districtId, role: 'teacher', displayName: 'Test Teacher' },
     })
-    const admin = await prisma.user.create({
+    const admin = await ownerPrisma.user.create({
       data: { districtId, role: 'district_admin', displayName: 'Test Admin' },
     })
 
@@ -64,8 +64,14 @@ describe('Auth: RBAC enforcement', () => {
   })
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { districtId } })
-    await prisma.district.delete({ where: { id: districtId } })
+    // Audit events have FK to users — delete them first with the immutability escape hatch
+    await ownerPrisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.allow_audit_cleanup', 'true', true)`
+      await tx.auditEvent.deleteMany({ where: { districtId } })
+      await tx.safetyEvent.deleteMany({ where: { districtId } })
+    })
+    await ownerPrisma.user.deleteMany({ where: { districtId } })
+    await ownerPrisma.district.delete({ where: { id: districtId } })
     await server.close()
   })
 
@@ -111,6 +117,6 @@ describe('Auth: RBAC enforcement', () => {
     expect(body.gradeBand).toBe('g68')
 
     // Clean up
-    await prisma.classroom.delete({ where: { id: body.id } })
+    await ownerPrisma.classroom.delete({ where: { id: body.id } })
   })
 })

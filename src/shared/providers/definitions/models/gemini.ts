@@ -15,6 +15,8 @@ const GEMINI_IMAGE_MODELS = [
   'gemini-3.1-flash-image',
 ]
 
+type GeminiAspectRatio = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9'
+
 interface Options {
   geminiAPIKey: string
   geminiAPIHost: string
@@ -120,7 +122,7 @@ export default class Gemini extends AbstractAISDKModel {
         responseModalities: ['TEXT', 'IMAGE'],
       }
       if (params.aspectRatio && params.aspectRatio !== 'auto') {
-        providerOptions.imageConfig = { aspectRatio: params.aspectRatio }
+        providerOptions.imageConfig = { aspectRatio: params.aspectRatio as GeminiAspectRatio }
       }
 
       const result = await generateText({

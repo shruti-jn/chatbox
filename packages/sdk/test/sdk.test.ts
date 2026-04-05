@@ -49,6 +49,46 @@ describe('ChatBridgeApp', () => {
     expect(app.getInstanceId()).toBeNull()
   })
 
+  it('supports fluent lifecycle hook registration methods', () => {
+    const onActivate = vi.fn()
+    const onSuspend = vi.fn()
+    const onResume = vi.fn()
+    const onTerminate = vi.fn()
+
+    const app = new ChatBridgeApp()
+      .onActivate(onActivate)
+      .onSuspend(onSuspend)
+      .onResume(onResume)
+      .onTerminate(onTerminate)
+
+    mock.dispatchMessage(JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'command',
+      params: { command: 'set_instance_id', instance_id: 'inst-fluent' },
+    }))
+    mock.dispatchMessage(JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'lifecycle',
+      params: { event: 'suspend' },
+    }))
+    mock.dispatchMessage(JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'lifecycle',
+      params: { event: 'resume' },
+    }))
+    mock.dispatchMessage(JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'lifecycle',
+      params: { event: 'terminate' },
+    }))
+
+    expect(app.getInstanceId()).toBe('inst-fluent')
+    expect(onActivate).toHaveBeenCalledWith('inst-fluent')
+    expect(onSuspend).toHaveBeenCalled()
+    expect(onResume).toHaveBeenCalled()
+    expect(onTerminate).toHaveBeenCalled()
+  })
+
   it('initializes with custom allowed origins', () => {
     const app = new ChatBridgeApp({
       allowedOrigins: ['https://chatbridge.test'],
@@ -83,6 +123,24 @@ describe('ChatBridgeApp', () => {
     expect(parsed.jsonrpc).toBe('2.0')
     expect(parsed.method).toBe('state_update')
     expect(parsed.params.state).toEqual({ level: 5 })
+  })
+
+  it('registerTool stores typed tool metadata without exposing raw postMessage', () => {
+    const app = new ChatBridgeApp()
+
+    app.registerTool({
+      name: 'start_game',
+      description: 'Start a game',
+      inputSchema: { type: 'object' },
+    })
+
+    expect(app.getRegisteredTools()).toEqual([
+      {
+        name: 'start_game',
+        description: 'Start a game',
+        inputSchema: { type: 'object' },
+      },
+    ])
   })
 
   it('lifecycle hooks called on message events', () => {

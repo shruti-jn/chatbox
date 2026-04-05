@@ -91,8 +91,10 @@ describe('F2: Spotify OAuth returns 200 JSON (not redirect)', () => {
   })
 
   afterAll(async () => {
+    await server.close() // Drain pending onResponse hooks (audit writes) before cleanup
+    // Brief pause to let any in-flight audit writes from onResponse settle
+    await new Promise(r => setTimeout(r, 100))
     await cleanup({ userIds: [teacherId], districtIds: [districtId] })
-    await server.close()
     delete process.env.SPOTIFY_CLIENT_ID
     delete process.env.SPOTIFY_CLIENT_SECRET
   })
@@ -131,6 +133,58 @@ describe('F2: Spotify OAuth returns 200 JSON (not redirect)', () => {
     const url = new URL(body.url)
     expect(url.searchParams.get('state')).toBeDefined()
     expect(url.searchParams.get('state')!.length).toBeGreaterThan(0)
+  })
+})
+
+// =====================================================================
+// SPOT-001: Spotify OAuth COPPA gate
+// =====================================================================
+describe('SPOT-001: Spotify OAuth rejects under-13 without COPPA consent', () => {
+  let server: FastifyInstance
+  let districtId: string
+  let under13StudentId: string
+  let under13Token: string
+
+  beforeAll(async () => {
+    process.env.SPOTIFY_CLIENT_ID = 'test-client-id'
+    process.env.SPOTIFY_CLIENT_SECRET = 'test-client-secret'
+
+    server = await buildServer()
+    await server.ready()
+
+    const district = await createTestDistrict()
+    districtId = district.id
+
+    const under13Student = await createTestUser(districtId, {
+      role: 'student',
+      displayName: 'Spotify COPPA Student',
+      gradeBand: 'k2',
+    })
+    under13StudentId = under13Student.id
+    under13Token = signJWT({
+      userId: under13Student.id,
+      role: 'student',
+      districtId,
+      gradeBand: 'k2',
+    })
+  })
+
+  afterAll(async () => {
+    await server.close() // Drain pending onResponse hooks (audit writes) before cleanup
+    await cleanup({ userIds: [under13StudentId], districtIds: [districtId] })
+    delete process.env.SPOTIFY_CLIENT_ID
+    delete process.env.SPOTIFY_CLIENT_SECRET
+  })
+
+  it('returns 403 parental_consent_required for under-13 student without parental consent', async () => {
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/v1/auth/oauth/spotify/authorize',
+      headers: { authorization: `Bearer ${under13Token}` },
+    })
+    expect(res.statusCode).toBe(403)
+    const body = JSON.parse(res.body)
+    expect(body.error).toBe('parental_consent_required')
   })
 })
 
@@ -189,6 +243,7 @@ describe('F3: COPPA consent gate', () => {
   })
 
   afterAll(async () => {
+    await server.close() // Drain pending onResponse hooks (audit writes) before cleanup
     // Clean up consents first
     await prisma.parentalConsent.deleteMany({
       where: { studentId: { in: [under13StudentId, over13StudentId] } },
@@ -197,7 +252,6 @@ describe('F3: COPPA consent gate', () => {
       userIds: [under13StudentId, over13StudentId, teacherId],
       districtIds: [districtId],
     })
-    await server.close()
   })
 
   it('under-13 student (k2) without consent is blocked from /chat routes', async () => {
@@ -209,7 +263,8 @@ describe('F3: COPPA consent gate', () => {
     })
     expect(res.statusCode).toBe(403)
     const body = JSON.parse(res.body)
-    expect(body.error).toBe('COPPA_CONSENT_REQUIRED')
+    expect(body.error).toBe('parental_consent_required')
+    expect(body.consentUrl).toContain('/api/v1/consent/request')
     expect(body.message).toContain('Parental consent')
   })
 
@@ -234,7 +289,8 @@ describe('F3: COPPA consent gate', () => {
     })
     expect(res.statusCode).toBe(403)
     const body = JSON.parse(res.body)
-    expect(body.error).toBe('COPPA_CONSENT_REQUIRED')
+    expect(body.error).toBe('parental_consent_required')
+    expect(body.consentUrl).toContain('/api/v1/consent/request')
     expect(body.message).toContain('Parental consent')
 
     await prisma.user.delete({ where: { id: g35Student.id } })
@@ -413,11 +469,11 @@ describe('F3: WebSocket COPPA gating on /ws/chat', () => {
   })
 
   afterAll(async () => {
+    await server.close() // Drain pending onResponse hooks (audit writes) before cleanup
     await cleanup({
       userIds: [under13StudentId, teacherId],
       districtIds: [districtId],
     })
-    await server.close()
   })
 
   it('rejects WebSocket upgrade to /ws/chat for under-13 student without consent', async () => {
@@ -478,9 +534,9 @@ describe('F5: Spotify token refresh', () => {
   })
 
   afterAll(async () => {
+    await server.close() // Drain pending onResponse hooks (audit writes) before cleanup
     await prisma.oAuthToken.deleteMany({ where: { userId: teacherId } })
     await cleanup({ userIds: [teacherId], districtIds: [districtId] })
-    await server.close()
     delete process.env.SPOTIFY_CLIENT_ID
     delete process.env.SPOTIFY_CLIENT_SECRET
   })

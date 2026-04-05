@@ -15,17 +15,18 @@ interface AppPattern {
   urlPattern: RegExp
   appName: string
   height: number
+  displayMode?: 'inline' | 'panel'
 }
 
 const APP_PATTERNS: AppPattern[] = [
   {
-    textPattern: /Open\s+Chess\s+Board/i,
+    textPattern: /Open\s+Chess/i,
     urlPattern: /apps\/chess\/ui/i,
     appName: 'Chess',
     height: 500,
   },
   {
-    textPattern: /Open\s+Weather\s+Dashboard/i,
+    textPattern: /Open\s+Weather/i,
     urlPattern: /apps\/weather\/ui/i,
     appName: 'Weather',
     height: 400,
@@ -146,6 +147,7 @@ function createAppCardPart(match: LinkMatch): MessageAppCardPart {
     status: 'active',
     url: match.url,
     height: match.appPattern.height,
+    ...(match.appPattern.displayMode ? { displayMode: match.appPattern.displayMode } : {}),
   }
 }
 
@@ -206,6 +208,7 @@ export function processAppCards(contentParts: MessageContentParts): MessageConte
         instanceId: string
         url: string
         height?: number
+        displayMode?: 'inline' | 'panel'
       }
 
       // Resolve relative URLs against the backend host
@@ -226,6 +229,7 @@ export function processAppCards(contentParts: MessageContentParts): MessageConte
         status: 'loading',
         url: resolvedUrl,
         height: meta.height ?? 400,
+        ...(meta.displayMode === 'panel' ? { displayMode: 'panel' as const } : {}),
       }
 
       // Insert the app-card immediately after the tool-call part

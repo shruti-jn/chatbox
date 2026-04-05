@@ -153,7 +153,7 @@ function normalizeAPIHost(
 }
 
 export function RouteComponent() {
-  const { providerId } = Route.useParams()
+  const { providerId } = Route.useParams() as { providerId: string }
   return <ProviderSettings key={providerId} providerId={providerId} />
 }
 

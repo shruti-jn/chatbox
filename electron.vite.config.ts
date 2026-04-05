@@ -175,6 +175,7 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, 'src/renderer'),
           '@shared': path.resolve(__dirname, 'src/shared'),
+          '@chatbridge/shared': path.resolve(__dirname, 'packages/shared/src/index.ts'),
         },
       },
       plugins: [

@@ -23,6 +23,7 @@ const defaultPreConstructedMessageState = (): PreConstructedMessageState => ({
     files: new Map<string, Promise<unknown>>(),
     links: new Map<string, Promise<unknown>>(),
   },
+  message: undefined,
 })
 
 export const inputBoxLinksFamily = atomFamily((_sessionId: string) => atom<{ url: string }[]>([]))

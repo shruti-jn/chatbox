@@ -7,7 +7,7 @@ import {
   ChatboxAIAPIError,
   NetworkError,
 } from '@shared/models/errors'
-import { createMessage, type Message, ModelProviderEnum } from '@shared/types'
+import { createMessage, type Message, ModelProviderEnum, type RemoteConfig } from '@shared/types'
 import { countMessageWords } from '@shared/utils/message'
 import { createModelDependencies } from '@/adapters'
 import { runCompactionWithUIState } from '@/packages/context-management'
@@ -175,8 +175,9 @@ export async function submitNewUserMessage(
     // 桌面版&手机端总是支持联网问答，不再需要检查模型是否支持
     const dependencies = await createModelDependencies()
     const model = getModel(settings, globalSettings, { uuid: '' }, dependencies)
+    const resolvedRemoteConfig = remoteConfig as Partial<RemoteConfig>
     if (webBrowsing && platform.type === 'web' && !model.isSupportToolUse()) {
-      if (remoteConfig.setting_chatboxai_first) {
+      if (resolvedRemoteConfig.setting_chatboxai_first) {
         throw ChatboxAIAPIError.fromCodeName('model_not_support_web_browsing', 'model_not_support_web_browsing')
       } else {
         throw ChatboxAIAPIError.fromCodeName('model_not_support_web_browsing_2', 'model_not_support_web_browsing_2')

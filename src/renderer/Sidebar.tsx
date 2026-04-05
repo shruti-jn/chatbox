@@ -75,7 +75,7 @@ export default function Sidebar() {
 
   const handleCreateNewTask = useCallback(() => {
     taskSessionStore.getState().setCurrentTaskId(null)
-    navigate({ to: '/task' })
+    ;(navigate as any)({ to: '/task' })
     if (isSmallScreen) {
       setShowSidebar(false)
     }
@@ -197,7 +197,7 @@ export default function Sidebar() {
                 if (taskId && startupPage === 'session') {
                   navigate({ to: '/task/$taskId', params: { taskId } })
                 } else {
-                  navigate({ to: '/task' })
+                  ;(navigate as any)({ to: '/task' })
                 }
               }
             }}

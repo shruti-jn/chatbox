@@ -71,6 +71,17 @@ chatbox/                    # Chatbox fork (branch v2)
 - `/ws/mission-control` — Teacher monitoring grid + alerts
 - `/ws/collab/:sessionId` — Collaborative session sync
 
+## AI Proxy Route (Deviation Note)
+
+The `/api/v1/ai/proxy/*` route forwards Chatbox requests to Anthropic with the
+4-stage safety pipeline interposed. Chatbox's `ChatBridgeProvider` uses the
+Anthropic SDK pointed at this endpoint, so every message flows through safety
+automatically. This is the V1 architecture — V2 will migrate to WebSocket-based
+streaming. The route is NOT removed because it is load-bearing: the model
+provider (`src/shared/providers/definitions/models/chatbridge.ts`), the safety
+pipeline, and the E2E tests (`packages/backend/test/e2e-browser/chatbridge.spec.ts`)
+all depend on it.
+
 ## Safety Architecture (4-Stage Pipeline)
 
 Every message crosses 4 sequential stages (<5s total with LLM):

@@ -70,6 +70,9 @@ export const ProviderSettingsSchema = z.object({
   deploymentName: z.string().optional().catch(undefined),
   dalleDeploymentName: z.string().optional().catch(undefined),
   apiVersion: z.string().optional().catch(undefined),
+
+  // chatbridge
+  chatbridgeJoinCode: z.string().optional().catch(undefined),
 })
 
 const BuiltinProviderBaseInfoSchema = z.object({
@@ -214,6 +217,10 @@ const ExtensionSettingsSchema = z.object({
   webSearch: z.object({
     provider: z.enum(['build-in', 'bing', 'tavily', 'querit']),
     tavilyApiKey: z.string().optional(),
+    tavilySearchDepth: z.string().optional(),
+    tavilyMaxResults: z.number().optional(),
+    tavilyTimeRange: z.string().nullable().optional(),
+    tavilyIncludeRawContent: z.string().optional(),
     queritApiKey: z.string().optional(),
     queritMaxResults: z.number().optional(),
     queritTimeRange: z.string().nullable().optional(),

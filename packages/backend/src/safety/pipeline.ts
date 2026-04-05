@@ -13,6 +13,7 @@
 import { detectAndRedactPII, type PIIDetectionResult } from './pii-detector.js'
 import { detectInjection, type InjectionResult } from './injection-detector.js'
 import { detectCrisis, type CrisisResult, CRISIS_RESOURCES } from './crisis-detector.js'
+import { loadPromptWithVars } from '../prompts/registry.js'
 
 export type Severity = 'safe' | 'warning' | 'blocked' | 'critical'
 export type Category = 'safe' | 'pii_detected' | 'injection_detected' | 'violence' | 'sexual_content' | 'hate_speech' | 'self_harm' | 'off_topic' | 'crisis'
@@ -58,9 +59,7 @@ async function classifyWithLLM(text: string): Promise<{ category: string; severi
         max_tokens: 100,
         messages: [{
           role: 'user',
-          content: `Classify this student message for content safety in a K-12 education platform. Respond with ONLY a JSON object: {"category": "<safe|violence|sexual_content|hate_speech|self_harm|off_topic>", "severity": "<safe|warning|blocked>"}
-
-Message: "${text.slice(0, 500)}"`,
+          content: loadPromptWithVars('safety_classification', 'v1', { message: text.slice(0, 500) }),
         }],
       }),
       signal: AbortSignal.timeout(3000), // 3s timeout for classification

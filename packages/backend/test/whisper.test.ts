@@ -14,20 +14,30 @@ import { buildServer } from '../src/server.js'
 import { signJWT } from '../src/middleware/auth.js'
 import { ownerPrisma } from '../src/middleware/rls.js'
 import type { FastifyInstance } from 'fastify'
+import { loadConversationContext } from '../src/ai/context-builder.js'
+import { assembleSystemPrompt } from '../src/prompts/registry.js'
 
 describe('Whisper Guidance', () => {
   let server: FastifyInstance
   let districtId: string
   let teacherId: string
+  let adminToken: string
   let studentId: string
   let teacherToken: string
   let studentToken: string
   let classroomId: string
   let conversationId: string
+  let wsBaseUrl: string
 
   beforeAll(async () => {
     server = await buildServer()
     await server.ready()
+    await server.listen({ port: 0, host: '127.0.0.1' })
+    const addr = server.server.address()
+    if (!addr || typeof addr !== 'object') {
+      throw new Error('Failed to bind websocket test server')
+    }
+    wsBaseUrl = `ws://127.0.0.1:${addr.port}`
 
     const district = await ownerPrisma.district.create({ data: { name: 'Whisper Test District' } })
     districtId = district.id
@@ -37,6 +47,11 @@ describe('Whisper Guidance', () => {
     })
     teacherId = teacher.id
     teacherToken = signJWT({ userId: teacher.id, role: 'teacher', districtId })
+
+    const admin = await ownerPrisma.user.create({
+      data: { districtId, role: 'district_admin', displayName: 'Whisper Admin' },
+    })
+    adminToken = signJWT({ userId: admin.id, role: 'district_admin', districtId })
 
     const student = await ownerPrisma.user.create({
       data: { districtId, role: 'student', displayName: 'Whisper Student', gradeBand: 'g68' },
@@ -89,13 +104,27 @@ describe('Whisper Guidance', () => {
       method: 'POST',
       url: `/api/v1/classrooms/${classroomId}/students/${studentId}/whisper`,
       headers: { authorization: `Bearer ${teacherToken}` },
-      payload: { guidance: 'Help the student focus on fractions' },
+      payload: { text: 'Help the student focus on fractions' },
     })
 
     expect(res.statusCode).toBe(200)
     const body = JSON.parse(res.body)
     expect(body.success).toBe(true)
     expect(body.conversationId).toBe(conversationId)
+    expect(body.redacted).toBe(false)
+  })
+
+  it('district admin can send whisper successfully', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/v1/classrooms/${classroomId}/students/${studentId}/whisper`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { guidance: 'Guide the student toward common denominators' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = JSON.parse(res.body)
+    expect(body.success).toBe(true)
   })
 
   it('student cannot see whisper messages in conversation history', async () => {
@@ -159,6 +188,29 @@ describe('Whisper Guidance', () => {
     expect(contentParts[0].text).toBe('Focus on long division steps')
   })
 
+  it('redacts PII before storing whisper content', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/v1/classrooms/${classroomId}/students/${studentId}/whisper`,
+      headers: { authorization: `Bearer ${teacherToken}` },
+      payload: { text: 'Call Maya at 312-555-0199 after class' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = JSON.parse(res.body)
+    expect(body.redacted).toBe(true)
+
+    const whisper = await ownerPrisma.message.findFirst({
+      where: { conversationId, authorRole: 'teacher_whisper' },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const contentParts = whisper!.contentParts as Array<{ text: string; redactionApplied?: boolean; piiTypes?: string[] }>
+    expect(contentParts[0].text).toBe('Call Maya at [REDACTED] after class')
+    expect(contentParts[0].redactionApplied).toBe(true)
+    expect(contentParts[0].piiTypes).toContain('phone')
+  })
+
   it('async guidance persists in classroom config and appears in AI context', async () => {
     // Set async guidance via classroom config
     const configRes = await server.inject({
@@ -180,6 +232,82 @@ describe('Whisper Guidance', () => {
 
     const aiConfig = classroom!.aiConfig as Record<string, unknown>
     expect(aiConfig.asyncGuidance).toBe('Always encourage students to show their work step by step')
+  })
+
+  it('whisper and async guidance are injected into AI context for the next student turn', async () => {
+    await server.inject({
+      method: 'POST',
+      url: `/api/v1/classrooms/${classroomId}/students/${studentId}/whisper`,
+      headers: { authorization: `Bearer ${teacherToken}` },
+      payload: { text: 'Guide the student toward fractions' },
+    })
+
+    const ctx = await loadConversationContext(conversationId, districtId, 'student')
+
+    expect(ctx.whisperGuidance).toBe('Guide the student toward fractions')
+    expect(ctx.aiConfig.asyncGuidance).toBe('Always encourage students to show their work step by step')
+
+    const prompt = assembleSystemPrompt({
+      classroomConfig: ctx.aiConfig,
+      gradeBand: ctx.gradeBand as 'g68',
+      toolSchemas: [],
+      whisperGuidance: ctx.whisperGuidance,
+      safetyInstructions: null,
+      activeAppState: null,
+      activeAppName: null,
+      activeAppStatus: null,
+      stateUpdatedAt: null,
+    })
+
+    expect(prompt).toContain('Always encourage students to show their work step by step')
+    expect(prompt).toContain('Guide the student toward fractions')
+  })
+
+  it('student websocket frames never expose whisper content', async () => {
+    const whisperText = 'Keep this whisper hidden from the student'
+
+    await server.inject({
+      method: 'POST',
+      url: `/api/v1/classrooms/${classroomId}/students/${studentId}/whisper`,
+      headers: { authorization: `Bearer ${teacherToken}` },
+      payload: { text: whisperText },
+    })
+
+    const WebSocket = (await import('ws')).default
+    const ws = new WebSocket(
+      `${wsBaseUrl}/api/v1/ws/chat?token=${studentToken}&conversationId=${conversationId}`,
+    )
+
+    const frames: string[] = []
+
+    const opened = await new Promise<boolean>((resolve) => {
+      const timeout = setTimeout(() => resolve(false), 3000)
+      ws.on('open', () => {
+        clearTimeout(timeout)
+        resolve(true)
+      })
+      ws.on('error', () => {
+        clearTimeout(timeout)
+        resolve(false)
+      })
+    })
+
+    expect(opened).toBe(true)
+
+    ws.on('message', (raw: Buffer) => {
+      frames.push(raw.toString())
+    })
+
+    ws.send(JSON.stringify({ type: 'ping' }))
+    ws.send(JSON.stringify({ type: 'chat_message', text: 'I need help with fractions' }))
+
+    await new Promise((resolve) => setTimeout(resolve, 250))
+
+    ws.close()
+
+    expect(frames.length).toBeGreaterThan(0)
+    expect(frames.some((frame) => frame.includes(whisperText))).toBe(false)
+    expect(frames.some((frame) => frame.includes('pong'))).toBe(true)
   })
 
   it('deleting whisper message removes it from active list', async () => {

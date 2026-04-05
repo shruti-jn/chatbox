@@ -1,8 +1,16 @@
 import type { FastifyInstance } from 'fastify'
+import Redis from 'ioredis'
+import { prisma } from '../middleware/rls.js'
 
 // Health check that reports product CAPABILITY status, not just infra connectivity (L-002)
 export async function healthRoutes(server: FastifyInstance) {
   server.get('/health', {
+    config: {
+      rateLimit: {
+        max: 30,
+        timeWindow: '1 minute',
+      },
+    },
     schema: {
       response: {
         200: {
@@ -26,24 +34,42 @@ export async function healthRoutes(server: FastifyInstance) {
   }, async (_request, _reply) => {
     const capabilities: Record<string, { status: string; latency_ms?: number }> = {}
 
-    // Database check
+    // Database check — real Prisma query, not a stub (L-002)
     try {
       const start = Date.now()
-      // TODO: Replace with actual Prisma query when DB is connected
-      // await prisma.$queryRaw`SELECT 1`
+      await prisma.$queryRaw`SELECT 1`
       capabilities.database = { status: 'up', latency_ms: Date.now() - start }
     } catch {
       capabilities.database = { status: 'down' }
     }
 
-    // Redis check
-    try {
-      const start = Date.now()
-      // TODO: Replace with actual Redis ping when connected
-      // await redis.ping()
-      capabilities.redis = { status: 'up', latency_ms: Date.now() - start }
-    } catch {
-      capabilities.redis = { status: 'down' }
+    // F5: Redis check — actually ping Redis
+    {
+      let redis: Redis | null = null
+      try {
+        const start = Date.now()
+        const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6380'
+        redis = new Redis(redisUrl, {
+          maxRetriesPerRequest: 1,
+          lazyConnect: true,
+          connectTimeout: 2000,
+          enableOfflineQueue: false,
+        })
+        // Suppress unhandled error events (we handle errors in catch)
+        redis.on('error', () => {})
+        await redis.connect()
+        const pong = await redis.ping()
+        const latency = Date.now() - start
+        capabilities.redis = pong === 'PONG'
+          ? { status: 'up', latency_ms: latency }
+          : { status: 'down' }
+      } catch {
+        capabilities.redis = { status: 'down' }
+      } finally {
+        if (redis) {
+          try { redis.disconnect() } catch { /* ignore */ }
+        }
+      }
     }
 
     // Anthropic API check

@@ -11,6 +11,7 @@ services:
       POSTGRES_PASSWORD: chatbridge_dev
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker/init-langfuse-db.sql:/docker-entrypoint-initdb.d/init-langfuse-db.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U chatbridge']
       interval: 5s
@@ -26,6 +27,26 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  langfuse:
+    image: langfuse/langfuse:2
+    ports:
+      - '3002:3000'
+    environment:
+      DATABASE_URL: postgresql://chatbridge:chatbridge_dev@postgres:5432/langfuse
+      NEXTAUTH_URL: http://localhost:3002
+      NEXTAUTH_SECRET: langfuse-dev-secret-change-in-production
+      SALT: langfuse-dev-salt-change-in-production
+      TELEMETRY_ENABLED: 'false'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://langfuse:3000/api/public/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   pgdata:

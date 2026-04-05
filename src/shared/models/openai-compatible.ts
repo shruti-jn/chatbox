@@ -16,6 +16,8 @@ export interface OpenAICompatibleSettings {
   useProxy?: boolean
   maxOutputTokens?: number
   stream?: boolean
+  customFetch?: typeof globalThis.fetch
+  listModelsFallback?: ProviderModelInfo[]
 }
 
 export default abstract class OpenAICompatible extends AbstractAISDKModel implements ModelInterface {
@@ -73,11 +75,12 @@ export default abstract class OpenAICompatible extends AbstractAISDKModel implem
         apiHost: this.options.apiHost,
         apiKey: this.options.apiKey,
         useProxy: this.options.useProxy,
+        customFetch: this.options.customFetch,
       },
       this.dependencies
     ).catch((err) => {
       console.error(err)
-      return []
+      return this.options.listModelsFallback ?? []
     })
   }
 }
@@ -116,17 +119,24 @@ interface ListModelsResponse {
 }
 
 export async function fetchRemoteModels(
-  params: { apiHost: string; apiKey: string; useProxy?: boolean },
+  params: { apiHost: string; apiKey: string; useProxy?: boolean; customFetch?: typeof globalThis.fetch },
   dependencies: ModelDependencies
 ) {
-  const response = await dependencies.request.apiRequest({
-    url: `${params.apiHost}/models`,
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${params.apiKey}`,
-    },
-    useProxy: params.useProxy,
-  })
+  const response = params.customFetch
+    ? await params.customFetch(`${params.apiHost}/models`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${params.apiKey}`,
+        },
+      })
+    : await dependencies.request.apiRequest({
+        url: `${params.apiHost}/models`,
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${params.apiKey}`,
+        },
+        useProxy: params.useProxy,
+      })
   const json: ListModelsResponse = await response.json()
   if (!json.data) {
     throw new ApiError(JSON.stringify(json))

@@ -3,9 +3,9 @@ import { defineProvider } from '../registry'
 import ChatBridgeModel from './models/chatbridge'
 
 export const chatbridgeProvider = defineProvider({
-  id: 'chatbridge' as ModelProviderEnum,
+  id: ModelProviderEnum.ChatBridge,
   name: 'ChatBridge',
-  type: 'chatbridge' as ModelProviderType,
+  type: ModelProviderType.ChatBridge,
   curatedModelIds: ['chatbridge-haiku'],
   urls: {
     website: 'http://localhost:3001',
@@ -22,14 +22,16 @@ export const chatbridgeProvider = defineProvider({
     ],
   },
   description: 'ChatBridge K-12 AI Platform — messages routed through safety pipeline',
-  createModel: (options, dependencies) => {
+  createModel: (config) => {
     return new ChatBridgeModel(
       {
-        apiHost: options.apiHost ?? 'http://localhost:3001',
-        apiKey: options.apiKey || 'sk-ant-chatbridge-proxy-placeholder-key',  // Proxy uses its own key; format must pass Anthropic SDK validation
-        model: options.model,
+        apiHost: config.formattedApiHost || 'http://localhost:3001',
+        apiKey: config.effectiveApiKey || 'sk-ant-chatbridge-proxy-placeholder-key',
+        model: config.model,
+        temperature: config.settings.temperature,
+        topP: config.settings.topP,
       },
-      dependencies,
+      config.dependencies,
     )
   },
 })

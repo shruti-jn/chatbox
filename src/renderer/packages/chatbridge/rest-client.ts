@@ -150,7 +150,7 @@ export interface ToolManifestEntry {
   toolName: string
   description: string
   parameters: Record<string, unknown>
-  uiManifest: { url: string; height?: number; width?: number }
+  uiManifest: { url: string; height?: number; width?: number; displayMode?: 'inline' | 'panel' }
 }
 
 export interface ToolManifestResponse {

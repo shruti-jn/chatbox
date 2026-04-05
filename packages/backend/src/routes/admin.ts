@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { authenticate, requireRole, getUser } from '../middleware/auth.js'
-import { prisma, withTenantContext } from '../middleware/rls.js'
+import { withTenantContext } from '../middleware/rls.js'
 
 export async function adminRoutes(server: FastifyInstance) {
   // POST /admin/apps/:appId/suspend — Suspend app district-wide
@@ -118,120 +118,5 @@ export async function adminRoutes(server: FastifyInstance) {
     })
 
     return { invocations, total: invocations.length }
-  })
-
-  // POST /consent/request — Parental consent request
-  server.post('/consent/request', {
-    preHandler: [authenticate, requireRole('teacher', 'district_admin')],
-  }, async (request, reply) => {
-    const { studentId, parentEmail } = request.body as { studentId: string; parentEmail: string }
-    const user = getUser(request)
-
-    const crypto = await import('crypto')
-    const parentEmailHash = crypto.createHash('sha256').update(parentEmail.toLowerCase()).digest('hex')
-
-    // Generate consent verification token (UUID) with 48h expiration
-    const token = crypto.randomUUID()
-    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000) // 48 hours
-
-    await withTenantContext(user.districtId, async (tx) => {
-      await tx.parentalConsent.upsert({
-        where: { studentId },
-        update: {
-          parentEmailHash,
-          consentToken: token,
-          tokenExpiresAt: expiresAt,
-        },
-        create: {
-          studentId,
-          districtId: user.districtId,
-          parentEmailHash,
-          consentStatus: 'pending',
-          consentToken: token,
-          tokenExpiresAt: expiresAt,
-        },
-      })
-    })
-
-    // STUB: Email sending would go here.
-    // In production, send an email to the parent with a link containing the token:
-    //   `${BASE_URL}/consent/verify?token=${token}`
-    // This is an external API call (e.g. SendGrid, SES) — stubbed per L-079.
-    if (process.env.NODE_ENV !== 'production') {
-      const baseUrl = process.env.BASE_URL ?? 'http://localhost:3001'
-      request.log.info({
-        consentVerifyUrl: `${baseUrl}/api/v1/consent/verify?token=${token}`,
-        studentId,
-        expiresAt: expiresAt.toISOString(),
-      }, '[DEV] COPPA consent verification URL (would be emailed to parent)')
-    }
-
-    // COPPA: Do NOT return token in response — it must only travel via parent's email
-    return { status: 'consent_request_sent', studentId }
-  })
-
-  // GET /consent/verify — Verify parental consent via token
-  server.get('/consent/verify', {
-    schema: {
-      querystring: {
-        type: 'object',
-        required: ['token'],
-        properties: {
-          token: { type: 'string', format: 'uuid' },
-        },
-      },
-    },
-  }, async (request, reply) => {
-    const { token } = request.query as { token: string }
-
-    // Find consent record by token (no auth required — parent clicks email link)
-    const consent = await prisma.parentalConsent.findFirst({
-      where: { consentToken: token },
-    })
-
-    if (!consent) {
-      return reply.status(404).send({ error: 'Invalid or expired consent token' })
-    }
-
-    if (consent.tokenExpiresAt && consent.tokenExpiresAt < new Date()) {
-      return reply.status(410).send({ error: 'Consent token has expired. Please request a new one.' })
-    }
-
-    if (consent.consentStatus === 'granted') {
-      return { status: 'already_granted', studentId: consent.studentId }
-    }
-
-    // Grant consent
-    await prisma.parentalConsent.update({
-      where: { id: consent.id },
-      data: {
-        consentStatus: 'granted',
-        consentDate: new Date(),
-        consentToken: null,
-        tokenExpiresAt: null,
-      },
-    })
-
-    return { status: 'consent_granted', studentId: consent.studentId }
-  })
-
-  // POST /consent/delete-request — Data deletion request
-  server.post('/consent/delete-request', {
-    preHandler: [authenticate],
-  }, async (request) => {
-    const { studentId } = request.body as { studentId: string }
-    const user = getUser(request)
-
-    await withTenantContext(user.districtId, async (tx) => {
-      await tx.dataDeletionRequest.create({
-        data: {
-          studentId,
-          districtId: user.districtId,
-          requestedBy: user.role === 'district_admin' ? 'district_admin' : 'parent',
-        },
-      })
-    })
-
-    return { status: 'deletion_request_accepted', message: 'Data will be deleted within 30 days' }
   })
 }

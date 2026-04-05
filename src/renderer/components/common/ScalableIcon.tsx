@@ -1,16 +1,16 @@
 import { useMantineTheme } from '@mantine/core'
-import type { IconProps, TablerIcon } from '@tabler/icons-react'
-import { type ForwardedRef, forwardRef } from 'react'
+import type { IconProps } from '@tabler/icons-react'
+import { forwardRef } from 'react'
 
 type Props = Omit<IconProps, 'size'> & {
   size?: number
-  icon: TablerIcon
+  icon: React.ElementType<IconProps>
 }
 
-function ScalableIconInner({ icon: IconComponent, size = 16, ...others }: Props, ref: ForwardedRef<SVGSVGElement>) {
+function ScalableIconInner({ icon: IconComponent, size = 16, ...others }: Props) {
   const theme = useMantineTheme()
   const scale = theme.scale ?? 1
-  return <IconComponent ref={ref} size={size * scale} {...others} />
+  return <IconComponent size={size * scale} {...others} />
 }
 
 export const ScalableIcon = forwardRef(ScalableIconInner)

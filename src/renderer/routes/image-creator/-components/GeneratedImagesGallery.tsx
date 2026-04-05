@@ -12,16 +12,19 @@ import storage from '@/storage'
 import { blobToDataUrl, getBase64ImageSize } from './constants'
 
 export interface GeneratedImagesGalleryProps {
-  storageKeys: string[]
+  storageKeys?: string[]
+  images?: string[]
   onUseAsReference: (storageKey: string) => void
 }
 
 export const GeneratedImagesGallery = memo(function GeneratedImagesGallery({
   storageKeys,
+  images,
   onUseAsReference,
 }: GeneratedImagesGalleryProps) {
-  const storageKeysRef = useRef(storageKeys)
-  storageKeysRef.current = storageKeys
+  const resolvedStorageKeys = storageKeys ?? images ?? []
+  const storageKeysRef = useRef(resolvedStorageKeys)
+  storageKeysRef.current = resolvedStorageKeys
   const isSmallScreen = useIsSmallScreen()
 
   const uiElements: UIElementData[] = [
@@ -37,17 +40,19 @@ export const GeneratedImagesGallery = memo(function GeneratedImagesGallery({
         outlineID: 'pswp__icn-download',
       },
       appendTo: 'bar',
-      onClick: async (_e: PointerEvent, _el: HTMLElement, pswp: PhotoSwipe) => {
-        const storageKey = storageKeysRef.current[pswp.currIndex]
-        if (storageKey) {
-          const base64 = await storage.getBlob(storageKey)
-          if (!base64) return
+      onClick: (_e: MouseEvent, _el: HTMLElement, pswp: PhotoSwipe) => {
+        void (async () => {
+          const storageKey = storageKeysRef.current[pswp.currIndex]
+          if (storageKey) {
+            const base64 = await storage.getBlob(storageKey)
+            if (!base64) return
           const filename =
             platform.type === 'mobile'
               ? `${storageKey.replaceAll(':', '_')}_${Math.random().toString(36).substring(7)}`
               : storageKey
-          platform.exporter.exportImageFile(filename, base64)
-        }
+            platform.exporter.exportImageFile(filename, base64)
+          }
+        })()
       },
     },
   ]
@@ -55,7 +60,7 @@ export const GeneratedImagesGallery = memo(function GeneratedImagesGallery({
   return (
     <Gallery uiElements={uiElements}>
       <Flex gap="md" wrap="wrap" justify="center" className="w-full">
-        {storageKeys.map((storageKey) => (
+        {resolvedStorageKeys.map((storageKey) => (
           <GeneratedImageGalleryItem
             key={storageKey}
             storageKey={storageKey}

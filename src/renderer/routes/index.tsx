@@ -229,7 +229,7 @@ function Index() {
   return (
     <Page title="">
       <div className="p-0 flex flex-col h-full">
-        {messageLayout || welcomeCardMode !== 'none' ? (
+        {messageLayout || welcomeCardMode !== null ? (
           <Stack align="center" justify="center" gap="sm" flex={1}>
             <HomepageIcon className="h-8" />
             <Text fw="600" size={isSmallScreen ? 'sm' : 'md'}>
@@ -288,7 +288,7 @@ function Index() {
           </Stack>
         )}
 
-        {welcomeCardMode !== 'none' && (
+        {welcomeCardMode !== null && (
           <Box px="sm">
             <Paper
               radius="md"
@@ -306,78 +306,40 @@ function Index() {
                   </Text>
 
                   <Text size="xs" c="chatbox-tertiary" className="text-center">
-                    {welcomeCardMode === 'no-license' ? t('No licenses found') : t('Login to start chatting with AI')}
+                    {t('Login to start chatting with AI')}
                   </Text>
                 </Stack>
 
                 <Flex gap="xs" justify="center" align="center" wrap="wrap">
-                  {welcomeCardMode === 'no-license' ? (
-                    <>
-                      <Button
-                        size="xs"
-                        variant="filled"
-                        h={32}
-                        miw={160}
-                        fw={600}
-                        flex="0 1 auto"
-                        onClick={() => {
-                          trackJkClickEvent(JK_EVENTS.FREE_LICENSE_CLAIM_CLICK, {
-                            pageName: JK_PAGE_NAMES.CHAT_PAGE,
-                          })
-                          platform.openLink(
-                            `https://chatboxai.app/redirect_app/claim_free_plan/${language}/?utm_source=app&utm_content=provider_cb_login_claim_free`
-                          )
-                        }}
-                      >
-                        {t('Claim Free Plan')}
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="subtle"
-                        c="chatbox-tertiary"
-                        h={32}
-                        fw={400}
-                        flex="0 1 auto"
-                        onClick={() => {
-                          platform.openLink(
-                            `https://chatboxai.app/redirect_app/view_more_plans/${language}/?utm_source=app&utm_content=provider_cb_login_more_plans`
-                          )
-                        }}
-                      >
-                        {t('View More Plans')}
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        size="xs"
-                        variant="filled"
-                        h={32}
-                        miw={160}
-                        fw={600}
-                        flex="0 1 auto"
-                        onClick={() => {
-                          trackJkClickEvent(JK_EVENTS.LOGIN_BUTTON_CLICK, {
-                            pageName: JK_PAGE_NAMES.CHAT_PAGE,
-                          })
-                          navigateToSettings('chatbox-ai')
-                        }}
-                      >
-                        {t('Login Chatbox AI')}
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="subtle"
-                        c="chatbox-tertiary"
-                        h={32}
-                        fw={400}
-                        flex="0 1 auto"
-                        onClick={() => navigateToSettings('provider')}
-                      >
-                        {t('Other options')}
-                      </Button>
-                    </>
-                  )}
+                  <>
+                    <Button
+                      size="xs"
+                      variant="filled"
+                      h={32}
+                      miw={160}
+                      fw={600}
+                      flex="0 1 auto"
+                      onClick={() => {
+                        trackJkClickEvent(JK_EVENTS.LOGIN_BUTTON_CLICK, {
+                          pageName: JK_PAGE_NAMES.CHAT_PAGE,
+                        })
+                        navigateToSettings('chatbox-ai')
+                      }}
+                    >
+                      {t('Login Chatbox AI')}
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="subtle"
+                      c="chatbox-tertiary"
+                      h={32}
+                      fw={400}
+                      flex="0 1 auto"
+                      onClick={() => navigateToSettings('provider')}
+                    >
+                      {t('Other options')}
+                    </Button>
+                  </>
                 </Flex>
               </Stack>
             </Paper>

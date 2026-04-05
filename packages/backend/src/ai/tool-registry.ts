@@ -27,6 +27,7 @@ export interface ChatBridgeTool {
     appName: string
     uiManifestUrl: string
     uiManifestHeight: number
+    displayMode: 'inline' | 'panel'
   }
 }
 
@@ -56,7 +57,7 @@ export function resolveTools(ctx: ConversationContext): ChatBridgeTool[] {
 
     if (!Array.isArray(toolDefs)) continue
 
-    const uiManifest = app.uiManifest as { url?: string; height?: number } ?? {}
+    const uiManifest = app.uiManifest as { url?: string; height?: number; displayMode?: 'inline' | 'panel' } ?? {}
 
     for (const tool of toolDefs) {
       tools.push({
@@ -68,6 +69,7 @@ export function resolveTools(ctx: ConversationContext): ChatBridgeTool[] {
           appName: app.name,
           uiManifestUrl: uiManifest.url ?? '',
           uiManifestHeight: uiManifest.height ?? 400,
+          displayMode: uiManifest.displayMode === 'panel' ? 'panel' : 'inline',
         },
       })
     }

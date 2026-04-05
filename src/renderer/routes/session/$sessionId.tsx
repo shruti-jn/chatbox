@@ -2,20 +2,29 @@ import NiceModal from '@ebay/nice-modal-react'
 import { Button } from '@mantine/core'
 import type { Message, ModelProvider } from '@shared/types'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useStore } from 'zustand'
 import MessageList, { type MessageListRef } from '@/components/chat/MessageList'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import InputBox from '@/components/InputBox/InputBox'
 import Header from '@/components/layout/Header'
+import { SessionWorkspaceShell } from '@/components/session/SessionWorkspaceShell'
 import ThreadHistoryDrawer from '@/components/session/ThreadHistoryDrawer'
 import * as remote from '@/packages/remote'
 import { updateSession as updateSessionStore, useSession } from '@/stores/chatStore'
 import { lastUsedModelStore } from '@/stores/lastUsedModelStore'
 import * as scrollActions from '@/stores/scrollActions'
+import {
+  createInitialPanelWorkspaceState,
+  derivePanelWorkspaceModel,
+  focusPanelApp,
+  minimizeActivePanelApp,
+  type PanelWorkspaceState,
+} from '@/stores/session/app-display-routing'
 import { modifyMessage, removeCurrentThread, startNewThread, submitNewUserMessage } from '@/stores/sessionActions'
 import { getAllMessageList } from '@/stores/sessionHelpers'
+import { useClassroomBadge } from '@/hooks/useClassroomBadge'
 
 export const Route = createFileRoute('/session/$sessionId')({
   component: RouteComponent,
@@ -26,13 +35,21 @@ function RouteComponent() {
   const { sessionId: currentSessionId } = Route.useParams()
   const navigate = useNavigate()
   const { session: currentSession, isFetching } = useSession(currentSessionId)
+  useClassroomBadge(currentSession)
   const setLastUsedChatModel = useStore(lastUsedModelStore, (state) => state.setChatModel)
   const setLastUsedPictureModel = useStore(lastUsedModelStore, (state) => state.setPictureModel)
 
   const currentMessageList = useMemo(() => (currentSession ? getAllMessageList(currentSession) : []), [currentSession])
+  const [panelWorkspaceState, setPanelWorkspaceState] = useState<PanelWorkspaceState>(() =>
+    createInitialPanelWorkspaceState()
+  )
   const lastGeneratingMessage = useMemo(
     () => currentMessageList.find((m: Message) => m.generating),
     [currentMessageList]
+  )
+  const panelWorkspaceModel = useMemo(
+    () => derivePanelWorkspaceModel(currentMessageList, panelWorkspaceState),
+    [currentMessageList, panelWorkspaceState]
   )
 
   const messageListRef = useRef<MessageListRef>(null)
@@ -168,26 +185,33 @@ function RouteComponent() {
   return currentSession ? (
     <div className="flex flex-col h-full">
       <Header session={currentSession} />
+      <SessionWorkspaceShell
+        activePanelApp={panelWorkspaceModel.activePanelApp}
+        miniPlayerApps={panelWorkspaceModel.miniPlayerApps}
+        onFocusApp={(instanceId) => setPanelWorkspaceState((state) => focusPanelApp(state, instanceId))}
+        onMinimizeApp={(instanceId) => setPanelWorkspaceState((state) => minimizeActivePanelApp(state, instanceId))}
+        onRestoreApp={(instanceId) => setPanelWorkspaceState((state) => focusPanelApp(state, instanceId))}
+      >
+        <div className="flex h-full min-h-0 flex-col">
+          <MessageList ref={messageListRef} key={`message-list${currentSessionId}`} currentSession={currentSession} />
 
-      {/* MessageList 设置 key，确保每个 session 对应新的 MessageList 实例 */}
-      <MessageList ref={messageListRef} key={`message-list${currentSessionId}`} currentSession={currentSession} />
-
-      {/* <ScrollButtons /> */}
-      <ErrorBoundary name="session-inputbox">
-        <InputBox
-          key={`input-box${currentSession.id}`}
-          sessionId={currentSession.id}
-          sessionType={currentSession.type}
-          model={model}
-          onStartNewThread={onStartNewThread}
-          onRollbackThread={onRollbackThread}
-          onSelectModel={onSelectModel}
-          onClickSessionSettings={onClickSessionSettings}
-          generating={!!lastGeneratingMessage}
-          onSubmit={onSubmit}
-          onStopGenerating={onStopGenerating}
-        />
-      </ErrorBoundary>
+          <ErrorBoundary name="session-inputbox">
+            <InputBox
+              key={`input-box${currentSession.id}`}
+              sessionId={currentSession.id}
+              sessionType={currentSession.type}
+              model={model}
+              onStartNewThread={onStartNewThread}
+              onRollbackThread={onRollbackThread}
+              onSelectModel={onSelectModel}
+              onClickSessionSettings={onClickSessionSettings}
+              generating={!!lastGeneratingMessage}
+              onSubmit={onSubmit}
+              onStopGenerating={onStopGenerating}
+            />
+          </ErrorBoundary>
+        </div>
+      </SessionWorkspaceShell>
       <ThreadHistoryDrawer session={currentSession} />
     </div>
   ) : (

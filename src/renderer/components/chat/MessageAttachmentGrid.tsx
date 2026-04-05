@@ -9,9 +9,10 @@ const COLLAPSED_MAX = 4
 interface MessageAttachmentGridProps {
   files?: MessageFile[]
   links?: MessageLink[]
+  align?: 'start' | 'end'
 }
 
-export function MessageAttachmentGrid({ files, links }: MessageAttachmentGridProps) {
+export function MessageAttachmentGrid({ files, links, align = 'start' }: MessageAttachmentGridProps) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
@@ -27,7 +28,7 @@ export function MessageAttachmentGrid({ files, links }: MessageAttachmentGridPro
   const visibleLinkCount = Math.max(0, Math.min(linkItems.length, remainingSlots))
 
   return (
-    <div className="mt-1 mb-1 max-w-[500px]">
+    <div className={`mt-1 mb-1 max-w-[500px] ${align === 'end' ? 'ml-auto' : ''}`}>
       <div className="grid grid-cols-2 gap-1.5">
         {fileItems.slice(0, visibleFileCount).map((file) => (
           <div key={file.id} className="group/attachment min-w-0">

@@ -1,6 +1,20 @@
 import type { QueryResult } from '@mastra/core/vector'
-import type { RerankerFunctionOptions, RerankResult } from '@mastra/rag/dist/rerank'
 import type { CohereClient } from 'cohere-ai'
+
+interface RerankerFunctionOptions {
+  topK?: number
+}
+
+interface RerankResult {
+  result: QueryResult
+  score: number
+  details: {
+    semantic: number
+    vector: number
+    position: number
+    rerankIndex: number
+  }
+}
 
 // Takes in a list of results from a vector store and reranks them based on Cohere's rerank API
 export async function rerank(

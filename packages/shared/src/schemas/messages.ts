@@ -1,4 +1,5 @@
 import { z } from 'zod/v3'
+import { AppDisplayModeSchema } from './apps.js'
 
 export const MessageRoleSchema = z.enum(['student', 'assistant', 'system', 'teacher_whisper'])
 
@@ -24,6 +25,7 @@ export const AppCardPartSchema = z.object({
   status: z.enum(['loading', 'active', 'suspended', 'collapsed', 'terminated', 'error']),
   url: z.string().url().optional(),
   height: z.number().optional(),
+  displayMode: AppDisplayModeSchema.optional(),
   summary: z.string().optional(),
   stateSnapshot: z.record(z.unknown()).optional(),
 })

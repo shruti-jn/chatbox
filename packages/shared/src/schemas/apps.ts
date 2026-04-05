@@ -3,6 +3,7 @@ import { z } from 'zod/v3'
 export const AppStatusSchema = z.enum(['pending_review', 'approved', 'rejected', 'suspended'])
 export const InteractionModelSchema = z.enum(['single_user', 'turn_based', 'concurrent'])
 export const AppInstanceStatusSchema = z.enum(['loading', 'active', 'suspended', 'collapsed', 'terminated', 'error'])
+export const AppDisplayModeSchema = z.enum(['inline', 'panel'])
 
 export const ToolDefinitionSchema = z.object({
   name: z.string(),
@@ -13,9 +14,10 @@ export const ToolDefinitionSchema = z.object({
 
 export const UIManifestSchema = z.object({
   url: z.string().url(),
-  width: z.number().max(600).optional(),
+  width: z.number().max(960).optional(),
   height: z.number().max(800).optional(),
   sandboxAttrs: z.string().optional(),
+  displayMode: AppDisplayModeSchema.default('inline'),
 })
 
 export const AppRegistrationSchema = z.object({
@@ -45,6 +47,7 @@ export const AppReviewResultSchema = z.object({
 export type AppStatus = z.infer<typeof AppStatusSchema>
 export type InteractionModel = z.infer<typeof InteractionModelSchema>
 export type AppInstanceStatus = z.infer<typeof AppInstanceStatusSchema>
+export type AppDisplayMode = z.infer<typeof AppDisplayModeSchema>
 export type ToolDefinition = z.infer<typeof ToolDefinitionSchema>
 export type UIManifest = z.infer<typeof UIManifestSchema>
 export type AppRegistration = z.infer<typeof AppRegistrationSchema>

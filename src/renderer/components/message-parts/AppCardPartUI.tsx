@@ -8,7 +8,17 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react'
 import type { AppCardPart } from '@chatbridge/shared'
-import { sendCommand, sendLifecycleEvent } from '../../packages/chatbridge/cbp-client'
+import { authInfoStore } from '@/stores/authInfoStore'
+import {
+  addAllowedOrigin,
+  connectAppInstance,
+  disconnectAppInstance,
+  initCBPListener,
+  registerAppIframe,
+  sendCommand,
+  sendLifecycleEvent,
+  unregisterAppIframe,
+} from '../../packages/chatbridge/cbp-client'
 
 interface AppCardPartUIProps {
   part: AppCardPart
@@ -30,6 +40,34 @@ export function AppCardPartUI({ part, onStateUpdate, onCompletion, onExpand }: A
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    initCBPListener()
+  }, [])
+
+  useEffect(() => {
+    if (!part.instanceId || !iframeRef.current || !part.url) return
+
+    try {
+      const appUrl = new URL(part.url, window.location.origin)
+      addAllowedOrigin(appUrl.origin)
+
+      registerAppIframe(part.instanceId, iframeRef.current)
+
+      const wsProtocol = appUrl.protocol === 'https:' ? 'wss:' : 'ws:'
+      const wsUrl = `${wsProtocol}//${appUrl.host}/api/v1/ws/chat`
+      const token = authInfoStore.getState().accessToken ?? ''
+      connectAppInstance(part.instanceId, wsUrl, token)
+    } catch {
+      // Best-effort wiring for host bridge. The iframe still renders even if
+      // the websocket bridge can't be established.
+    }
+
+    return () => {
+      unregisterAppIframe(part.instanceId)
+      disconnectAppInstance(part.instanceId)
+    }
+  }, [part.instanceId, part.url])
 
   // Send instance ID to app once iframe loads
   useEffect(() => {
@@ -206,6 +244,7 @@ export function AppCardPartUI({ part, onStateUpdate, onCompletion, onExpand }: A
           onLoad={handleLoad}
           onError={handleError}
           sandbox="allow-scripts allow-same-origin"
+          data-testid={`app-card-iframe-${part.appName.toLowerCase()}`}
           style={{
             width: '100%',
             height: part.height ?? 400,

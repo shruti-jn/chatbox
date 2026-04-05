@@ -1,0 +1,22 @@
+[
+  {
+    "video": "output/playwright/shr-115/f19fc3489c4f9668e0955f3c14437bb9.webm",
+    "gif": "output/playwright/shr-115/a1-whisper-storage-and-context.gif"
+  },
+  {
+    "video": "output/playwright/shr-115/b5c074c2f31004ea9e77474f7ac966e3.webm",
+    "gif": "output/playwright/shr-115/a2-async-guidance.gif"
+  },
+  {
+    "video": "output/playwright/shr-115/7aff747c934d94925be4d5ead105ddb4.webm",
+    "gif": "output/playwright/shr-115/a3-invisibility-rest-and-ws.gif"
+  },
+  {
+    "video": "output/playwright/shr-115/9dded11e71380aab1d62d14b20ef4640.webm",
+    "gif": "output/playwright/shr-115/a4-role-authorization.gif"
+  },
+  {
+    "video": "output/playwright/shr-115/1c86a9f1d0019c5b9c54174c366db081.webm",
+    "gif": "output/playwright/shr-115/a5-test-suite.gif"
+  }
+]

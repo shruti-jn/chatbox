@@ -30,8 +30,11 @@ export interface ReviewInput {
   }>
   uiManifest: { url: string; [key: string]: unknown }
   permissions: Record<string, unknown>
+  complianceMetadata?: Record<string, unknown>
   name: string
   description: string
+  uiContent?: string | null
+  uiContentBytes?: number | null
 }
 
 export interface ReviewOptions {
@@ -94,20 +97,37 @@ function scanSecurity(input: ReviewInput, opts: ReviewOptions): ReviewStageResul
     if (env === 'production') {
       details.push(`URL must be HTTPS in production: ${url}`)
       status = 'fail'
-    } else if (url.startsWith('http://localhost')) {
-      details.push(`HTTP localhost URL allowed in development: ${url}`)
-      status = 'warning'
+    } else if (url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1')) {
+      if (input.uiContent) {
+        details.push(`HTTP localhost URL audited in development: ${url}`)
+      } else {
+        details.push(`HTTP localhost URL allowed in development: ${url}`)
+        status = 'warning'
+      }
     } else {
       details.push(`Non-localhost HTTP URL: ${url}`)
       status = 'fail'
     }
   }
 
-  // Check tool code for data exfiltration patterns
-  const toolJson = JSON.stringify(input.toolDefinitions)
+  // Check declared metadata and UI content for obvious exfiltration patterns.
+  // Scan raw string fields individually — NOT JSON.stringify'd — so that patterns
+  // with quotes (e.g. <script src="...">) are matched without JSON escaping interference.
+  const rawToolStrings = (input.toolDefinitions as any[]).flatMap((t) => [
+    t.name ?? '',
+    t.description ?? '',
+    typeof t.inputSchema === 'string' ? t.inputSchema : JSON.stringify(t.inputSchema ?? {}),
+  ])
+  const securityCorpus = [
+    ...rawToolStrings,
+    input.name,
+    input.description,
+    input.uiContent ?? '',
+  ].join('\n')
+
   for (const pattern of BLOCKED_PATTERNS) {
-    if (pattern.test(toolJson)) {
-      details.push(`Suspicious pattern in tool definitions: ${pattern.source}`)
+    if (pattern.test(securityCorpus)) {
+      details.push(`Suspicious pattern detected: ${pattern.source}`)
       status = 'fail'
     }
   }
@@ -123,23 +143,24 @@ const PROFANITY_LIST = [
   'dick', 'piss', 'slut', 'whore', 'cock', 'cunt',
 ]
 
-function normalizeText(text: string): string {
-  return text.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+function buildObfuscatedWordRegex(word: string): RegExp {
+  const chars = word.split('').map((char) => `${char}[^a-zA-Z0-9]*`).join('')
+  return new RegExp(`(^|[^a-zA-Z0-9])${chars}($|[^a-zA-Z0-9])`, 'i')
 }
 
 function checkContent(input: ReviewInput): ReviewStageResult {
   const details: string[] = []
   let failed = false
 
-  const textsToCheck = [input.name, input.description]
+  const textsToCheck = [input.name, input.description, input.uiContent ?? '']
 
   for (const text of textsToCheck) {
     const lower = text.toLowerCase()
-    const normalized = normalizeText(text)
     for (const word of PROFANITY_LIST) {
       // Word boundary check to avoid false positives (e.g. "class" matching "ass")
       const regex = new RegExp(`\\b${word}\\b`, 'i')
-      if (regex.test(lower) || normalized.includes(word)) {
+      const obfuscated = buildObfuscatedWordRegex(word)
+      if (regex.test(lower) || obfuscated.test(text)) {
         details.push(`Inappropriate word "${word}" found in text: "${text.substring(0, 50)}"`)
         failed = true
       }
@@ -153,13 +174,24 @@ function checkContent(input: ReviewInput): ReviewStageResult {
   }
 }
 
-// ---------- Stage 4: Accessibility (Permissions) ----------
+// ---------- Stage 4: Accessibility ----------
 
 function checkAccessibility(input: ReviewInput): ReviewStageResult {
   const details: string[] = []
   let failed = false
 
-  if (!input.permissions || Object.keys(input.permissions).length === 0) {
+  if (input.uiContent) {
+    const imgTags = input.uiContent.match(/<img\b[^>]*>/gi) ?? []
+    for (const tag of imgTags) {
+      const hasAlt = /\balt\s*=\s*["'][^"']*["']/i.test(tag)
+      if (!hasAlt) {
+        details.push(`Image missing alt text: ${tag.slice(0, 120)}`)
+        failed = true
+      }
+    }
+  }
+
+  if (!failed && (!input.permissions || Object.keys(input.permissions).length === 0)) {
     details.push('App must declare required permissions explicitly (permissions object is empty)')
     failed = true
   }
@@ -202,6 +234,11 @@ function checkPerformance(input: ReviewInput): ReviewStageResult {
         failed = true
       }
     }
+  }
+
+  if (typeof input.uiContentBytes === 'number' && input.uiContentBytes > 250 * 1024) {
+    details.push(`UI HTML payload is ${(input.uiContentBytes / 1024).toFixed(1)}KB, max 250KB`)
+    failed = true
   }
 
   return {

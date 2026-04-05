@@ -1,0 +1,32 @@
+[
+  {
+    "video": "output/playwright/shr-116/f2c05f57ad3c42230d5e1fc3ab447df5.webm",
+    "gif": "output/playwright/shr-116/a1-under13-gate.gif",
+    "smallGif": "output/playwright/shr-116/a1-under13-gate-small.gif"
+  },
+  {
+    "video": "output/playwright/shr-116/f0a507708933590342937c8b8b08724e.webm",
+    "gif": "output/playwright/shr-116/a2-consent-request.gif",
+    "smallGif": "output/playwright/shr-116/a2-consent-request-small.gif"
+  },
+  {
+    "video": "output/playwright/shr-116/e795c338d158fefeb681259a94dcadf5.webm",
+    "gif": "output/playwright/shr-116/a3-consent-verify.gif",
+    "smallGif": "output/playwright/shr-116/a3-consent-verify-small.gif"
+  },
+  {
+    "video": "output/playwright/shr-116/8aa316996bf807742b01886d9b848288.webm",
+    "gif": "output/playwright/shr-116/a4-delete-request.gif",
+    "smallGif": "output/playwright/shr-116/a4-delete-request-small.gif"
+  },
+  {
+    "video": "output/playwright/shr-116/7c820fdce3c8605075620fb74b27a032.webm",
+    "gif": "output/playwright/shr-116/a5-swagger.gif",
+    "smallGif": "output/playwright/shr-116/a5-swagger-small.gif"
+  },
+  {
+    "video": "output/playwright/shr-116/2539ee3db7520805d81f0e5cf55e1678.webm",
+    "gif": "output/playwright/shr-116/a6-targeted-tests.gif",
+    "smallGif": "output/playwright/shr-116/a6-targeted-tests-small.gif"
+  }
+]

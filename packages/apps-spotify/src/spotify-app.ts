@@ -140,3 +140,5 @@ if (urlParams.get('mock') === 'playlist') {
 } else if (urlParams.get('mock') === 'auth') {
   app.showAuthPrompt()
 }
+
+export {}

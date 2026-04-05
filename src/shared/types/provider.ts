@@ -2,6 +2,7 @@
 // This file helps prevent circular dependencies
 
 export enum ModelProviderEnum {
+  ChatBridge = 'chatbridge',
   ChatboxAI = 'chatbox-ai',
   OpenAI = 'openai',
   OpenAIResponses = 'openai-responses',
@@ -22,12 +23,14 @@ export enum ModelProviderEnum {
   MiniMax = 'minimax',
   MiniMaxCN = 'minimax-cn',
   Moonshot = 'moonshot',
+  MoonshotCN = 'moonshot-cn',
   Qwen = 'qwen',
   QwenPortal = 'qwen-portal',
   Custom = 'custom',
 }
 
 export enum ModelProviderType {
+  ChatBridge = 'chatbridge',
   ChatboxAI = 'chatbox-ai',
   OpenAI = 'openai',
   Gemini = 'gemini',

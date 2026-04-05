@@ -111,6 +111,10 @@ export function getContextMessageIds(session: Session, maxCount?: number): strin
   return ids
 }
 
+export function computeContextAfterCompaction(messages: Message[], compactionPoints?: CompactionPoint[]): Message[] {
+  return buildContextForAI({ messages, compactionPoints })
+}
+
 function findLatestCompactionPoint(compactionPoints?: CompactionPoint[]): CompactionPoint | undefined {
   if (!compactionPoints || compactionPoints.length === 0) {
     return undefined

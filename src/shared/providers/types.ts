@@ -24,6 +24,8 @@ export interface CreateModelConfig {
   formattedApiPath: string
   /** The selected model configuration */
   model: ProviderModelInfo
+  /** Effective API key after auth-mode/platform resolution */
+  effectiveApiKey: string
 }
 
 /**

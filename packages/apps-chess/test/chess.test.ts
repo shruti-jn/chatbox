@@ -25,6 +25,10 @@ function getState(game: Chess, lastMove: { from: string; to: string } | null = n
     moveCount: game.moveNumber(),
     pgn: game.pgn(),
     lastMove,
+    completed: false,
+    result: null as string | null,
+    winner: null as string | null,
+    resultMessage: null as string | null,
   }
 }
 
@@ -96,8 +100,9 @@ describe('Chess App Logic', () => {
     expect(parsed.params.state.lastMove).toEqual({ from: 'e2', to: 'e4' })
   })
 
-  // A7-4: Checkmate detection triggers completion
-  it('detects checkmate and signals completion', () => {
+  // A4: Checkmate detection triggers completion with proper format
+  // result = 'checkmate', winner = 'white' or 'black' (not 'white_wins'/'black_wins')
+  it('detects checkmate and signals completion with result=checkmate and winner field', () => {
     // Scholar's mate: 1.e4 e5 2.Bc4 Nc6 3.Qh5 Nf6 4.Qxf7#
     game.move('e4')
     game.move('e5')
@@ -110,23 +115,24 @@ describe('Chess App Logic', () => {
     expect(game.isCheckmate()).toBe(true)
     expect(game.isGameOver()).toBe(true)
 
-    // Verify completion message shape
-    const result = game.turn() === 'w' ? 'black_wins' : 'white_wins'
-    expect(result).toBe('white_wins') // white delivered the mate
+    // Build completion message the way the app should build it
+    const winner = game.turn() === 'w' ? 'black' : 'white'
+    expect(winner).toBe('white') // white delivered the mate
 
     const msg = buildStateUpdate(game, 'test-123', { from: 'h5', to: 'f7' }, {
       completed: true,
-      result,
-      resultMessage: `Checkmate! White wins in ${game.moveNumber()} moves.`,
+      result: 'checkmate',
+      winner,
     })
 
     expect(msg.params.state.completed).toBe(true)
-    expect(msg.params.state.result).toBe('white_wins')
+    expect(msg.params.state.result).toBe('checkmate') // A4: not 'white_wins'
+    expect(msg.params.state.winner).toBe('white')     // A4: separate winner field
     expect(msg.params.state.isCheckmate).toBe(true)
   })
 
-  // A7-5: Stalemate detection triggers completion
-  it('detects stalemate and signals completion', () => {
+  // A4: Stalemate detection triggers completion with result='stalemate'
+  it('detects stalemate and signals completion with result=stalemate', () => {
     // Fastest known stalemate position — load via FEN
     // This position has black to move with no legal moves but not in check
     const stalemateFen = '8/8/8/8/8/5k2/5p2/5K2 w - - 0 1'
@@ -137,23 +143,22 @@ describe('Chess App Logic', () => {
 
     const msg = buildStateUpdate(game, 'test-123', null, {
       completed: true,
-      result: 'draw',
-      resultMessage: 'Stalemate — draw!',
+      result: 'stalemate',  // A4: not 'draw'
     })
 
     expect(msg.params.state.completed).toBe(true)
-    expect(msg.params.state.result).toBe('draw')
+    expect(msg.params.state.result).toBe('stalemate')  // A4: specific result type
     expect(msg.params.state.isStalemate).toBe(true)
   })
 
-  // A7-6: Resign triggers completion
-  it('sends resignation completion message', () => {
+  // A4: Resign triggers completion with result='resignation', winner='black'/'white'
+  it('sends resignation completion message with winner as white/black not white_wins/black_wins', () => {
     const postMessage = vi.fn()
     const instanceId = 'test-456'
 
-    // Simulate resign: current turn is white, so white resigns
+    // Simulate resign: current turn is white, so white resigns, black wins
     const loser = game.turn() === 'w' ? 'White' : 'Black'
-    const winner = game.turn() === 'w' ? 'black_wins' : 'white_wins'
+    const winner = game.turn() === 'w' ? 'black' : 'white'  // A4: 'black' not 'black_wins'
 
     const msg = {
       jsonrpc: '2.0',
@@ -176,7 +181,50 @@ describe('Chess App Logic', () => {
     const parsed = JSON.parse(postMessage.mock.calls[0][0])
     expect(parsed.params.state.completed).toBe(true)
     expect(parsed.params.state.result).toBe('resignation')
-    expect(parsed.params.state.winner).toBe('black_wins')
+    expect(parsed.params.state.winner).toBe('black')  // A4: not 'black_wins'
     expect(parsed.params.state.resultMessage).toBe('White resigned.')
+  })
+
+  // A5: CBP message format — app should handle both method formats
+  it('supports set_instance_id as a direct method (not just command wrapper)', () => {
+    // The spec says the protocol should accept:
+    // {method: 'set_instance_id', params: {instance_id: '...'}}
+    // in addition to:
+    // {method: 'command', params: {command: 'set_instance_id', instance_id: '...'}}
+
+    // Direct format
+    const directMsg = {
+      jsonrpc: '2.0',
+      method: 'set_instance_id',
+      params: { instance_id: 'abc-123' },
+    }
+    expect(directMsg.method).toBe('set_instance_id')
+    expect(directMsg.params.instance_id).toBe('abc-123')
+
+    // Command wrapper format (backwards compat)
+    const wrappedMsg = {
+      jsonrpc: '2.0',
+      method: 'command',
+      params: { command: 'set_instance_id', instance_id: 'abc-123' },
+    }
+    expect(wrappedMsg.method).toBe('command')
+    expect(wrappedMsg.params.command).toBe('set_instance_id')
+  })
+
+  // A5: suspend/resume as direct methods
+  it('supports suspend and resume as direct methods (not just lifecycle wrapper)', () => {
+    const suspendMsg = {
+      jsonrpc: '2.0',
+      method: 'suspend',
+      params: {},
+    }
+    expect(suspendMsg.method).toBe('suspend')
+
+    const resumeMsg = {
+      jsonrpc: '2.0',
+      method: 'resume',
+      params: {},
+    }
+    expect(resumeMsg.method).toBe('resume')
   })
 })

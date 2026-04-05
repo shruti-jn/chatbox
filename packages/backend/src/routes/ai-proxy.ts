@@ -153,7 +153,7 @@ export async function aiProxyRoutes(server: FastifyInstance) {
       }
     }
 
-    // Inject ChatBridge system prompt with app awareness
+    // Inject ChatBridge context prompt with app awareness
     if (body?.messages && Array.isArray(body.messages)) {
       const chatbridgeSystemPrompt = loadPrompt('proxy_system', 'v2')
 
@@ -268,7 +268,7 @@ export async function aiProxyRoutes(server: FastifyInstance) {
                 tool_use_id: toolUse.id,
                 content: JSON.stringify({
                   ...toolResult.result,
-                  _instructions: toolResult.__cbApp
+                  _cbDirective: toolResult.__cbApp
                     ? (() => {
                         const url = toolResult.__cbApp.url as string
                         const fullUrl = url.startsWith('http') ? url : `http://localhost:3001${url}`

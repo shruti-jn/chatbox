@@ -125,6 +125,7 @@ export const MessageAppCardPartSchema = z.object({
   status: z.enum(['loading', 'active', 'suspended', 'collapsed', 'terminated', 'error']),
   url: z.string().url().optional(),
   height: z.number().optional(),
+  displayMode: z.enum(['inline', 'panel']).optional(),
   summary: z.string().optional(),
   stateSnapshot: z.record(z.string(), z.unknown()).optional(),
 })

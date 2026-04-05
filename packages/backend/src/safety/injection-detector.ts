@@ -6,6 +6,7 @@
  */
 
 const INJECTION_PATTERNS: RegExp[] = [
+  /ignore\s+(your\s+)?instructions/i,
   /ignore\s+(your\s+)?previous\s+instructions/i,
   /ignore\s+(all\s+)?prior\s+(instructions|rules|guidelines)/i,
   /you\s+are\s+now\s+(a|an)\b/i,

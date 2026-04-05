@@ -1,25 +1,26 @@
-import Fastify from 'fastify'
-import { initLangfuse, flushTraces } from './observability/langfuse.js'
 import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
-import websocket from '@fastify/websocket'
 import swagger from '@fastify/swagger'
 import swaggerUI from '@fastify/swagger-ui'
+import websocket from '@fastify/websocket'
+import Fastify from 'fastify'
 import Redis from 'ioredis'
-import { healthRoutes } from './routes/health.js'
-import { authRoutes } from './routes/auth.js'
-import { classroomRoutes } from './routes/classrooms.js'
-import { chatRoutes } from './routes/chat.js'
-import { appRoutes } from './routes/apps.js'
-import { websocketRoutes } from './routes/websocket.js'
-import { collabRoutes } from './routes/collab.js'
-import { adminRoutes } from './routes/admin.js'
-import { analyticsRoutes } from './routes/analytics.js'
-import { aiProxyRoutes } from './routes/ai-proxy.js'
-import { appStaticRoutes } from './routes/app-static.js'
-import { chatbridgeCompletionsRoutes } from './routes/chatbridge-completions.js'
 import { validateEnv } from './lib/env.js'
-import { setTenantContext, prisma } from './middleware/rls.js'
+import { prisma, setTenantContext } from './middleware/rls.js'
+import { flushTraces, initLangfuse, shutdownLangfuse } from './observability/langfuse.js'
+import { adminRoutes } from './routes/admin.js'
+import { aiProxyRoutes } from './routes/ai-proxy.js'
+import { analyticsRoutes } from './routes/analytics.js'
+import { appStaticRoutes } from './routes/app-static.js'
+import { appRoutes } from './routes/apps.js'
+import { authRoutes } from './routes/auth.js'
+import { chatRoutes } from './routes/chat.js'
+import { chatbridgeCompletionsRoutes } from './routes/chatbridge-completions.js'
+import { classroomRoutes } from './routes/classrooms.js'
+import { collabRoutes } from './routes/collab.js'
+import { consentRoutes } from './routes/consent.js'
+import { healthRoutes } from './routes/health.js'
+import { websocketRoutes } from './routes/websocket.js'
 
 const envToLogger = {
   development: { level: 'debug' },
@@ -109,6 +110,7 @@ export async function buildServer() {
   await server.register(websocketRoutes, { prefix: '/api/v1' })
   await server.register(collabRoutes, { prefix: '/api/v1' })
   await server.register(adminRoutes, { prefix: '/api/v1' })
+  await server.register(consentRoutes, { prefix: '/api/v1' })
   await server.register(analyticsRoutes, { prefix: '/api/v1' })
   await server.register(aiProxyRoutes, { prefix: '/api/v1' })
   await server.register(chatbridgeCompletionsRoutes, { prefix: '/api/v1' })
@@ -126,25 +128,31 @@ export async function buildServer() {
 
   // Audit trail: log every request (FERPA compliance)
   // Do NOT log request/response bodies (privacy)
+  // IMPORTANT: Uses withTenantContext() to set RLS tenant within a transaction.
+  // The bare prisma client's SET LOCAL has expired by the time onResponse fires
+  // (it was transaction-scoped in onRequest), so we must re-establish tenant
+  // context inside a fresh transaction here.
   server.addHook('onResponse', async (request, reply) => {
     const user = (request as any).user as { userId?: string; districtId?: string } | undefined
     // Only audit authenticated requests to avoid noisy health-check logs
     if (user?.userId && user?.districtId) {
       const latencyMs = Math.round(reply.elapsedTime)
       try {
-        const { prisma } = await import('./middleware/rls.js')
-        await prisma.auditEvent.create({
-          data: {
-            districtId: user.districtId,
-            userId: user.userId,
-            action: request.method,
-            resourceType: 'http_request',
-            resourceId: request.url.split('?')[0], // Strip query params (may contain tokens)
-            metadata: {
-              statusCode: reply.statusCode,
-              latencyMs,
+        const { withTenantContext } = await import('./middleware/rls.js')
+        await withTenantContext(user.districtId, async (tx) => {
+          await tx.auditEvent.create({
+            data: {
+              districtId: user.districtId!,
+              userId: user.userId!,
+              action: request.method,
+              resourceType: 'http_request',
+              resourceId: request.url.split('?')[0], // Strip query params (may contain tokens)
+              metadata: {
+                statusCode: reply.statusCode,
+                latencyMs,
+              },
             },
-          },
+          })
         })
       } catch {
         // Non-blocking: audit failure must not break the response
@@ -166,6 +174,7 @@ export async function buildServer() {
  * A6: Chess app must be registered at startup, not just manually seeded.
  */
 export async function registerBuiltInApps() {
+  const CHESS_APP_ID = '00000000-0000-4000-e000-000000000001'
   const CHESS_TOOLS = [
     { name: 'start_game', description: 'Start a new chess game', inputSchema: { type: 'object' } },
     { name: 'make_move', description: 'Make a chess move', inputSchema: { type: 'object', properties: { move: { type: 'string' } } } },
@@ -173,30 +182,31 @@ export async function registerBuiltInApps() {
   ]
 
   const CHESS_DATA = {
-    name: 'Chess',
-    description: 'Interactive chess game with AI analysis',
+    id: CHESS_APP_ID,
+    name: 'Chess Tutor',
+    description: 'Interactive chess learning app with AI opponent and move analysis',
     toolDefinitions: CHESS_TOOLS,
-    uiManifest: { url: '/api/v1/apps/chess/ui/', width: 600, height: 600 },
-    permissions: { compute: true },
-    complianceMetadata: { coppaCompliant: true, ferpaCompliant: true },
+    uiManifest: { url: '/api/v1/apps/chess/ui/', width: 600, height: 600, sandboxAttrs: ['allow-scripts'] },
+    permissions: { scopes: ['read:board_state', 'write:moves'] },
+    complianceMetadata: { coppa: true, ferpa: true, piiCollected: false, dataRetentionDays: 90 },
     version: '1.0.0',
     reviewStatus: 'approved' as const,
   }
 
-  const existing = await prisma.app.findFirst({ where: { name: 'Chess' } })
-  if (!existing) {
-    await prisma.app.create({ data: CHESS_DATA })
-  } else {
-    // Always ensure built-in app has correct tools, URL, and approval status
-    await prisma.app.update({
-      where: { id: existing.id },
-      data: {
-        toolDefinitions: CHESS_TOOLS,
-        uiManifest: CHESS_DATA.uiManifest,
-        reviewStatus: 'approved',
-      },
-    })
-  }
+  await prisma.app.upsert({
+    where: { id: CHESS_APP_ID },
+    create: CHESS_DATA,
+    update: {
+      name: CHESS_DATA.name,
+      description: CHESS_DATA.description,
+      toolDefinitions: CHESS_DATA.toolDefinitions,
+      uiManifest: CHESS_DATA.uiManifest,
+      permissions: CHESS_DATA.permissions,
+      complianceMetadata: CHESS_DATA.complianceMetadata,
+      version: CHESS_DATA.version,
+      reviewStatus: CHESS_DATA.reviewStatus,
+    },
+  })
 }
 
 // Start server
@@ -221,6 +231,16 @@ async function start() {
     server.log.info(`ChatBridge v2 API running on ${host}:${port}`)
     server.log.info(`Swagger UI: http://localhost:${port}/docs`)
     server.log.info(`OpenAPI JSON: http://localhost:${port}/docs/json`)
+
+    // Graceful shutdown — flush observability, close server
+    const shutdown = async (signal: string) => {
+      server.log.info(`${signal} received — shutting down gracefully`)
+      await shutdownLangfuse()
+      await server.close()
+      process.exit(0)
+    }
+    process.on('SIGINT', () => shutdown('SIGINT'))
+    process.on('SIGTERM', () => shutdown('SIGTERM'))
   } catch (err) {
     server.log.error(err)
     process.exit(1)

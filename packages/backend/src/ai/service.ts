@@ -13,6 +13,7 @@ import { streamText } from 'ai'
 type CoreTool = any
 import type { AIConfig, GradeBand } from '@chatbridge/shared'
 import { assembleSystemPrompt, loadPromptWithVars } from '../prompts/registry.js'
+import { buildChessAnalysisPrompt } from './chess-analysis.js'
 import pino from 'pino'
 
 const logger = pino({ name: 'ai-service' })
@@ -32,10 +33,11 @@ export interface AIContext {
   enabledToolSchemas: Record<string, CoreTool>
   whisperGuidance: string | null
   asyncGuidance: string | null
+  latestStudentMessage?: string | null
 }
 
-function buildSystemPrompt(ctx: AIContext): string {
-  return assembleSystemPrompt({
+export function buildSystemPrompt(ctx: AIContext): string {
+  const basePrompt = assembleSystemPrompt({
     classroomConfig: {
       mode: ctx.classroomConfig.mode,
       subject: ctx.classroomConfig.subject,
@@ -52,6 +54,15 @@ function buildSystemPrompt(ctx: AIContext): string {
     activeAppStatus: ctx.activeAppStatus,
     stateUpdatedAt: ctx.stateUpdatedAt,
   })
+
+  const chessPrompt = buildChessAnalysisPrompt({
+    appName: ctx.activeAppName,
+    appState: ctx.activeAppState,
+    gradeBand: ctx.gradeBand,
+    studentQuestion: ctx.latestStudentMessage ?? ctx.messages.at(-1)?.content ?? null,
+  })
+
+  return chessPrompt ? `${basePrompt}\n\n${chessPrompt}` : basePrompt
 }
 
 export interface StreamResult {
@@ -64,13 +75,13 @@ export interface StreamResult {
  * Generate a streaming AI response with tool use
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function generateResponse(ctx: AIContext): Promise<any> {
-  const systemPrompt = buildSystemPrompt(ctx)
+export async function generateResponse(ctx: AIContext, prebuiltSystemPrompt?: string): Promise<any> {
+  const systemPrompt = prebuiltSystemPrompt ?? buildSystemPrompt(ctx)
 
   // Only pass tools to streamText if they are proper AI SDK tool definitions.
   // enabledToolSchemas may contain metadata-only entries ({ description }) for
-  // prompt context — these are NOT valid AI SDK tools and must not be sent to
-  // the Anthropic API. Tool invocation goes through /apps/:id/tools/:name/invoke.
+  // prompt context — these are NOT valid AI SDK tools and should never be sent
+  // to the Anthropic API. Tool invocation goes through /apps/:id/tools/:name/invoke.
   const hasValidTools = Object.keys(ctx.enabledToolSchemas).length > 0
     && Object.values(ctx.enabledToolSchemas).every(
       (t: any) => t && typeof t.parameters === 'object' && t.parameters.type

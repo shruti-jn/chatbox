@@ -2,9 +2,9 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { PrismaClient } from '@prisma/client'
 
 // Owner role for seeding (bypasses RLS)
-const OWNER_URL = process.env.DATABASE_URL ?? 'postgresql://chatbridge:chatbridge@localhost:5435/chatbridge'
+const OWNER_URL = process.env.DATABASE_URL ?? 'postgresql://chatbridge:chatbridge_dev@localhost:5433/chatbridge'
 // App role for testing (RLS enforced)
-const APP_URL = 'postgresql://chatbridge_app:chatbridge_app@localhost:5435/chatbridge'
+const APP_URL = process.env.DATABASE_URL_APP ?? 'postgresql://chatbridge_app:chatbridge_app@localhost:5433/chatbridge'
 
 describe('RLS Multi-Tenant Isolation (FERPA)', () => {
   let ownerPrisma: PrismaClient

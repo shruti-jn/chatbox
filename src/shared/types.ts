@@ -219,6 +219,8 @@ export interface KnowledgeBaseSearchResult {
   chunkIndex: number
 }
 
+export interface TaskSession extends Session {}
+
 export type FileMeta = {
   name: string
   path: string

@@ -3,7 +3,7 @@
 -- Uses SET LOCAL app.tenant_id per transaction (NEVER SET session-scoped)
 
 -- Enable RLS on all tenant-scoped tables
-ALTER TABLE districts ENABLE ROW LEVEL SECURITY;
+-- NOTE: districts table is RLS-EXEMPT (tenant root entity — its id IS the tenant_id)
 ALTER TABLE schools ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE classrooms ENABLE ROW LEVEL SECURITY;
@@ -18,6 +18,7 @@ ALTER TABLE session_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE oauth_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE parental_consents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE data_deletion_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE safety_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tool_invocations ENABLE ROW LEVEL SECURITY;
@@ -26,9 +27,6 @@ ALTER TABLE tool_invocations ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for each table
 -- Pattern: current_setting('app.tenant_id') matches district_id column
-
-CREATE POLICY district_isolation ON districts
-  USING (id::text = current_setting('app.tenant_id', true));
 
 CREATE POLICY school_isolation ON schools
   USING (district_id::text = current_setting('app.tenant_id', true));
@@ -78,6 +76,9 @@ CREATE POLICY consent_isolation ON parental_consents
 CREATE POLICY deletion_request_isolation ON data_deletion_requests
   USING (district_id::text = current_setting('app.tenant_id', true));
 
+CREATE POLICY email_outbox_isolation ON email_outbox
+  USING (district_id::text = current_setting('app.tenant_id', true));
+
 CREATE POLICY audit_event_isolation ON audit_events
   USING (district_id::text = current_setting('app.tenant_id', true));
 
@@ -86,3 +87,23 @@ CREATE POLICY safety_event_isolation ON safety_events
 
 CREATE POLICY tool_invocation_isolation ON tool_invocations
   USING (district_id::text = current_setting('app.tenant_id', true));
+
+-- Database-level immutability for audit_events
+-- ORM-level enforcement (Prisma $extends) can be bypassed by direct SQL.
+-- This trigger ensures even superusers cannot UPDATE or DELETE audit records.
+--
+-- Escape hatch: SET LOCAL app.allow_audit_cleanup = 'true' within a transaction
+-- to allow test cleanup. This is transaction-scoped and cannot leak.
+CREATE OR REPLACE FUNCTION prevent_audit_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF current_setting('app.allow_audit_cleanup', true) = 'true' THEN
+    RETURN OLD;
+  END IF;
+  RAISE EXCEPTION 'audit_events table is append-only: % not allowed', TG_OP;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER audit_immutable_trigger
+BEFORE UPDATE OR DELETE ON audit_events
+FOR EACH ROW EXECUTE FUNCTION prevent_audit_mutation();

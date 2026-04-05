@@ -19,6 +19,8 @@ interface Options {
   injectDefaultMetadata: boolean
   useProxy: boolean
   stream?: boolean
+  customFetch?: typeof globalThis.fetch
+  listModelsFallback?: ProviderModelInfo[]
 }
 
 export default class OpenAI extends AbstractAISDKModel {
@@ -39,7 +41,7 @@ export default class OpenAI extends AbstractAISDKModel {
     return createOpenAI({
       apiKey: this.options.apiKey,
       baseURL: this.options.apiHost,
-      fetch: createFetchWithProxy(this.options.useProxy, this.dependencies),
+      fetch: this.options.customFetch ?? createFetchWithProxy(this.options.useProxy, this.dependencies),
       headers: this.options.apiHost.includes('openrouter.ai')
         ? {
             'HTTP-Referer': 'https://chatboxai.app',
@@ -86,8 +88,9 @@ export default class OpenAI extends AbstractAISDKModel {
         apiHost: this.options.apiHost,
         apiKey: this.options.apiKey,
         useProxy: this.options.useProxy,
+        customFetch: this.options.customFetch,
       },
       this.dependencies
-    )
+    ).catch(() => this.options.listModelsFallback ?? [])
   }
 }

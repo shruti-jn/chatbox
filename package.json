@@ -138,7 +138,6 @@
     "@types/autosize": "^4.0.3",
     "@types/big.js": "^6.2.2",
     "@types/canvas-confetti": "^1.9.0",
-    "canvas-confetti": "^1.9.4",
     "@types/d3": "^7.4.3",
     "@types/epub": "^0.0.11",
     "@types/gtag.js": "^0.0.13",
@@ -170,6 +169,7 @@
     "babel-loader": "^10.0.0",
     "big.js": "^7.0.1",
     "browserslist-config-erb": "^0.0.3",
+    "canvas-confetti": "^1.9.4",
     "capacitor-plugin-safe-area": "^4.0.0",
     "capacitor-stream-http": "^0.1.0",
     "chalk": "^4.1.2",
@@ -283,6 +283,7 @@
     "zustand": "^5.0.6"
   },
   "dependencies": {
+    "@fontsource/dm-sans": "^5.2.8",
     "@libsql/client": "^0.15.6",
     "@lobehub/icons": "^4.0.2",
     "@mastra/core": "^0.13.2",

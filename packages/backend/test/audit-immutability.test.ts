@@ -59,9 +59,12 @@ describe('Audit Immutability', () => {
   })
 
   afterAll(async () => {
-    // Clean up via unguarded ownerPrisma (ALLOW_AUDIT_CLEANUP=1)
+    // Clean up via ownerPrisma with DB-level escape hatch for audit immutability trigger
     try {
-      await ownerPrisma.auditEvent.deleteMany({ where: { districtId } })
+      await ownerPrisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.allow_audit_cleanup', 'true', true)`
+        await tx.auditEvent.deleteMany({ where: { districtId } })
+      })
       await ownerPrisma.user.deleteMany({ where: { districtId } })
       await ownerPrisma.district.delete({ where: { id: districtId } })
     } catch {

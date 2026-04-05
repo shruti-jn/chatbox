@@ -2,7 +2,7 @@
   "compilerOptions": {
     "incremental": true,
     "target": "es2021",
-    "module": "nodenext",
+    "module": "esnext",
     "lib": ["dom", "es2023"],
     "jsx": "react-jsx",
     "strict": true,
@@ -10,9 +10,10 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/renderer/*"],
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@chatbridge/shared": ["./packages/shared/src/index.ts"]
     },
-    "moduleResolution": "nodenext",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
@@ -26,6 +27,8 @@
     "tmp",
     "test",
     "release",
+    "packages/backend",
+    "packages/sdk",
     ".erb/dll",
     "ios",
     "android"

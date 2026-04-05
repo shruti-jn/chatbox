@@ -2,7 +2,7 @@ import NiceModal from '@ebay/nice-modal-react'
 import { ActionIcon, type ActionIconProps, Flex, Image as Img, Loader, Text, Tooltip as Tooltip1 } from '@mantine/core'
 import { Grid, useTheme } from '@mui/material'
 import Box from '@mui/material/Box'
-import type { Message, MessagePicture, MessageToolCallPart, SessionType } from '@shared/types'
+import type { Message, MessageAppCardPart, MessagePicture, MessageToolCallPart, SessionType } from '@shared/types'
 import { getMessageText } from '@shared/utils/message'
 import {
   IconArrowDown,
@@ -41,6 +41,7 @@ import platform from '@/platform'
 import { getSession } from '@/stores/chatStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
+import { processAppCards } from '@/stores/session/app-card-processor'
 import '../../static/Block.css'
 import { generateMore, modifyMessage, regenerateInNewFork, removeMessage } from '@/stores/sessionActions'
 import * as toastActions from '@/stores/toastActions'
@@ -257,7 +258,24 @@ const _Message: FC<Props> = (props) => {
     trackWithSessionName(JK_EVENTS.PREVIEW_WEBPAGE_CLICK)
   }, [trackWithSessionName])
 
-  const contentParts = msg.contentParts || []
+  const renderPanelAppSummary = useCallback((item: MessageAppCardPart) => {
+    return (
+      <div
+        key={item.instanceId}
+        className="my-3 rounded-2xl border border-solid border-chatbox-border-primary bg-chatbox-background-secondary px-4 py-3"
+      >
+        <div className="text-sm font-medium text-chatbox-primary">{item.appName} opened in the app panel</div>
+        <div className="mt-1 text-xs text-chatbox-tertiary">
+          The live app is running in the workspace column so the conversation can stay visible.
+        </div>
+      </div>
+    )
+  }, [])
+
+  const contentParts = useMemo(() => {
+    const parts = msg.contentParts || []
+    return msg.role === 'assistant' ? processAppCards(parts) : parts
+  }, [msg.contentParts, msg.role])
 
   const groupedContentParts = useMemo(() => {
     const groups: Array<{ type: 'web_search_group'; parts: MessageToolCallPart[] } | (typeof contentParts)[number]> = []
@@ -505,8 +523,8 @@ const _Message: FC<Props> = (props) => {
                   )
                 ) : item.type === 'tool-call' ? (
                   <ToolCallPartUI key={item.toolCallId} part={item as MessageToolCallPart} />
-                ) : (item as any).type === 'app-card' ? (
-                  <AppCardPartUI key={(item as any).instanceId} part={item as any} />
+                ) : item.type === 'app-card' ? (
+                  item.displayMode === 'panel' ? renderPanelAppSummary(item) : <AppCardPartUI key={item.instanceId} part={item} />
                 ) : null
               )}
             </div>

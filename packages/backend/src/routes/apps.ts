@@ -10,6 +10,42 @@ import { transition, InvalidTransitionError, type AppState, checkRateLimit, isBl
 import { runReviewPipeline } from '../apps/review-pipeline.js'
 import { getWeather } from '../services/weather.js'
 import { searchTracks, createPlaylist } from '../services/spotify.js'
+import fs from 'fs'
+import path from 'path'
+
+async function loadReviewUiArtifacts(url: string): Promise<{ uiContent: string | null; uiContentBytes: number | null }> {
+  try {
+    if (url.startsWith('/api/v1/apps/')) {
+      const match = url.match(/^\/api\/v1\/apps\/([^/]+)\/ui\/?$/)
+      if (match) {
+        const appName = match[1]
+        const indexPath = path.resolve(process.cwd(), `../../packages/apps-${appName}/dist/index.html`)
+        if (fs.existsSync(indexPath)) {
+          const uiContent = fs.readFileSync(indexPath, 'utf8')
+          return {
+            uiContent,
+            uiContentBytes: new TextEncoder().encode(uiContent).length,
+          }
+        }
+      }
+    }
+
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(url)) {
+      const response = await fetch(url)
+      if (response.ok) {
+        const uiContent = await response.text()
+        return {
+          uiContent,
+          uiContentBytes: new TextEncoder().encode(uiContent).length,
+        }
+      }
+    }
+  } catch {
+    // Best-effort only. Review pipeline still runs against metadata if UI fetch fails.
+  }
+
+  return { uiContent: null, uiContentBytes: null }
+}
 
 export async function appRoutes(server: FastifyInstance) {
   // POST /apps/register — Register a third-party app
@@ -299,6 +335,32 @@ export async function appRoutes(server: FastifyInstance) {
     return { instanceId, status: newStatus }
   })
 
+  // GET /apps/:appId/instances — List instances for an app (scoped to tenant)
+  server.get('/apps/:appId/instances', {
+    preHandler: [authenticate],
+  }, async (request) => {
+    const { appId } = request.params as { appId: string }
+    const user = getUser(request)
+
+    const instances = await withTenantContext(user.districtId, async (tx) => {
+      return tx.appInstance.findMany({
+        where: { appId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      })
+    })
+
+    return {
+      instances: instances.map(i => ({
+        instanceId: i.id,
+        conversationId: i.conversationId,
+        status: i.status,
+        stateSnapshot: i.stateSnapshot,
+        createdAt: i.createdAt,
+      })),
+    }
+  })
+
   // GET /apps/instances/:instanceId/state — Get app instance state
   server.get('/apps/instances/:instanceId/state', {
     preHandler: [authenticate],
@@ -463,13 +525,18 @@ export async function appRoutes(server: FastifyInstance) {
     const environment = (process.env.NODE_ENV === 'production' ? 'production' : 'development') as
       'production' | 'development'
 
+    const { uiContent, uiContentBytes } = await loadReviewUiArtifacts((app.uiManifest as { url: string }).url)
+
     const reviewResult = runReviewPipeline(
       {
         toolDefinitions: app.toolDefinitions as any[],
         uiManifest: app.uiManifest as { url: string },
         permissions: app.permissions as Record<string, unknown>,
+        complianceMetadata: app.complianceMetadata as Record<string, unknown>,
         name: app.name,
         description: app.description ?? '',
+        uiContent,
+        uiContentBytes,
       },
       { environment },
     )

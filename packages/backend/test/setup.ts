@@ -10,3 +10,4 @@ process.env.DATABASE_URL_APP = process.env.DATABASE_URL_APP ?? 'postgresql://cha
 process.env.REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6380'
 process.env.JWT_SECRET_KEY = 'test-secret-key'
 process.env.PORT = '0' // Random port for tests
+process.env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? 'test-anthropic-key'

@@ -1,5 +1,6 @@
 import { ActionIcon, Collapse, Flex, Tooltip } from '@mantine/core'
 import { Link } from '@mui/material'
+import { ModelProviderEnum } from '@shared/types'
 import Alert from '@mui/material/Alert'
 import { aiProviderNameHash } from '@shared/models'
 import { ChatboxAIAPIError } from '@shared/models/errors'
@@ -52,7 +53,7 @@ export function isContextLengthError(errorText: string | null | undefined): bool
   return false
 }
 
-export default function MessageErrTips(props: { msg: Message }) {
+export default function MessageErrTips(props: { msg: Message; onRetry?: () => void; isBubbleLayout?: boolean }) {
   const { msg } = props
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
@@ -77,6 +78,7 @@ export default function MessageErrTips(props: { msg: Message }) {
 
   const tips: React.ReactNode[] = []
   let onlyShowTips = false // 是否只显示提示，不显示错误信息详情
+  const aiProviderName = msg.aiProvider ? aiProviderNameHash[msg.aiProvider as ModelProviderEnum] : 'AI Provider'
 
   if (isContextLengthError(msg.error) || isContextLengthError(errorMessage)) {
     tips.push(
@@ -106,7 +108,7 @@ export default function MessageErrTips(props: { msg: Message }) {
       <Trans
         i18nKey="Connection to {{aiProvider}} failed. This typically occurs due to incorrect configuration or {{aiProvider}} account issues. Please <buttonOpenSettings>check your settings</buttonOpenSettings> and verify your {{aiProvider}} account status, or purchase a <LinkToLicensePricing>Chatbox AI License</LinkToLicensePricing> to unlock all advanced models instantly without any configuration."
         values={{
-          aiProvider: msg.aiProvider ? aiProviderNameHash[msg.aiProvider] : 'AI Provider',
+          aiProvider: aiProviderName,
         }}
         components={{
           buttonOpenSettings: (
@@ -145,7 +147,7 @@ export default function MessageErrTips(props: { msg: Message }) {
       <Trans
         i18nKey="ai provider no implemented paint tips"
         values={{
-          aiProvider: msg.aiProvider ? aiProviderNameHash[msg.aiProvider] : 'AI Provider',
+          aiProvider: aiProviderName,
         }}
         components={[
           <Link

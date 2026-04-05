@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { buildServer } from '../src/server.js'
+import { buildServer, registerBuiltInApps } from '../src/server.js'
 import { signJWT } from '../src/middleware/auth.js'
 import { prisma, ownerPrisma } from '../src/middleware/rls.js'
 import type { FastifyInstance } from 'fastify'
 
+let testCounter = 0
+function uniqueName(base: string) { return `${base}_test_${Date.now()}_${++testCounter}` }
+
 const validAppPayload = {
-  name: 'Chess',
+  name: uniqueName('Chess'),
   description: 'Interactive chess game',
   toolDefinitions: [{ name: 'start_game', description: 'Start a new chess game', inputSchema: { type: 'object' } }],
   uiManifest: { url: 'https://chess.chatbridge.app', width: 500, height: 500 },
@@ -73,12 +76,14 @@ describe('App Registration and Tool Invocation', () => {
   })
 
   // --- Helper: register + approve an app ---
-  async function registerAndApproveApp(token: string, payload = validAppPayload) {
+  async function registerAndApproveApp(token: string, payload?: Record<string, any>) {
+    const baseName = payload?.name ?? 'TestApp'
+    const finalPayload = { ...validAppPayload, ...payload, name: uniqueName(baseName) }
     const regRes = await server.inject({
       method: 'POST',
       url: '/api/v1/apps/register',
       headers: { authorization: `Bearer ${token}` },
-      payload,
+      payload: finalPayload,
     })
     const { appId } = JSON.parse(regRes.body)
     // Approve via submit-review (requires teacher/admin auth)
@@ -97,7 +102,7 @@ describe('App Registration and Tool Invocation', () => {
       method: 'POST',
       url: '/api/v1/apps/register',
       headers: { authorization: `Bearer ${teacherToken}` },
-      payload: validAppPayload,
+      payload: { ...validAppPayload, name: uniqueName('RegTest') },
     })
 
     expect(res.statusCode).toBe(201)
@@ -111,7 +116,7 @@ describe('App Registration and Tool Invocation', () => {
       method: 'POST',
       url: '/api/v1/apps/register',
       headers: { authorization: `Bearer ${adminToken}` },
-      payload: { ...validAppPayload, name: 'Admin Chess' },
+      payload: { ...validAppPayload, name: uniqueName('AdminChess') },
     })
 
     expect(res.statusCode).toBe(201)
@@ -151,6 +156,39 @@ describe('App Registration and Tool Invocation', () => {
 
     // Fastify schema validation returns 400, Zod returns 422
     expect([400, 422]).toContain(res.statusCode)
+  })
+
+  // ====== Duplicate name rejection ======
+
+  it('duplicate app name returns 409', async () => {
+    const dupName = `DupTest_${Date.now()}`
+    // First registration succeeds
+    const res1 = await server.inject({
+      method: 'POST',
+      url: '/api/v1/apps/register',
+      headers: { authorization: `Bearer ${teacherToken}` },
+      payload: { ...validAppPayload, name: dupName },
+    })
+    expect(res1.statusCode).toBe(201)
+
+    // Second registration with exact same name fails
+    const res2 = await server.inject({
+      method: 'POST',
+      url: '/api/v1/apps/register',
+      headers: { authorization: `Bearer ${teacherToken}` },
+      payload: { ...validAppPayload, name: dupName },
+    })
+    expect(res2.statusCode).toBe(409)
+    expect(JSON.parse(res2.body).error).toContain('already exists')
+  })
+
+  // ====== Slow-app timeout fixture ======
+
+  it('slow-app fixture exists at test/fixtures/slow-app.ts', async () => {
+    const { SLOW_APP_PAYLOAD } = await import('./fixtures/slow-app.js')
+    expect(SLOW_APP_PAYLOAD).toBeDefined()
+    expect(SLOW_APP_PAYLOAD.name).toBe('Slow Test App')
+    expect(SLOW_APP_PAYLOAD.toolDefinitions[0].name).toBe('slow_operation')
   })
 
   // ====== Layer 3: CBP dispatch fallback tests ======
@@ -243,7 +281,7 @@ describe('App Registration and Tool Invocation', () => {
       method: 'POST',
       url: '/api/v1/apps/register',
       headers: { authorization: `Bearer ${teacherToken}` },
-      payload: { ...validAppPayload, name: 'Unapproved Chess' },
+      payload: { ...validAppPayload, name: uniqueName('UnapprovedChess') },
     })
     const { appId } = JSON.parse(regRes.body)
 
@@ -305,6 +343,132 @@ describe('App Registration and Tool Invocation', () => {
     const body = JSON.parse(getRes.body)
     expect(body.state).toEqual(newState)
     expect(body.status).toBe('active')
+  })
+})
+
+describe('A6: Chess app self-registration and get_legal_moves', () => {
+  let server: FastifyInstance
+  let districtId: string
+  let teacherToken: string
+  let studentToken: string
+  let conversationId: string
+
+  beforeAll(async () => {
+    server = await buildServer()
+    await server.ready()
+
+    const district = await ownerPrisma.district.create({ data: { name: 'A6 Test District' } })
+    districtId = district.id
+
+    const teacher = await ownerPrisma.user.create({
+      data: { districtId, role: 'teacher', displayName: 'A6 Teacher' },
+    })
+    const student = await ownerPrisma.user.create({
+      data: { districtId, role: 'student', displayName: 'A6 Student', gradeBand: 'g68' },
+    })
+
+    teacherToken = signJWT({ userId: teacher.id, role: 'teacher', districtId })
+    studentToken = signJWT({ userId: student.id, role: 'student', districtId })
+
+    const classroom = await ownerPrisma.classroom.create({
+      data: {
+        districtId, teacherId: teacher.id, name: 'A6 Class',
+        joinCode: 'A6TEST', gradeBand: 'g68', aiConfig: { mode: 'direct' },
+      },
+    })
+
+    const conversation = await ownerPrisma.conversation.create({
+      data: { districtId, classroomId: classroom.id, studentId: student.id },
+    })
+    conversationId = conversation.id
+  })
+
+  afterAll(async () => {
+    try {
+      await ownerPrisma.$executeRawUnsafe(`DELETE FROM tool_invocations WHERE district_id = '${districtId}'`)
+      await ownerPrisma.$executeRawUnsafe(`DELETE FROM app_instances WHERE district_id = '${districtId}'`)
+      await ownerPrisma.$executeRawUnsafe(`DELETE FROM messages WHERE district_id = '${districtId}'`)
+      await ownerPrisma.$executeRawUnsafe(`DELETE FROM conversations WHERE district_id = '${districtId}'`)
+      await ownerPrisma.$executeRawUnsafe(`DELETE FROM classrooms WHERE district_id = '${districtId}'`)
+      await ownerPrisma.$executeRawUnsafe(`DELETE FROM users WHERE district_id = '${districtId}'`)
+      await ownerPrisma.$executeRawUnsafe(`DELETE FROM districts WHERE id = '${districtId}'`)
+    } catch { /* Best effort */ }
+    await server.close()
+  })
+
+  it('Chess app registered at startup includes get_legal_moves tool', async () => {
+    // Strip get_legal_moves from any existing "Chess" app to test the upgrade path
+    const existing = await ownerPrisma.app.findFirst({ where: { name: 'Chess' } })
+    if (existing) {
+      // Remove get_legal_moves so registerBuiltInApps will add it back
+      const tools = (Array.isArray(existing.toolDefinitions) ? existing.toolDefinitions : []) as any[]
+      const stripped = tools.filter((t: any) => t?.name !== 'get_legal_moves')
+      await ownerPrisma.app.update({
+        where: { id: existing.id },
+        data: { toolDefinitions: stripped.length > 0 ? stripped : [{ name: 'start_game', description: 'Start', inputSchema: { type: 'object' } }] },
+      })
+    }
+
+    // Run the startup registration function (same as what happens on server boot)
+    await registerBuiltInApps()
+
+    // The chess app should now exist with get_legal_moves in toolDefinitions
+    const chess = await ownerPrisma.app.findFirst({
+      where: { name: 'Chess' },
+    })
+
+    expect(chess).not.toBeNull()
+    const tools = chess!.toolDefinitions as Array<{ name: string }>
+    const toolNames = tools.map(t => t.name)
+    expect(toolNames).toContain('start_game')
+    expect(toolNames).toContain('make_move')
+    expect(toolNames).toContain('get_legal_moves')  // A6: MUST have this tool
+  })
+
+  it('get_legal_moves tool returns FEN and moves array via fallback', async () => {
+    // Register a chess app with get_legal_moves tool for this test
+    const regRes = await server.inject({
+      method: 'POST',
+      url: '/api/v1/apps/register',
+      headers: { authorization: `Bearer ${teacherToken}` },
+      payload: {
+        name: `ChessA6_${Date.now()}`,
+        description: 'Chess with legal moves',
+        toolDefinitions: [
+          { name: 'start_game', description: 'Start', inputSchema: { type: 'object' } },
+          { name: 'make_move', description: 'Move', inputSchema: { type: 'object' } },
+          { name: 'get_legal_moves', description: 'Get legal moves', inputSchema: { type: 'object', properties: { fen: { type: 'string' } } } },
+        ],
+        uiManifest: { url: 'https://chess.chatbridge.app', width: 500, height: 500 },
+        permissions: { camera: false },
+        complianceMetadata: {},
+        version: '1.0.0',
+      },
+    })
+    const { appId } = JSON.parse(regRes.body)
+
+    // Approve
+    await server.inject({
+      method: 'POST',
+      url: `/api/v1/apps/${appId}/submit-review`,
+      headers: { authorization: `Bearer ${teacherToken}` },
+    })
+
+    // Invoke get_legal_moves
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/v1/apps/${appId}/tools/get_legal_moves/invoke`,
+      headers: { authorization: `Bearer ${studentToken}` },
+      payload: { parameters: {}, conversationId },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = JSON.parse(res.body)
+    expect(body.toolName).toBe('get_legal_moves')
+    expect(body.result.fen).toBeDefined()
+    expect(body.result.moves).toBeDefined()
+    expect(Array.isArray(body.result.moves)).toBe(true)
+    expect(body.result.moves.length).toBeGreaterThan(0)
   })
 })
 
@@ -416,5 +580,73 @@ describe('Chat Message Flow with Safety', () => {
     expect(events.length).toBeGreaterThanOrEqual(2) // blocked + crisis
     expect(events.some(e => e.eventType === 'injection_detected')).toBe(true)
     expect(events.some(e => e.eventType === 'crisis_detected')).toBe(true)
+  })
+
+  it('app-card content parts round-trip through message history (A4)', async () => {
+    // Insert a message with app-card content part directly via ORM
+    await ownerPrisma.message.create({
+      data: {
+        conversationId,
+        districtId,
+        authorRole: 'assistant',
+        contentParts: [
+          { type: 'text', text: 'Here is the chess board:' },
+          {
+            type: 'app-card',
+            appName: 'chess',
+            instanceId: 'fb3a6292-8cc2-42d0-9312-8a3f2a17deb9',
+            status: 'active',
+            url: '/api/v1/apps/chess/ui/',
+            height: 500,
+          },
+        ],
+      },
+    })
+
+    // Retrieve via GET history endpoint
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/v1/conversations/${conversationId}/messages?limit=50`,
+      headers: { authorization: `Bearer ${studentToken}` },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = JSON.parse(res.body)
+
+    // Find the message with app-card part
+    const appMsg = body.messages.find((m: any) =>
+      Array.isArray(m.contentParts) &&
+      m.contentParts.some((p: any) => p.type === 'app-card'),
+    )
+    expect(appMsg).toBeDefined()
+
+    const appPart = appMsg.contentParts.find((p: any) => p.type === 'app-card')
+    expect(appPart.appName).toBe('chess')
+    expect(appPart.instanceId).toMatch(/^[0-9a-f]{8}-/)
+    expect(appPart.status).toBe('active')
+  })
+
+  it('GET /conversations/:id returns single conversation (A3)', async () => {
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/v1/conversations/${conversationId}`,
+      headers: { authorization: `Bearer ${studentToken}` },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = JSON.parse(res.body)
+    expect(body.id).toBe(conversationId)
+    expect(body.classroomId).toBeDefined()
+    expect(body.messageCount).toBeGreaterThanOrEqual(0)
+  })
+
+  it('GET /conversations/:id returns 404 for non-existent conversation', async () => {
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/v1/conversations/00000000-0000-0000-0000-000000000000',
+      headers: { authorization: `Bearer ${studentToken}` },
+    })
+
+    expect(res.statusCode).toBe(404)
   })
 })

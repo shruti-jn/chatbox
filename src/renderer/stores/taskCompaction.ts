@@ -32,7 +32,7 @@ function resolveTaskModel(sessionSettings?: SessionSettings): { providerId: stri
     return { providerId: sessionSettings.provider, modelId: sessionSettings.modelId }
   }
 
-  const lastUsedTask = lastUsedModelStore.getState().task
+  const lastUsedTask = lastUsedModelStore.getState().chat
   if (lastUsedTask?.provider && lastUsedTask?.modelId) {
     return { providerId: lastUsedTask.provider, modelId: lastUsedTask.modelId }
   }

@@ -5,6 +5,7 @@ import { ModelProviderEnum } from '../types'
 export { getModel, getProviderSettings } from '../providers'
 
 export const aiProviderNameHash: Record<ModelProviderEnum, string> = {
+  [ModelProviderEnum.ChatBridge]: 'ChatBridge',
   [ModelProviderEnum.OpenAI]: 'OpenAI API',
   [ModelProviderEnum.OpenAIResponses]: 'OpenAI Responses API',
   [ModelProviderEnum.Azure]: 'Azure OpenAI API',
@@ -22,6 +23,12 @@ export const aiProviderNameHash: Record<ModelProviderEnum, string> = {
   [ModelProviderEnum.Perplexity]: 'Perplexity API',
   [ModelProviderEnum.XAI]: 'xAI API',
   [ModelProviderEnum.OpenRouter]: 'OpenRouter API',
+  [ModelProviderEnum.MiniMax]: 'MiniMax Global API',
+  [ModelProviderEnum.MiniMaxCN]: 'MiniMax CN API',
+  [ModelProviderEnum.Moonshot]: 'Moonshot API',
+  [ModelProviderEnum.MoonshotCN]: 'Moonshot CN API',
+  [ModelProviderEnum.Qwen]: 'Qwen API',
+  [ModelProviderEnum.QwenPortal]: 'Qwen Portal API',
   [ModelProviderEnum.Custom]: 'Custom Provider',
 }
 

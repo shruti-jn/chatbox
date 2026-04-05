@@ -1,0 +1,5 @@
+declare module 'adm-zip'
+declare module 'core-js/actual'
+declare module 'ofetch/dist/error-04138797'
+declare module '@mastra/rag/dist/rerank'
+declare module 'jsdom'

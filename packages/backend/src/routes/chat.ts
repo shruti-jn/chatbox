@@ -4,8 +4,7 @@ import { requireCoppaConsent } from '../middleware/coppa.js'
 import { prisma, withTenantContext } from '../middleware/rls.js'
 import { runSafetyPipeline } from '../safety/pipeline.js'
 import { createTrace, createSafetySpan, createGeneration, endGeneration, flushTraces } from '../observability/langfuse.js'
-import { generateResponse, type AIContext } from '../ai/service.js'
-import { assembleSystemPrompt } from '../prompts/registry.js'
+import { buildSystemPrompt, generateResponse, type AIContext } from '../ai/service.js'
 import { applyOutputGuardrails } from '../safety/output-guardrail.js'
 
 export async function chatRoutes(server: FastifyInstance) {
@@ -199,36 +198,41 @@ export async function chatRoutes(server: FastifyInstance) {
       content: (m.contentParts as any[])?.[0]?.text ?? '',
     }))
 
+    const aiContext: AIContext = {
+      messages: aiMessages,
+      classroomConfig: {
+        mode: aiConfig.mode ?? 'direct',
+        subject: aiConfig.subject,
+        tone: aiConfig.tone,
+        complexity: aiConfig.complexity,
+        asyncGuidance: aiConfig.asyncGuidance,
+      },
+      gradeBand: gradeBand as any,
+      activeAppState: activeInstance?.status === 'active'
+        ? (activeInstance.stateSnapshot as Record<string, unknown> | null)
+        : null,
+      activeAppName: activeInstance?.status === 'active'
+        ? activeInstance.app.name
+        : null,
+      activeAppStatus: (activeInstance?.status as any) ?? null,
+      stateUpdatedAt: activeInstance?.updatedAt ?? null,
+      enabledToolSchemas,
+      whisperGuidance: whisper ? ((whisper.contentParts as any[])?.[0]?.text ?? null) : null,
+      asyncGuidance: aiConfig.asyncGuidance ?? null,
+      latestStudentMessage: text,
+    }
+    const systemPrompt = buildSystemPrompt(aiContext)
+
     // Create Langfuse generation span for AI call
     const generation = createGeneration(trace, 'ai_response', {
       model: 'claude-haiku-4-5-20251001',
       messages: aiMessages,
+      systemPrompt,
     })
 
     try {
       // Generate AI response
-      const result = await generateResponse({
-        messages: aiMessages,
-        classroomConfig: {
-          mode: aiConfig.mode ?? 'direct',
-          subject: aiConfig.subject,
-          tone: aiConfig.tone,
-          complexity: aiConfig.complexity,
-          asyncGuidance: aiConfig.asyncGuidance,
-        },
-        gradeBand: gradeBand as any,
-        activeAppState: activeInstance?.status === 'active'
-          ? (activeInstance.stateSnapshot as Record<string, unknown> | null)
-          : null,
-        activeAppName: activeInstance?.status === 'active'
-          ? activeInstance.app.name
-          : null,
-        activeAppStatus: (activeInstance?.status as any) ?? null,
-        stateUpdatedAt: activeInstance?.updatedAt ?? null,
-        enabledToolSchemas,
-        whisperGuidance: whisper ? ((whisper.contentParts as any[])?.[0]?.text ?? null) : null,
-        asyncGuidance: aiConfig.asyncGuidance ?? null,
-      })
+      const result = await generateResponse(aiContext, systemPrompt)
 
       // Collect full response
       let fullText = ''
@@ -330,6 +334,41 @@ export async function chatRoutes(server: FastifyInstance) {
     return {
       messages: result.reverse(),
       hasMore,
+    }
+  })
+
+  // GET /conversations/:id — Get a single conversation
+  server.get('/conversations/:conversationId', {
+    preHandler: [authenticate, requireCoppaConsent],
+    schema: {
+      params: { type: 'object', properties: { conversationId: { type: 'string' } } },
+    },
+  }, async (request, reply) => {
+    const { conversationId } = request.params as { conversationId: string }
+    const user = getUser(request)
+
+    const conversation = await withTenantContext(user.districtId, async (tx) => {
+      return tx.conversation.findUnique({
+        where: { id: conversationId },
+        include: {
+          classroom: { select: { id: true, name: true } },
+          _count: { select: { messages: true } },
+        },
+      })
+    })
+
+    if (!conversation) {
+      return reply.status(404).send({ error: 'Conversation not found' })
+    }
+
+    return {
+      id: conversation.id,
+      classroomId: conversation.classroomId,
+      classroom: conversation.classroom,
+      title: conversation.title,
+      messageCount: conversation._count.messages,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
     }
   })
 

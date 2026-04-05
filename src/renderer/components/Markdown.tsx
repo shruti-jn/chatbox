@@ -88,6 +88,8 @@ function Markdown(props: {
   className?: string
   generating?: boolean
   forceColorScheme?: 'light' | 'dark'
+  onCodeCopy?: () => void
+  onPreviewWebpage?: () => void
 }) {
   const {
     children,

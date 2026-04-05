@@ -63,6 +63,7 @@ export function addAllowedOrigin(origin: string) {
 
 let onStateUpdate: StateUpdateHandler | null = null
 let onCompletion: CompletionHandler | null = null
+let listenerInitialized = false
 
 export function setStateUpdateHandler(handler: StateUpdateHandler) {
   onStateUpdate = handler
@@ -76,6 +77,8 @@ export function setCompletionHandler(handler: CompletionHandler) {
  * Initialize CBP listener for iframe messages
  */
 export function initCBPListener() {
+  if (listenerInitialized) return
+  listenerInitialized = true
   window.addEventListener('message', (event) => {
     // Origin validation
     if (allowedOrigins.size > 0 && !allowedOrigins.has(event.origin) && event.origin !== window.location.origin) {

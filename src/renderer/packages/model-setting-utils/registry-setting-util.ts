@@ -47,7 +47,9 @@ export default class RegistrySettingUtil extends BaseConfig implements ModelSett
       dependencies,
       providerSetting: settings,
       formattedApiHost: settings.apiHost || definition.defaultSettings?.apiHost || '',
+      formattedApiPath: settings.apiPath || definition.defaultSettings?.apiPath || '',
       model,
+      effectiveApiKey: settings.apiKey || '',
     })
 
     if ('listModels' in modelInstance && typeof modelInstance.listModels === 'function') {

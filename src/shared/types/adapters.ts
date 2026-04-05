@@ -28,5 +28,6 @@ export interface ModelDependencies {
   request: RequestAdapter
   storage: StorageAdapter
   sentry: SentryAdapter
-  getRemoteConfig(): any
-} 
+  getRemoteConfig(): any | Promise<any>
+  platformType?: string
+}

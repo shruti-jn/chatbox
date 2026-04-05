@@ -14,12 +14,19 @@ export {
   recordSuccess,
   recordFailure,
   isUnresponsive,
+  isBlocked,
+  isDegraded,
+  healthConfig,
+  logRateLimitEvent,
+  startHealthPolling,
+  stopHealthPolling,
   _resetHealthStore,
 } from './health.js'
 
 export {
   type RateLimitResult,
   checkRateLimit,
+  rateLimitConfig,
   _resetRateLimitStore,
 } from './rate-limiter.js'
 

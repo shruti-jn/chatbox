@@ -73,7 +73,7 @@ describe('App State in AI Context — full lifecycle', () => {
       url: '/api/v1/apps/register',
       headers: { authorization: `Bearer ${teacherToken}` },
       payload: {
-        name: 'Chess',
+        name: `Chess StateCtx ${Date.now()}`,
         description: 'Interactive chess game for learning strategy',
         toolDefinitions: [
           { name: 'start_game', description: 'Start a new chess game', inputSchema: { type: 'object' } },

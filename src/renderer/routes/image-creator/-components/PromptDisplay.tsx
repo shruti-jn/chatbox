@@ -4,12 +4,14 @@ import { useTranslation } from 'react-i18next'
 
 export interface PromptDisplayProps {
   prompt: string
-  modelDisplayName: string
+  modelDisplayName?: string
+  model?: { provider: string; modelId: string }
   referenceImageCount: number
 }
 
-export function PromptDisplay({ prompt, modelDisplayName, referenceImageCount }: PromptDisplayProps) {
+export function PromptDisplay({ prompt, modelDisplayName, model, referenceImageCount }: PromptDisplayProps) {
   const { t } = useTranslation()
+  const resolvedModelDisplayName = modelDisplayName ?? model?.modelId ?? ''
 
   return (
     <Stack gap={4} align="center" className="text-center">
@@ -18,7 +20,7 @@ export function PromptDisplay({ prompt, modelDisplayName, referenceImageCount }:
       </Text>
       <Flex gap="sm" align="center" justify="center">
         <Text size="xs" c="gray.5">
-          {modelDisplayName}
+          {resolvedModelDisplayName}
         </Text>
         {referenceImageCount > 0 && (
           <>

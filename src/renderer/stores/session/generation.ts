@@ -461,7 +461,10 @@ export async function genMessageContext(
     const keys = Array.from(allStorageKeys)
     const contents = await Promise.all(keys.map((key) => storageGetBlob(key)))
     keys.forEach((key, index) => {
-      blobContents.set(key, contents[index])
+      const content = contents[index]
+      if (content) {
+        blobContents.set(key, content)
+      }
     })
   }
 
