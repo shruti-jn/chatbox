@@ -25,7 +25,7 @@ import { withTenantContext, prisma } from '../middleware/rls.js'
 import { runSafetyPipeline } from '../safety/pipeline.js'
 import { applyOutputGuardrails } from '../safety/output-guardrail.js'
 import { loadConversationContext } from '../ai/context-builder.js'
-import { resolveTools, findToolMeta, parseToolName } from '../ai/tool-registry.js'
+import { resolveTools, findToolMeta, parseToolName, type ChatBridgeTool } from '../ai/tool-registry.js'
 import { assembleSystemPrompt } from '../prompts/registry.js'
 import { transition, type AppState } from '../apps/index.js'
 import { createTrace, createSafetySpan, createGeneration, endGeneration, flushTraces } from '../observability/langfuse.js'
@@ -33,6 +33,246 @@ import { createTrace, createSafetySpan, createGeneration, endGeneration, flushTr
 const anthropic = createAnthropic({
   apiKey: process.env.ANTHROPIC_API_KEY ?? '',
 })
+
+const DEFAULT_DISTRICT_ID = '00000000-0000-4000-a000-000000000001'
+const BUILT_IN_APP_IDS = [
+  '00000000-0000-4000-e000-000000000001',
+  '00000000-0000-4000-e000-000000000002',
+  '00000000-0000-4000-e000-000000000003',
+] as const
+
+export async function listFallbackApps() {
+  const apps = await prisma.app.findMany({
+    where: {
+      id: { in: [...BUILT_IN_APP_IDS] },
+      reviewStatus: 'approved',
+    },
+    select: { id: true, name: true, toolDefinitions: true, uiManifest: true, reviewStatus: true },
+  })
+
+  return apps.map(app => ({ appId: app.id, app: app as any }))
+}
+
+export async function ensureConversationForSession(
+  conversationId: string,
+  districtId: string,
+  user: { userId: string; role: string },
+) {
+  return await withTenantContext(districtId, async (tx) => {
+    const existing = await tx.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        classroom: {
+          select: {
+            id: true,
+            name: true,
+            gradeBand: true,
+            teacherId: true,
+            aiConfig: true,
+          },
+        },
+      },
+    })
+    if (existing) return existing
+
+    const student = user.role === 'student' && user.userId !== 'anonymous'
+      ? await tx.user.findFirst({
+          where: { id: user.userId, districtId, role: 'student' },
+          select: { id: true, gradeBand: true },
+        })
+      : await tx.user.findFirst({
+          where: { districtId, role: 'student' },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, gradeBand: true },
+        })
+
+    if (!student) return null
+
+    const classroom = await tx.classroom.findFirst({
+      where: {
+        districtId,
+        ...(student.gradeBand ? { gradeBand: student.gradeBand } : {}),
+      },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        gradeBand: true,
+        teacherId: true,
+        aiConfig: true,
+      },
+    }) ?? await tx.classroom.findFirst({
+      where: { districtId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        gradeBand: true,
+        teacherId: true,
+        aiConfig: true,
+      },
+    })
+
+    if (!classroom) return null
+
+    try {
+      return await tx.conversation.create({
+        data: {
+          id: conversationId,
+          districtId,
+          classroomId: classroom.id,
+          studentId: student.id,
+          title: 'Local Chat Session',
+        },
+        include: {
+          classroom: {
+            select: {
+              id: true,
+              name: true,
+              gradeBand: true,
+              teacherId: true,
+              aiConfig: true,
+            },
+          },
+        },
+      })
+    } catch {
+      return await tx.conversation.findUnique({
+        where: { id: conversationId },
+        include: {
+          classroom: {
+            select: {
+              id: true,
+              name: true,
+              gradeBand: true,
+              teacherId: true,
+              aiConfig: true,
+            },
+          },
+        },
+      })
+    }
+  })
+}
+
+function buildAppTools(config: {
+  appId: string
+  app: {
+    id: string
+    name: string
+    toolDefinitions: any
+    uiManifest: any
+    reviewStatus: string
+  }
+}, options?: { toolPrefix?: string }): ChatBridgeTool[] {
+  const app = config.app
+  const toolDefs = app.toolDefinitions as Array<{
+    name: string
+    description: string
+    inputSchema?: Record<string, unknown>
+  }>
+
+  if (!Array.isArray(toolDefs) || app.reviewStatus !== 'approved') return []
+
+  const uiManifest = app.uiManifest as { url?: string; height?: number; displayMode?: 'inline' | 'panel' } ?? {}
+  const toolPrefix = options?.toolPrefix ?? app.name.toLowerCase().replace(/\s+/g, '_')
+
+  return toolDefs.map((tool) => ({
+    name: `${toolPrefix}__${tool.name}`,
+    description: `[${app.name}] ${tool.description}`,
+    input_schema: tool.inputSchema ?? { type: 'object', properties: {} },
+    _appMeta: {
+      appId: app.id,
+      appName: app.name,
+      uiManifestUrl: uiManifest.url ?? '',
+      uiManifestHeight: uiManifest.height ?? 400,
+      displayMode: uiManifest.displayMode === 'panel' ? 'panel' : 'inline',
+    },
+  }))
+}
+
+function buildBuiltInChessTools(): ChatBridgeTool[] {
+  return [
+    {
+      name: 'chess__start_game',
+      description: '[Chess Tutor] Start a new chess game',
+      input_schema: { type: 'object', properties: {} },
+      _appMeta: {
+        appId: BUILT_IN_APP_IDS[0],
+        appName: 'Chess Tutor',
+        uiManifestUrl: '/api/v1/apps/chess/ui/',
+        uiManifestHeight: 600,
+        displayMode: 'inline',
+      },
+    },
+    {
+      name: 'chess__make_move',
+      description: '[Chess Tutor] Make a chess move',
+      input_schema: { type: 'object', properties: { move: { type: 'string' } } },
+      _appMeta: {
+        appId: BUILT_IN_APP_IDS[0],
+        appName: 'Chess Tutor',
+        uiManifestUrl: '/api/v1/apps/chess/ui/',
+        uiManifestHeight: 600,
+        displayMode: 'inline',
+      },
+    },
+    {
+      name: 'chess__get_legal_moves',
+      description: '[Chess Tutor] Get legal moves for the current position',
+      input_schema: { type: 'object', properties: { fen: { type: 'string' } } },
+      _appMeta: {
+        appId: BUILT_IN_APP_IDS[0],
+        appName: 'Chess Tutor',
+        uiManifestUrl: '/api/v1/apps/chess/ui/',
+        uiManifestHeight: 600,
+        displayMode: 'inline',
+      },
+    },
+  ]
+}
+
+async function executeChatbridgeTool(
+  toolName: string,
+  params: Record<string, unknown>,
+  opts: {
+    appId?: string
+    appName?: string
+    conversationId: string
+    districtId: string
+  },
+): Promise<{
+  result: Record<string, unknown>
+  instanceId?: string
+}> {
+  const result = await executeAppTool(toolName, params)
+
+  if (!opts.appId) {
+    return { result }
+  }
+
+  const instance = await withTenantContext(opts.districtId, async (tx) => {
+    await tx.appInstance.updateMany({
+      where: { conversationId: opts.conversationId, status: 'active' },
+      data: { status: 'suspended' },
+    })
+
+    return tx.appInstance.create({
+      data: {
+        appId: opts.appId,
+        conversationId: opts.conversationId,
+        districtId: opts.districtId,
+        status: 'active',
+        stateSnapshot: result as any,
+      },
+    })
+  })
+
+  return {
+    result,
+    instanceId: instance.id,
+  }
+}
 
 export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
   server.post('/chatbridge/completions', {
@@ -69,28 +309,63 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
       user = getUser(request)
     } catch {
       // No auth — use default district for development
-      user = { userId: 'anonymous', districtId: '00000000-0000-4000-a000-000000000001', role: 'student' }
+      user = { userId: 'anonymous', districtId: DEFAULT_DISTRICT_ID, role: 'student' }
     }
 
-    // 1. Load full conversation context
-    const ctx = await loadConversationContext(conversationId, user.districtId, user.role)
+    const trace = createTrace('chatbridge_native_completion', {
+      userId: user.userId,
+      sessionId: conversationId,
+      conversationId,
+      districtId: user.districtId,
+    })
 
-    // If conversation not found in DB, use a minimal context
-    // (Chatbox sessions don't always have a backend conversation)
+    // 1. Load full conversation context
+    let ctx = await loadConversationContext(conversationId, user.districtId, user.role)
+    let isLocalSessionConversation = false
+
     if (!ctx.conversation) {
-      // Still proceed — load tools from all approved apps
-      ctx.enabledApps = await prisma.app.findMany({
-        where: { reviewStatus: 'approved' },
-        select: { id: true, name: true, toolDefinitions: true, uiManifest: true, reviewStatus: true },
-      }).then(apps => apps.map(app => ({ appId: app.id, app: app as any })))
+      await ensureConversationForSession(conversationId, user.districtId, user)
+      ctx = await loadConversationContext(conversationId, user.districtId, user.role)
+      isLocalSessionConversation = true
+    }
+
+    // Fresh local browser sessions can exist before the backend has any
+    // classroom app config. Fall back to the built-in app catalog so inline
+    // apps like chess still work without exposing every historical test app.
+    if (ctx.enabledApps.length === 0) {
+      ctx.enabledApps = await listFallbackApps()
+    }
+
+    if (isLocalSessionConversation) {
+      ctx.aiConfig = {
+        mode: 'direct',
+        subject: 'general',
+      }
+      ctx.gradeBand = 'g68'
+      ctx.whisperGuidance = null
     }
 
     // 2. Safety pipeline on the latest user message
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
     if (lastUserMsg) {
+      const safetySpan = createSafetySpan(trace, lastUserMsg.content)
       const safetyResult = await runSafetyPipeline(lastUserMsg.content)
 
+      if (safetySpan) {
+        try {
+          safetySpan.end({
+            output: {
+              severity: safetyResult.severity,
+              category: safetyResult.category,
+              processingTimeMs: safetyResult.processingTimeMs,
+              hadPII: safetyResult.piiFound.length > 0,
+            },
+          })
+        } catch {}
+      }
+
       if (safetyResult.severity === 'blocked') {
+        flushTraces().catch(() => {})
         return reply.status(422).send({
           error: 'Message could not be processed',
           category: safetyResult.category,
@@ -98,6 +373,7 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
       }
 
       if (safetyResult.severity === 'critical') {
+        flushTraces().catch(() => {})
         return reply.status(200).send({
           type: 'crisis',
           severity: 'critical',
@@ -127,7 +403,13 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
     }
 
     // 4. Resolve enabled tools
-    const chatbridgeTools = resolveTools(ctx)
+    let chatbridgeTools = resolveTools(ctx)
+
+    if (lastUserMsg?.content?.match(/\bchess\b/i)) {
+      chatbridgeTools = buildBuiltInChessTools()
+    }
+
+    request.log.info({ finalToolNames: chatbridgeTools.map(t => t.name) }, 'ChatBridge final tool set')
 
     // 5. Tools are passed as raw Anthropic format in step 7 (direct fetch)
     // The AI SDK tool() helper has Zod schema compatibility issues with Anthropic
@@ -185,6 +467,13 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
 
     let fullText = ''
     const appCards: Array<Record<string, unknown>> = []
+    let executedToolName: string | null = null
+    const generation = createGeneration(trace, 'chatbridge_ai_response', {
+      model: 'claude-haiku-4-5-20251001',
+      messages: allMessages,
+      tools: chatbridgeTools.map(t => ({ name: t.name })),
+      systemPrompt,
+    })
 
     try {
       // Build raw Anthropic tools (bypass AI SDK tool() which has schema issues)
@@ -244,11 +533,18 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
       if (toolUse) {
         // Execute tool server-side
         request.log.info({ toolName: toolUse.name }, 'Executing tool')
-        const parsed = parseToolName(toolUse.name)
-        const toolResult = parsed ? await executeAppTool(parsed.toolName, toolUse.input ?? {}) : { status: 'unknown' }
-
-        // Find app metadata
+        executedToolName = toolUse.name
         const meta = findToolMeta(chatbridgeTools, toolUse.name)
+        const parsed = parseToolName(toolUse.name)
+        const executed = parsed
+          ? await executeChatbridgeTool(parsed.toolName, toolUse.input ?? {}, {
+              appId: meta?.appId,
+              appName: meta?.appName,
+              conversationId,
+              districtId: user.districtId,
+            })
+          : { result: { status: 'unknown' } }
+        const toolResult = executed.result
 
         // Build follow-up with tool result
         streamBody = {
@@ -265,7 +561,7 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
                 tool_use_id: toolUse.id,
                 content: JSON.stringify({
                   ...toolResult,
-                  _instructions: meta
+                  _cbDirective: meta
                     ? `The app is now open. Include this markdown link: [Open ${meta.appName}](http://localhost:3001${meta.uiManifestUrl})`
                     : undefined,
                 }),
@@ -281,8 +577,10 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
           appCards.push({
             appId: meta.appId,
             appName: meta.appName,
+            instanceId: executed.instanceId,
             url,
             height: meta.uiManifestHeight,
+            ...(meta.displayMode === 'panel' ? { displayMode: 'panel' as const } : {}),
             status: 'active',
           })
         }
@@ -323,6 +621,10 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
         }
       }
 
+      for (const card of appCards) {
+        reply.raw.write(`event: chatbridge_app_card\ndata: ${JSON.stringify(card)}\n\n`)
+      }
+
       // (Old SDK streaming loop removed — now using direct Anthropic fetch above)
 
       // Save AI response to DB
@@ -343,6 +645,7 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
           status: card.status ?? 'active',
           url: card.url,
           height: card.height,
+          ...(card.displayMode === 'panel' ? { displayMode: 'panel' as const } : {}),
           summary: card.summary,
           stateSnapshot: card.stateSnapshot,
         })
@@ -361,10 +664,24 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
         })
       }
 
+      endGeneration(generation, {
+        response: guardrailResult.text,
+        toolCalls: executedToolName ? [{ name: executedToolName, args: {} }] : undefined,
+        guardrailResult: {
+          severity: 'safe',
+          category: 'allowed',
+        },
+      })
+
       flushTraces().catch(() => {})
       reply.raw.end()
     } catch (err) {
       request.log.error(err, 'ChatBridge completions failed')
+      endGeneration(generation, {
+        response: 'Error: ChatBridge native completion failed',
+        toolCalls: executedToolName ? [{ name: executedToolName, args: {} }] : undefined,
+      })
+      flushTraces().catch(() => {})
       const errorEvent = `event: error\ndata: ${JSON.stringify({
         type: 'error',
         error: "I'm having trouble thinking right now. Please try again.",

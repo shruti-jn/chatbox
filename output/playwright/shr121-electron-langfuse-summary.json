@@ -1,0 +1,31 @@
+{
+  "conversationId": "677b3291-d3b6-4790-a855-01774d2979f8",
+  "traceIds": [
+    "43e5bdf1-384f-440e-826f-dc5d96937120",
+    "173fd97d-c05f-457f-8a7d-509859bba2a0"
+  ],
+  "project": "proj-chatbridge",
+  "baseUrl": "http://localhost:3002",
+  "htmlPaths": [
+    "/project/proj-chatbridge/traces/43e5bdf1-384f-440e-826f-dc5d96937120",
+    "/project/proj-chatbridge/traces/173fd97d-c05f-457f-8a7d-509859bba2a0"
+  ],
+  "summary": {
+    "openChessTrace": {
+      "traceId": "43e5bdf1-384f-440e-826f-dc5d96937120",
+      "latencySeconds": 3.547999858856201,
+      "safetyProcessingMs": 656,
+      "generationLatencySeconds": 2.884,
+      "toolCall": "chess__start_game",
+      "input": "lets play chess"
+    },
+    "readbackTrace": {
+      "traceId": "173fd97d-c05f-457f-8a7d-509859bba2a0",
+      "latencySeconds": 4.502000093460083,
+      "safetyProcessingMs": 2536,
+      "generationLatencySeconds": 1.96,
+      "input": "What was my last move in chess?",
+      "output": "Your last move was **pawn f5**! 🎯"
+    }
+  }
+}
