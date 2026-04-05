@@ -1,0 +1,1676 @@
+{
+  "developers": [
+    {
+      "id": "6d423430-ca2f-4fda-b8ce-b2b7ab6854d4",
+      "name": "Audit Developer Co",
+      "email": "audit-1775419974438@example.com",
+      "organization": "Audit Developer Co",
+      "createdAt": "2026-04-05T20:12:54.469Z"
+    },
+    {
+      "id": "5a3d09b9-9cec-4367-80fb-0eaa99b84c77",
+      "name": "Audit Developer Co",
+      "email": "audit-1775420007552@example.com",
+      "organization": "Audit Developer Co",
+      "createdAt": "2026-04-05T20:13:27.586Z"
+    },
+    {
+      "id": "7c8ec571-99d6-4d9d-bc29-ecdd837dc874",
+      "name": "Audit 179 1775420007552 Developer",
+      "email": "audit-179-1775420007552@developers.chatbridge.local",
+      "organization": "Independent Developer",
+      "createdAt": "2026-04-05T20:13:27.612Z"
+    },
+    {
+      "id": "3e42a163-d5ab-453d-ab0d-832a2bc5f9f8",
+      "name": "Shr183 Clean Lab Developer",
+      "email": "shr183-clean-lab@developers.chatbridge.local",
+      "organization": "Independent Developer",
+      "createdAt": "2026-04-05T20:14:25.377Z"
+    },
+    {
+      "id": "a965115f-8449-465e-a886-684f775ed635",
+      "name": "Shr183 Rollback Lab Developer",
+      "email": "shr183-rollback-lab@developers.chatbridge.local",
+      "organization": "Independent Developer",
+      "createdAt": "2026-04-05T20:14:25.431Z"
+    },
+    {
+      "id": "7f3a8f4b-f003-405e-a065-defb1b1a614c",
+      "name": "Runtime Monitor Browser 1775420592101 Developer",
+      "email": "runtime-monitor-browser-1775420592101@developers.chatbridge.local",
+      "organization": "Independent Developer",
+      "createdAt": "2026-04-05T20:23:12.119Z"
+    }
+  ],
+  "dpaRecords": [
+    {
+      "id": "b5040474-f8d6-4c67-9319-4d3609b2e892",
+      "developerId": "6d423430-ca2f-4fda-b8ce-b2b7ab6854d4",
+      "status": "approved",
+      "documentUrl": "https://example.com/dpa/audit-176.pdf",
+      "approvedAt": "2026-04-05T20:00:00.000Z",
+      "createdAt": "2026-04-05T20:12:54.469Z",
+      "updatedAt": "2026-04-05T20:12:54.469Z"
+    },
+    {
+      "id": "1d134e96-3a5f-4260-af61-b9d54d3f1853",
+      "developerId": "5a3d09b9-9cec-4367-80fb-0eaa99b84c77",
+      "status": "approved",
+      "documentUrl": "https://example.com/dpa/audit-176.pdf",
+      "approvedAt": "2026-04-05T20:00:00.000Z",
+      "createdAt": "2026-04-05T20:13:27.586Z",
+      "updatedAt": "2026-04-05T20:13:27.586Z"
+    },
+    {
+      "id": "87fd72cf-1b10-489c-b1a8-93f9ebbdb7b6",
+      "developerId": "7c8ec571-99d6-4d9d-bc29-ecdd837dc874",
+      "status": "not_started",
+      "createdAt": "2026-04-05T20:13:27.612Z",
+      "updatedAt": "2026-04-05T20:13:27.612Z"
+    },
+    {
+      "id": "3a047918-18d6-4e67-985c-4af38bbb2247",
+      "developerId": "3e42a163-d5ab-453d-ab0d-832a2bc5f9f8",
+      "status": "not_started",
+      "createdAt": "2026-04-05T20:14:25.377Z",
+      "updatedAt": "2026-04-05T20:14:25.377Z"
+    },
+    {
+      "id": "a831d117-bac2-456d-b2ad-83b9c4f05670",
+      "developerId": "a965115f-8449-465e-a886-684f775ed635",
+      "status": "not_started",
+      "createdAt": "2026-04-05T20:14:25.431Z",
+      "updatedAt": "2026-04-05T20:14:25.431Z"
+    },
+    {
+      "id": "3078b9b4-2709-42ea-b32a-e576bc15a0d1",
+      "developerId": "7f3a8f4b-f003-405e-a065-defb1b1a614c",
+      "status": "not_started",
+      "createdAt": "2026-04-05T20:23:12.119Z",
+      "updatedAt": "2026-04-05T20:23:12.119Z"
+    }
+  ],
+  "plugins": [
+    {
+      "id": "479e11e2-526d-4ab9-ba2c-98399b30e244",
+      "slug": "publish-proof",
+      "name": "Publish Proof",
+      "description": "Browser verification plugin",
+      "status": "approved",
+      "trustTier": "reviewed",
+      "createdAt": "2026-04-05T19:45:15.509Z"
+    },
+    {
+      "id": "f12d23f2-89fe-49ec-bfcf-2da4a6ddcc13",
+      "slug": "shr183-review-lab",
+      "name": "SHR 183 Review Lab",
+      "description": "Admin review console verification fixture",
+      "status": "submitted",
+      "trustTier": "dev-only",
+      "createdAt": "2026-04-05T20:07:33.383Z"
+    },
+    {
+      "id": "2537518a-df42-4c98-ab1c-60c6858ec8f0",
+      "developerId": "6d423430-ca2f-4fda-b8ce-b2b7ab6854d4",
+      "slug": "audit-176-1775419974438",
+      "name": "Audit 176",
+      "description": "Schema audit plugin",
+      "status": "submitted",
+      "trustTier": "dev-only",
+      "createdAt": "2026-04-05T20:12:54.469Z"
+    },
+    {
+      "id": "2906f207-e572-4a80-9e5d-74d936947653",
+      "developerId": "5a3d09b9-9cec-4367-80fb-0eaa99b84c77",
+      "slug": "audit-176-1775420007552",
+      "name": "Audit 176",
+      "description": "Schema audit plugin",
+      "status": "approved",
+      "trustTier": "reviewed",
+      "createdAt": "2026-04-05T20:13:27.586Z"
+    },
+    {
+      "id": "45fdd275-572a-427b-8a79-f877b51ead9c",
+      "developerId": "7c8ec571-99d6-4d9d-bc29-ecdd837dc874",
+      "slug": "audit-179-1775420007552",
+      "name": "Audit 179",
+      "description": "Scan workflow audit plugin",
+      "status": "submitted",
+      "trustTier": "dev-only",
+      "createdAt": "2026-04-05T20:13:27.612Z"
+    },
+    {
+      "id": "a03b6985-c552-40f2-9c88-6679f4f6e3d0",
+      "developerId": "3e42a163-d5ab-453d-ab0d-832a2bc5f9f8",
+      "slug": "shr183-clean-lab",
+      "name": "SHR 183 Clean Lab",
+      "description": "Admin review console clean verification fixture",
+      "status": "approved",
+      "trustTier": "reviewed",
+      "createdAt": "2026-04-05T20:14:25.377Z"
+    },
+    {
+      "id": "597ff883-ffda-4a68-9c73-cc61c3cf0457",
+      "developerId": "a965115f-8449-465e-a886-684f775ed635",
+      "slug": "shr183-rollback-lab",
+      "name": "SHR 183 Rollback Lab",
+      "description": "Admin review console rollback verification fixture",
+      "status": "approved",
+      "trustTier": "reviewed",
+      "createdAt": "2026-04-05T20:14:25.431Z"
+    },
+    {
+      "id": "402899a3-8a51-4064-a6f2-9c6ce892b5ec",
+      "developerId": "7f3a8f4b-f003-405e-a065-defb1b1a614c",
+      "slug": "runtime-monitor-browser-1775420592101",
+      "name": "Runtime Monitor Browser Lab",
+      "description": "Browser verification for SHR-191",
+      "status": "suspended",
+      "trustTier": "reviewed",
+      "createdAt": "2026-04-05T20:23:12.119Z"
+    }
+  ],
+  "versions": [
+    {
+      "id": "88dbea4d-2774-44a8-a3ba-4dce8e35d2fe",
+      "pluginId": "479e11e2-526d-4ab9-ba2c-98399b30e244",
+      "version": "1.0.0",
+      "manifest": {
+        "pluginId": "publish-proof",
+        "name": "Publish Proof",
+        "version": "1.0.0",
+        "description": "Browser verification plugin",
+        "entrypoint": "/index.html",
+        "ageRating": "8+",
+        "collectsInput": true,
+        "inputFields": [
+          {
+            "name": "term",
+            "required": true,
+            "kind": "text"
+          }
+        ],
+        "permissions": [
+          "dictionary.read"
+        ],
+        "networkDomains": [
+          "api.dictionary.example"
+        ],
+        "dataPolicyUrl": "https://example.com/privacy",
+        "externalResources": [],
+        "sriHashes": [],
+        "tools": [
+          {
+            "name": "lookup_word",
+            "description": "Look up a word",
+            "inputSchema": {
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "status": "published",
+      "artifact": {
+        "fileName": "publish-proof.js",
+        "contentType": "application/octet-stream",
+        "sizeBytes": 28,
+        "sha256": "6ae7cb394bc396eb59c0494017f379d39118209c32d6f7545833aca9c1149a0a",
+        "storageKey": "artifacts/publish-proof/88dbea4d-2774-44a8-a3ba-4dce8e35d2fe/publish-proof.js"
+      },
+      "artifactInventory": {
+        "fileCount": 1,
+        "totalUncompressedBytes": 28,
+        "entries": [
+          {
+            "path": "publish-proof.js",
+            "sizeBytes": 28,
+            "sha256": "6ae7cb394bc396eb59c0494017f379d39118209c32d6f7545833aca9c1149a0a"
+          }
+        ]
+      },
+      "submittedAt": "2026-04-05T19:45:45.079Z",
+      "approvedAt": "2026-04-05T19:46:02.085Z",
+      "publishMetadata": {
+        "pluginId": "publish-proof",
+        "pluginVersionId": "88dbea4d-2774-44a8-a3ba-4dce8e35d2fe",
+        "version": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/publish-proof/v1.0.0/",
+        "artifactSha256": "6ae7cb394bc396eb59c0494017f379d39118209c32d6f7545833aca9c1149a0a",
+        "publishedAt": "2026-04-05T19:46:02.095Z"
+      }
+    },
+    {
+      "id": "a17a0958-acbf-4e93-bc1a-7723c75a7225",
+      "pluginId": "f12d23f2-89fe-49ec-bfcf-2da4a6ddcc13",
+      "version": "1.0.0",
+      "manifest": {
+        "pluginId": "shr183-review-lab",
+        "name": "SHR 183 Review Lab",
+        "version": "1.0.0",
+        "description": "Admin review console verification fixture",
+        "entrypoint": "/index.html",
+        "ageRating": "8+",
+        "collectsInput": true,
+        "inputFields": [
+          {
+            "name": "topic",
+            "required": true,
+            "kind": "text"
+          }
+        ],
+        "permissions": [
+          "lesson.read"
+        ],
+        "networkDomains": [
+          "api.lesson.example"
+        ],
+        "dataPolicyUrl": "https://example.com/privacy",
+        "externalResources": [],
+        "sriHashes": [],
+        "tools": [
+          {
+            "name": "lookup_lesson",
+            "description": "Lookup a lesson",
+            "inputSchema": {
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "status": "awaiting_review",
+      "artifact": {
+        "fileName": "shr183-review-lab.zip",
+        "contentType": "application/zip",
+        "sizeBytes": 277,
+        "sha256": "ead85d71351617e29ca9d2cc293385ba7fce6e7c1305fa8094db0cb6caca1f3b",
+        "storageKey": "artifacts/shr183-review-lab/a17a0958-acbf-4e93-bc1a-7723c75a7225/shr183-review-lab.zip"
+      },
+      "artifactInventory": {
+        "fileCount": 1,
+        "totalUncompressedBytes": 137,
+        "entries": [
+          {
+            "path": "index.html",
+            "sizeBytes": 137,
+            "sha256": "2c3459ccc37af0b0cbdb5a65adca19324a55bc20c6ca40dffc75409a7b08da11"
+          }
+        ]
+      },
+      "submittedAt": "2026-04-05T20:07:33.421Z"
+    },
+    {
+      "id": "441afe5d-9cfb-4e12-b527-8bb1dcaa23cf",
+      "pluginId": "2537518a-df42-4c98-ab1c-60c6858ec8f0",
+      "version": "1.0.0",
+      "manifest": {
+        "pluginId": "audit-176-1775419974438",
+        "name": "Audit 176",
+        "version": "1.0.0",
+        "description": "Schema audit plugin",
+        "entrypoint": "/index.html",
+        "ageRating": "8+",
+        "collectsInput": true,
+        "inputFields": [
+          {
+            "name": "query",
+            "required": true,
+            "kind": "text"
+          }
+        ],
+        "permissions": [
+          "weather.read"
+        ],
+        "networkDomains": [
+          "api.weather.example"
+        ],
+        "dataPolicyUrl": "https://example.com/privacy",
+        "externalResources": [],
+        "sriHashes": [],
+        "tools": [
+          {
+            "name": "lookup_weather",
+            "description": "Lookup weather",
+            "inputSchema": {
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "status": "awaiting_review",
+      "artifact": {
+        "fileName": "audit-176.js",
+        "contentType": "application/javascript",
+        "sizeBytes": 66,
+        "sha256": "a6ea16825ae68a2a6a79c54e4e31bf5e303c4577166815d8b205bd16d90e9826",
+        "storageKey": "artifacts/audit-176-1775419974438/441afe5d-9cfb-4e12-b527-8bb1dcaa23cf/audit-176.js"
+      },
+      "artifactInventory": {
+        "fileCount": 1,
+        "totalUncompressedBytes": 66,
+        "entries": [
+          {
+            "path": "audit-176.js",
+            "sizeBytes": 66,
+            "sha256": "a6ea16825ae68a2a6a79c54e4e31bf5e303c4577166815d8b205bd16d90e9826"
+          }
+        ]
+      },
+      "submittedAt": "2026-04-05T20:12:54.484Z"
+    },
+    {
+      "id": "4ed531f2-3467-4dbc-bd30-8880c19f2744",
+      "pluginId": "2906f207-e572-4a80-9e5d-74d936947653",
+      "version": "1.0.0",
+      "manifest": {
+        "pluginId": "audit-176-1775420007552",
+        "name": "Audit 176",
+        "version": "1.0.0",
+        "description": "Schema audit plugin",
+        "entrypoint": "/index.html",
+        "ageRating": "8+",
+        "collectsInput": true,
+        "inputFields": [
+          {
+            "name": "query",
+            "required": true,
+            "kind": "text"
+          }
+        ],
+        "permissions": [
+          "weather.read"
+        ],
+        "networkDomains": [
+          "api.weather.example"
+        ],
+        "dataPolicyUrl": "https://example.com/privacy",
+        "externalResources": [],
+        "sriHashes": [],
+        "tools": [
+          {
+            "name": "lookup_weather",
+            "description": "Lookup weather",
+            "inputSchema": {
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "status": "published",
+      "artifact": {
+        "fileName": "audit-176.js",
+        "contentType": "application/javascript",
+        "sizeBytes": 66,
+        "sha256": "a6ea16825ae68a2a6a79c54e4e31bf5e303c4577166815d8b205bd16d90e9826",
+        "storageKey": "artifacts/audit-176-1775420007552/4ed531f2-3467-4dbc-bd30-8880c19f2744/audit-176.js"
+      },
+      "artifactInventory": {
+        "fileCount": 1,
+        "totalUncompressedBytes": 66,
+        "entries": [
+          {
+            "path": "audit-176.js",
+            "sizeBytes": 66,
+            "sha256": "a6ea16825ae68a2a6a79c54e4e31bf5e303c4577166815d8b205bd16d90e9826"
+          }
+        ]
+      },
+      "submittedAt": "2026-04-05T20:13:27.601Z",
+      "approvedAt": "2026-04-05T20:13:27.607Z",
+      "publishMetadata": {
+        "pluginId": "audit-176-1775420007552",
+        "pluginVersionId": "4ed531f2-3467-4dbc-bd30-8880c19f2744",
+        "version": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/audit-176-1775420007552/v1.0.0/",
+        "artifactSha256": "a6ea16825ae68a2a6a79c54e4e31bf5e303c4577166815d8b205bd16d90e9826",
+        "publishedAt": "2026-04-05T20:13:27.609Z"
+      }
+    },
+    {
+      "id": "bfbb5555-d56b-46c1-88f8-b6391c005b91",
+      "pluginId": "45fdd275-572a-427b-8a79-f877b51ead9c",
+      "version": "1.0.0",
+      "manifest": {
+        "pluginId": "audit-179-1775420007552",
+        "name": "Audit 179",
+        "version": "1.0.0",
+        "description": "Scan workflow audit plugin",
+        "entrypoint": "/index.html",
+        "ageRating": "8+",
+        "collectsInput": false,
+        "inputFields": [],
+        "permissions": [
+          "weather.read"
+        ],
+        "networkDomains": [
+          "api.weather.example"
+        ],
+        "dataPolicyUrl": "https://example.com/privacy",
+        "externalResources": [],
+        "sriHashes": [],
+        "tools": [
+          {
+            "name": "lookup_weather",
+            "description": "Lookup weather",
+            "inputSchema": {
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "status": "scan_failed",
+      "artifact": {
+        "fileName": "audit-179.js",
+        "contentType": "application/javascript",
+        "sizeBytes": 36,
+        "sha256": "26ad4613a03a26da9422837a8778abd0313225d46dac96f6374043172920af33",
+        "storageKey": "artifacts/audit-179-1775420007552/bfbb5555-d56b-46c1-88f8-b6391c005b91/audit-179.js"
+      },
+      "artifactInventory": {
+        "fileCount": 1,
+        "totalUncompressedBytes": 36,
+        "entries": [
+          {
+            "path": "audit-179.js",
+            "sizeBytes": 36,
+            "sha256": "26ad4613a03a26da9422837a8778abd0313225d46dac96f6374043172920af33"
+          }
+        ]
+      },
+      "submittedAt": "2026-04-05T20:13:27.619Z"
+    },
+    {
+      "id": "df1209ef-f1e6-4230-b7ac-64914dca2c3c",
+      "pluginId": "a03b6985-c552-40f2-9c88-6679f4f6e3d0",
+      "version": "1.0.0",
+      "manifest": {
+        "pluginId": "shr183-clean-lab",
+        "name": "SHR 183 Clean Lab",
+        "version": "1.0.0",
+        "description": "Admin review console clean verification fixture",
+        "entrypoint": "/index.html",
+        "ageRating": "8+",
+        "collectsInput": false,
+        "inputFields": [],
+        "permissions": [],
+        "networkDomains": [],
+        "dataPolicyUrl": "https://example.com/privacy",
+        "externalResources": [],
+        "sriHashes": [],
+        "tools": [
+          {
+            "name": "fixture_tool",
+            "description": "Fixture tool",
+            "inputSchema": {
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "status": "published",
+      "artifact": {
+        "fileName": "clean.zip",
+        "contentType": "application/zip",
+        "sizeBytes": 222,
+        "sha256": "643e96a59772a8368848a06d27c6cd068a2c7ce7ddc022e673e80f613b163950",
+        "storageKey": "artifacts/shr183-clean-lab/df1209ef-f1e6-4230-b7ac-64914dca2c3c/clean.zip"
+      },
+      "artifactInventory": {
+        "fileCount": 1,
+        "totalUncompressedBytes": 64,
+        "entries": [
+          {
+            "path": "index.html",
+            "sizeBytes": 64,
+            "sha256": "f1b33ab88367d57dcf4e4f2e3d49a9fccc6b2ac8b525cfbad263451efe0e3b86"
+          }
+        ]
+      },
+      "submittedAt": "2026-04-05T20:14:25.419Z",
+      "approvedAt": "2026-04-05T20:17:49.504Z",
+      "publishMetadata": {
+        "pluginId": "shr183-clean-lab",
+        "pluginVersionId": "df1209ef-f1e6-4230-b7ac-64914dca2c3c",
+        "version": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/shr183-clean-lab/v1.0.0/",
+        "artifactSha256": "643e96a59772a8368848a06d27c6cd068a2c7ce7ddc022e673e80f613b163950",
+        "publishedAt": "2026-04-05T20:18:19.416Z"
+      }
+    },
+    {
+      "id": "f9d50ed4-db9a-44d1-a656-a28064027aa1",
+      "pluginId": "597ff883-ffda-4a68-9c73-cc61c3cf0457",
+      "version": "1.0.0",
+      "manifest": {
+        "pluginId": "shr183-rollback-lab",
+        "name": "SHR 183 Rollback Lab",
+        "version": "1.0.0",
+        "description": "Admin review console rollback verification fixture",
+        "entrypoint": "/index.html",
+        "ageRating": "8+",
+        "collectsInput": false,
+        "inputFields": [],
+        "permissions": [],
+        "networkDomains": [],
+        "dataPolicyUrl": "https://example.com/privacy",
+        "externalResources": [],
+        "sriHashes": [],
+        "tools": [
+          {
+            "name": "fixture_tool",
+            "description": "Fixture tool",
+            "inputSchema": {
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "status": "published",
+      "artifact": {
+        "fileName": "clean.zip",
+        "contentType": "application/zip",
+        "sizeBytes": 222,
+        "sha256": "643e96a59772a8368848a06d27c6cd068a2c7ce7ddc022e673e80f613b163950",
+        "storageKey": "artifacts/shr183-rollback-lab/f9d50ed4-db9a-44d1-a656-a28064027aa1/clean.zip"
+      },
+      "artifactInventory": {
+        "fileCount": 1,
+        "totalUncompressedBytes": 64,
+        "entries": [
+          {
+            "path": "index.html",
+            "sizeBytes": 64,
+            "sha256": "f1b33ab88367d57dcf4e4f2e3d49a9fccc6b2ac8b525cfbad263451efe0e3b86"
+          }
+        ]
+      },
+      "submittedAt": "2026-04-05T20:14:25.460Z",
+      "approvedAt": "2026-04-05T20:19:42.019Z",
+      "publishMetadata": {
+        "pluginId": "shr183-rollback-lab",
+        "pluginVersionId": "f9d50ed4-db9a-44d1-a656-a28064027aa1",
+        "version": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/shr183-rollback-lab/v1.0.0/",
+        "artifactSha256": "643e96a59772a8368848a06d27c6cd068a2c7ce7ddc022e673e80f613b163950",
+        "publishedAt": "2026-04-05T20:21:59.138Z"
+      }
+    },
+    {
+      "id": "7389c800-4e6a-4aee-bf7a-0a38e9fb1415",
+      "pluginId": "597ff883-ffda-4a68-9c73-cc61c3cf0457",
+      "version": "1.1.0",
+      "manifest": {
+        "pluginId": "shr183-rollback-lab",
+        "name": "SHR 183 Rollback Lab",
+        "version": "1.1.0",
+        "description": "Admin review console rollback verification fixture",
+        "entrypoint": "/index.html",
+        "ageRating": "8+",
+        "collectsInput": false,
+        "inputFields": [],
+        "permissions": [],
+        "networkDomains": [],
+        "dataPolicyUrl": "https://example.com/privacy",
+        "externalResources": [],
+        "sriHashes": [],
+        "tools": [
+          {
+            "name": "fixture_tool",
+            "description": "Fixture tool",
+            "inputSchema": {
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "status": "deprecated",
+      "artifact": {
+        "fileName": "clean.zip",
+        "contentType": "application/zip",
+        "sizeBytes": 222,
+        "sha256": "3bb6ac7beba7989cc8b89fe9c9c2fe955d84108e3fdc4710b9e135cb36cec729",
+        "storageKey": "artifacts/shr183-rollback-lab/7389c800-4e6a-4aee-bf7a-0a38e9fb1415/clean.zip"
+      },
+      "artifactInventory": {
+        "fileCount": 1,
+        "totalUncompressedBytes": 64,
+        "entries": [
+          {
+            "path": "index.html",
+            "sizeBytes": 64,
+            "sha256": "f1b33ab88367d57dcf4e4f2e3d49a9fccc6b2ac8b525cfbad263451efe0e3b86"
+          }
+        ]
+      },
+      "submittedAt": "2026-04-05T20:15:14.906Z",
+      "approvedAt": "2026-04-05T20:19:42.052Z",
+      "publishMetadata": {
+        "pluginId": "shr183-rollback-lab",
+        "pluginVersionId": "7389c800-4e6a-4aee-bf7a-0a38e9fb1415",
+        "version": "1.1.0",
+        "hostedUrl": "https://plugins.chatbridge.app/shr183-rollback-lab/v1.1.0/",
+        "artifactSha256": "3bb6ac7beba7989cc8b89fe9c9c2fe955d84108e3fdc4710b9e135cb36cec729",
+        "publishedAt": "2026-04-05T20:19:51.739Z"
+      }
+    },
+    {
+      "id": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "pluginId": "402899a3-8a51-4064-a6f2-9c6ce892b5ec",
+      "version": "1.0.0",
+      "manifest": {
+        "pluginId": "runtime-monitor-browser-1775420592101",
+        "name": "Runtime Monitor Browser Lab",
+        "version": "1.0.0",
+        "description": "Browser verification for SHR-191",
+        "entrypoint": "/index.html",
+        "ageRating": "8+",
+        "collectsInput": true,
+        "inputFields": [
+          {
+            "name": "word",
+            "required": true,
+            "kind": "text"
+          }
+        ],
+        "permissions": [
+          "dictionary.read"
+        ],
+        "networkDomains": [
+          "api.dictionary.example"
+        ],
+        "dataPolicyUrl": "https://example.com/privacy",
+        "externalResources": [],
+        "sriHashes": [],
+        "tools": [
+          {
+            "name": "lookup_word",
+            "description": "Look up a word",
+            "inputSchema": {
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "status": "published",
+      "artifact": {
+        "fileName": "runtime-monitor-browser-1775420592101.js",
+        "contentType": "application/javascript",
+        "sizeBytes": 42,
+        "sha256": "74076d7d4397cd3ac2877ee8cbc40fbc178bba4b7c578126efe45a43002817d5",
+        "storageKey": "artifacts/runtime-monitor-browser-1775420592101/69d3f677-44b9-4abf-82b5-843f9eb26a5e/runtime-monitor-browser-1775420592101.js"
+      },
+      "artifactInventory": {
+        "fileCount": 1,
+        "totalUncompressedBytes": 42,
+        "entries": [
+          {
+            "path": "runtime-monitor-browser-1775420592101.js",
+            "sizeBytes": 42,
+            "sha256": "74076d7d4397cd3ac2877ee8cbc40fbc178bba4b7c578126efe45a43002817d5"
+          }
+        ]
+      },
+      "submittedAt": "2026-04-05T20:23:12.165Z",
+      "approvedAt": "2026-04-05T20:23:12.177Z",
+      "publishMetadata": {
+        "pluginId": "runtime-monitor-browser-1775420592101",
+        "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+        "version": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/runtime-monitor-browser-1775420592101/v1.0.0/",
+        "artifactSha256": "74076d7d4397cd3ac2877ee8cbc40fbc178bba4b7c578126efe45a43002817d5",
+        "publishedAt": "2026-04-05T20:23:12.182Z"
+      }
+    }
+  ],
+  "scanRuns": [
+    {
+      "id": "580d37d5-d003-4ee0-a4f6-7912c93ee900",
+      "pluginId": "publish-proof",
+      "pluginVersionId": "88dbea4d-2774-44a8-a3ba-4dce8e35d2fe",
+      "rulesetVersion": "dp-sec-v1",
+      "status": "completed",
+      "overallDisposition": "pass",
+      "findings": [],
+      "createdAt": "2026-04-05T19:45:45.081Z",
+      "completedAt": "2026-04-05T19:45:45.081Z"
+    },
+    {
+      "id": "0f01ce91-e0bb-485f-bd4d-69055a1f1327",
+      "pluginId": "shr183-review-lab",
+      "pluginVersionId": "a17a0958-acbf-4e93-bc1a-7723c75a7225",
+      "rulesetVersion": "dp-sec-v1",
+      "status": "completed",
+      "overallDisposition": "manual_review",
+      "findings": [
+        {
+          "code": "RESOURCE-UNDECLARED",
+          "category": "policy_mismatch",
+          "severity": "high",
+          "disposition": "fail",
+          "message": "Observed undeclared external resource: https://api.lesson.example/catalog",
+          "metadata": {
+            "resource": "https://api.lesson.example/catalog",
+            "domain": "api.lesson.example"
+          }
+        }
+      ],
+      "createdAt": "2026-04-05T20:07:33.422Z",
+      "completedAt": "2026-04-05T20:07:33.425Z"
+    },
+    {
+      "id": "fe541fcb-99ef-4807-b3f6-d36844de4fd0",
+      "pluginId": "audit-176-1775419974438",
+      "pluginVersionId": "441afe5d-9cfb-4e12-b527-8bb1dcaa23cf",
+      "rulesetVersion": "dp-sec-v1",
+      "status": "completed",
+      "overallDisposition": "manual_review",
+      "findings": [
+        {
+          "code": "RESOURCE-UNDECLARED",
+          "category": "policy_mismatch",
+          "severity": "high",
+          "disposition": "fail",
+          "message": "Observed undeclared external resource: https://api.weather.example/v1",
+          "metadata": {
+            "resource": "https://api.weather.example/v1",
+            "domain": "api.weather.example"
+          }
+        }
+      ],
+      "createdAt": "2026-04-05T20:12:54.485Z",
+      "completedAt": "2026-04-05T20:12:54.489Z"
+    },
+    {
+      "id": "0bfed8b2-5744-47c9-bd68-e49a9fc9ca09",
+      "pluginId": "audit-176-1775420007552",
+      "pluginVersionId": "4ed531f2-3467-4dbc-bd30-8880c19f2744",
+      "rulesetVersion": "dp-sec-v1",
+      "status": "completed",
+      "overallDisposition": "manual_review",
+      "findings": [
+        {
+          "code": "RESOURCE-UNDECLARED",
+          "category": "policy_mismatch",
+          "severity": "high",
+          "disposition": "fail",
+          "message": "Observed undeclared external resource: https://api.weather.example/v1",
+          "metadata": {
+            "resource": "https://api.weather.example/v1",
+            "domain": "api.weather.example"
+          }
+        }
+      ],
+      "createdAt": "2026-04-05T20:13:27.601Z",
+      "completedAt": "2026-04-05T20:13:27.603Z"
+    },
+    {
+      "id": "8cee0d0f-c6b7-4eab-b1cd-237a71ff715f",
+      "pluginId": "audit-179-1775420007552",
+      "pluginVersionId": "bfbb5555-d56b-46c1-88f8-b6391c005b91",
+      "rulesetVersion": "dp-sec-v1",
+      "status": "completed",
+      "overallDisposition": "fail",
+      "findings": [
+        {
+          "code": "RESOURCE-UNDECLARED",
+          "category": "policy_mismatch",
+          "severity": "high",
+          "disposition": "fail",
+          "message": "Observed undeclared external resource: https://evil.example/beacon",
+          "metadata": {
+            "resource": "https://evil.example/beacon",
+            "domain": "evil.example"
+          }
+        },
+        {
+          "code": "NET-UNDECLARED",
+          "ruleId": "network-undeclared-domain",
+          "category": "policy_mismatch",
+          "severity": "high",
+          "disposition": "fail",
+          "message": "Observed undeclared network domain: evil.example",
+          "metadata": {
+            "domain": "evil.example"
+          }
+        }
+      ],
+      "createdAt": "2026-04-05T20:13:27.619Z",
+      "completedAt": "2026-04-05T20:13:27.622Z"
+    },
+    {
+      "id": "ac7914e7-40c2-4991-9c7d-ff622890a551",
+      "pluginId": "shr183-clean-lab",
+      "pluginVersionId": "df1209ef-f1e6-4230-b7ac-64914dca2c3c",
+      "rulesetVersion": "dp-sec-v1",
+      "status": "completed",
+      "overallDisposition": "pass",
+      "findings": [],
+      "createdAt": "2026-04-05T20:14:25.419Z",
+      "completedAt": "2026-04-05T20:14:25.422Z"
+    },
+    {
+      "id": "58f20915-23ac-453d-b203-22e407a1e01c",
+      "pluginId": "shr183-rollback-lab",
+      "pluginVersionId": "f9d50ed4-db9a-44d1-a656-a28064027aa1",
+      "rulesetVersion": "dp-sec-v1",
+      "status": "completed",
+      "overallDisposition": "pass",
+      "findings": [],
+      "createdAt": "2026-04-05T20:14:25.461Z",
+      "completedAt": "2026-04-05T20:14:25.464Z"
+    },
+    {
+      "id": "3408a072-6fb0-4cba-ae4a-4309cbdc2212",
+      "pluginId": "shr183-rollback-lab",
+      "pluginVersionId": "7389c800-4e6a-4aee-bf7a-0a38e9fb1415",
+      "rulesetVersion": "dp-sec-v1",
+      "status": "completed",
+      "overallDisposition": "pass",
+      "findings": [],
+      "createdAt": "2026-04-05T20:15:14.906Z",
+      "completedAt": "2026-04-05T20:15:14.909Z"
+    },
+    {
+      "id": "0436352e-2354-4416-a3ec-6a44795f8985",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "rulesetVersion": "dp-sec-v1",
+      "status": "completed",
+      "overallDisposition": "pass",
+      "findings": [],
+      "createdAt": "2026-04-05T20:23:12.166Z",
+      "completedAt": "2026-04-05T20:23:12.170Z"
+    }
+  ],
+  "reviewDecisions": [
+    {
+      "decision": "approve",
+      "reasonCode": "clean_review",
+      "notes": "Reviewer compared the reviewed artifact to the manifest, verified only declared network traffic, and captured runtime evidence.",
+      "reviewerId": "reviewer-1",
+      "scanContext": {
+        "rulesetVersion": "dp-sec-v1",
+        "scanRunIds": [
+          "580d37d5-d003-4ee0-a4f6-7912c93ee900"
+        ],
+        "referencedFindingRuleIds": []
+      },
+      "checklist": [
+        {
+          "itemId": "platform_hosting_only",
+          "status": "pass",
+          "notes": "Platform URL verified"
+        },
+        {
+          "itemId": "manifest_matches_artifact",
+          "status": "pass",
+          "notes": "Bundle contents match manifest"
+        },
+        {
+          "itemId": "declared_network_domains_match_observed_behavior",
+          "status": "pass",
+          "notes": "Observed traffic matches declared domains"
+        },
+        {
+          "itemId": "tool_contract_matches_runtime_behavior",
+          "status": "pass",
+          "notes": "Tool contract matches runtime behavior"
+        },
+        {
+          "itemId": "data_collection_and_permissions_disclosed",
+          "status": "pass",
+          "notes": "Data collection and permissions are disclosed"
+        },
+        {
+          "itemId": "age_rating_and_student_safety_reviewed",
+          "status": "pass",
+          "notes": "Age rating is appropriate"
+        },
+        {
+          "itemId": "security_findings_triaged",
+          "status": "pass",
+          "notes": "All findings triaged with no remaining blockers"
+        },
+        {
+          "itemId": "runtime_evidence_captured",
+          "status": "pass",
+          "notes": "Runtime capture attached"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "platform_scan",
+          "summary": "Scanner recorded no unresolved blocker findings.",
+          "location": "scan-run-42",
+          "capturedAt": "2026-04-05T18:00:00.000Z",
+          "findingIds": []
+        },
+        {
+          "source": "reviewer_runtime_capture",
+          "summary": "Reviewer observed only approved behavior in a runtime session.",
+          "location": "s3://review-evidence/runtime-session-1",
+          "capturedAt": "2026-04-05T18:05:00.000Z",
+          "findingIds": []
+        }
+      ],
+      "id": "148d1d7e-c5f4-4bd5-b56b-4b2a498ffa18",
+      "pluginId": "publish-proof",
+      "pluginVersionId": "88dbea4d-2774-44a8-a3ba-4dce8e35d2fe",
+      "createdAt": "2026-04-05T19:46:02.085Z",
+      "outcome": "approved"
+    },
+    {
+      "decision": "approve",
+      "reasonCode": "clean_review",
+      "notes": "Reviewer verified the hosted artifact, matched the manifest to the bundle, and captured runtime evidence for the approved behavior.",
+      "reviewerId": "reviewer-1",
+      "scanContext": {
+        "rulesetVersion": "dp-sec-v1",
+        "scanRunIds": [
+          "0bfed8b2-5744-47c9-bd68-e49a9fc9ca09"
+        ],
+        "referencedFindingRuleIds": []
+      },
+      "checklist": [
+        {
+          "itemId": "platform_hosting_only",
+          "status": "pass",
+          "notes": "Hosted URL is platform controlled"
+        },
+        {
+          "itemId": "manifest_matches_artifact",
+          "status": "pass",
+          "notes": "Manifest matches artifact"
+        },
+        {
+          "itemId": "declared_network_domains_match_observed_behavior",
+          "status": "pass",
+          "notes": "Only declared domains observed"
+        },
+        {
+          "itemId": "tool_contract_matches_runtime_behavior",
+          "status": "pass",
+          "notes": "Tools behave as declared"
+        },
+        {
+          "itemId": "data_collection_and_permissions_disclosed",
+          "status": "pass",
+          "notes": "Input disclosures are complete"
+        },
+        {
+          "itemId": "age_rating_and_student_safety_reviewed",
+          "status": "pass",
+          "notes": "Age rating reviewed"
+        },
+        {
+          "itemId": "security_findings_triaged",
+          "status": "pass",
+          "notes": "No unresolved findings remain"
+        },
+        {
+          "itemId": "runtime_evidence_captured",
+          "status": "pass",
+          "notes": "Runtime capture stored by reviewer"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "platform_scan",
+          "summary": "Static scan completed with no unresolved blockers",
+          "location": "0bfed8b2-5744-47c9-bd68-e49a9fc9ca09",
+          "capturedAt": "2026-04-05T20:05:00.000Z",
+          "findingIds": []
+        },
+        {
+          "source": "reviewer_runtime_capture",
+          "summary": "Runtime traffic stayed within declared domains",
+          "location": "s3://review-evidence/runtime-176",
+          "capturedAt": "2026-04-05T20:06:00.000Z",
+          "findingIds": []
+        }
+      ],
+      "id": "d975b46d-ee57-40dd-95c8-b22efb3eb201",
+      "pluginId": "audit-176-1775420007552",
+      "pluginVersionId": "4ed531f2-3467-4dbc-bd30-8880c19f2744",
+      "createdAt": "2026-04-05T20:13:27.607Z",
+      "outcome": "approved"
+    },
+    {
+      "decision": "approve",
+      "reasonCode": "clean_review",
+      "notes": "Reviewer approved this clean artifact after verifying the manifest, hosted bundle, and runtime evidence.",
+      "reviewerId": "reviewer-1",
+      "scanContext": {
+        "rulesetVersion": "dp-sec-v1",
+        "scanRunIds": [
+          "ac7914e7-40c2-4991-9c7d-ff622890a551"
+        ],
+        "referencedFindingRuleIds": []
+      },
+      "checklist": [
+        {
+          "itemId": "platform_hosting_only",
+          "status": "pass",
+          "notes": "Production delivery stays platform-hosted"
+        },
+        {
+          "itemId": "manifest_matches_artifact",
+          "status": "pass",
+          "notes": "Manifest matches the reviewed artifact"
+        },
+        {
+          "itemId": "declared_network_domains_match_observed_behavior",
+          "status": "pass",
+          "notes": "Observed network behavior matches declared domains"
+        },
+        {
+          "itemId": "tool_contract_matches_runtime_behavior",
+          "status": "pass",
+          "notes": "Tool contract matches runtime behavior"
+        },
+        {
+          "itemId": "data_collection_and_permissions_disclosed",
+          "status": "pass",
+          "notes": "Data collection and permissions are fully disclosed"
+        },
+        {
+          "itemId": "age_rating_and_student_safety_reviewed",
+          "status": "pass",
+          "notes": "Age rating and student-safety suitability are reviewed"
+        },
+        {
+          "itemId": "security_findings_triaged",
+          "status": "pass",
+          "notes": "Security findings are triaged with disposition"
+        },
+        {
+          "itemId": "runtime_evidence_captured",
+          "status": "pass",
+          "notes": "Runtime evidence captured by the platform reviewer"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "platform_scan",
+          "summary": "Scan ac7914e7-40c2-4991-9c7d-ff622890a551 completed with pass.",
+          "location": "ac7914e7-40c2-4991-9c7d-ff622890a551",
+          "capturedAt": "2026-04-05T20:17:49.499Z",
+          "findingIds": []
+        },
+        {
+          "source": "reviewer_runtime_capture",
+          "summary": "Reviewer captured runtime evidence and verified the hosted artifact behavior in the admin console.",
+          "location": "admin-review-console",
+          "capturedAt": "2026-04-05T20:17:49.499Z",
+          "findingIds": []
+        }
+      ],
+      "id": "3dae3429-ab4a-48a2-bca6-a9fe0a9d9e55",
+      "pluginId": "shr183-clean-lab",
+      "pluginVersionId": "df1209ef-f1e6-4230-b7ac-64914dca2c3c",
+      "createdAt": "2026-04-05T20:17:49.504Z",
+      "outcome": "approved"
+    },
+    {
+      "decision": "approve",
+      "reasonCode": "clean_review",
+      "notes": "Seed approval for rollback verification with hosted artifact and runtime evidence.",
+      "reviewerId": "seed-reviewer",
+      "scanContext": {
+        "rulesetVersion": "dp-sec-v1",
+        "scanRunIds": [
+          "58f20915-23ac-453d-b203-22e407a1e01c"
+        ],
+        "referencedFindingRuleIds": []
+      },
+      "checklist": [
+        {
+          "itemId": "platform_hosting_only",
+          "status": "pass",
+          "notes": "Hosted"
+        },
+        {
+          "itemId": "manifest_matches_artifact",
+          "status": "pass",
+          "notes": "Match"
+        },
+        {
+          "itemId": "declared_network_domains_match_observed_behavior",
+          "status": "pass",
+          "notes": "None"
+        },
+        {
+          "itemId": "tool_contract_matches_runtime_behavior",
+          "status": "pass",
+          "notes": "Match"
+        },
+        {
+          "itemId": "data_collection_and_permissions_disclosed",
+          "status": "pass",
+          "notes": "None"
+        },
+        {
+          "itemId": "age_rating_and_student_safety_reviewed",
+          "status": "pass",
+          "notes": "Okay"
+        },
+        {
+          "itemId": "security_findings_triaged",
+          "status": "pass",
+          "notes": "Clear"
+        },
+        {
+          "itemId": "runtime_evidence_captured",
+          "status": "pass",
+          "notes": "Captured"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "platform_scan",
+          "summary": "Seed scan",
+          "location": "scan-58f20915-23ac-453d-b203-22e407a1e01c",
+          "capturedAt": "2026-04-05T20:20:00.000Z",
+          "findingIds": []
+        }
+      ],
+      "id": "8921ee41-75c6-498a-8043-bb9149e69f14",
+      "pluginId": "shr183-rollback-lab",
+      "pluginVersionId": "f9d50ed4-db9a-44d1-a656-a28064027aa1",
+      "createdAt": "2026-04-05T20:19:42.019Z",
+      "outcome": "approved"
+    },
+    {
+      "decision": "approve",
+      "reasonCode": "clean_review",
+      "notes": "Seed approval for rollback verification with hosted artifact and runtime evidence.",
+      "reviewerId": "seed-reviewer",
+      "scanContext": {
+        "rulesetVersion": "dp-sec-v1",
+        "scanRunIds": [
+          "3408a072-6fb0-4cba-ae4a-4309cbdc2212"
+        ],
+        "referencedFindingRuleIds": []
+      },
+      "checklist": [
+        {
+          "itemId": "platform_hosting_only",
+          "status": "pass",
+          "notes": "Hosted"
+        },
+        {
+          "itemId": "manifest_matches_artifact",
+          "status": "pass",
+          "notes": "Match"
+        },
+        {
+          "itemId": "declared_network_domains_match_observed_behavior",
+          "status": "pass",
+          "notes": "None"
+        },
+        {
+          "itemId": "tool_contract_matches_runtime_behavior",
+          "status": "pass",
+          "notes": "Match"
+        },
+        {
+          "itemId": "data_collection_and_permissions_disclosed",
+          "status": "pass",
+          "notes": "None"
+        },
+        {
+          "itemId": "age_rating_and_student_safety_reviewed",
+          "status": "pass",
+          "notes": "Okay"
+        },
+        {
+          "itemId": "security_findings_triaged",
+          "status": "pass",
+          "notes": "Clear"
+        },
+        {
+          "itemId": "runtime_evidence_captured",
+          "status": "pass",
+          "notes": "Captured"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "platform_scan",
+          "summary": "Seed scan",
+          "location": "scan-3408a072-6fb0-4cba-ae4a-4309cbdc2212",
+          "capturedAt": "2026-04-05T20:21:00.000Z",
+          "findingIds": []
+        }
+      ],
+      "id": "a9974ad8-10ca-468e-9dac-76410cd448c7",
+      "pluginId": "shr183-rollback-lab",
+      "pluginVersionId": "7389c800-4e6a-4aee-bf7a-0a38e9fb1415",
+      "createdAt": "2026-04-05T20:19:42.052Z",
+      "outcome": "approved"
+    },
+    {
+      "decision": "approve",
+      "reasonCode": "clean_review",
+      "notes": "Reviewer compared the reviewed artifact to the manifest, verified only declared network traffic, and captured runtime evidence.",
+      "reviewerId": "reviewer-browser-1",
+      "scanContext": {
+        "rulesetVersion": "dp-sec-v1",
+        "scanRunIds": [
+          "0436352e-2354-4416-a3ec-6a44795f8985"
+        ],
+        "referencedFindingRuleIds": []
+      },
+      "checklist": [
+        {
+          "itemId": "platform_hosting_only",
+          "status": "pass",
+          "notes": "Platform URL verified"
+        },
+        {
+          "itemId": "manifest_matches_artifact",
+          "status": "pass",
+          "notes": "Bundle contents match manifest"
+        },
+        {
+          "itemId": "declared_network_domains_match_observed_behavior",
+          "status": "pass",
+          "notes": "Observed traffic matches declared domains"
+        },
+        {
+          "itemId": "tool_contract_matches_runtime_behavior",
+          "status": "pass",
+          "notes": "Tool contract matches runtime behavior"
+        },
+        {
+          "itemId": "data_collection_and_permissions_disclosed",
+          "status": "pass",
+          "notes": "Data collection and permissions are disclosed"
+        },
+        {
+          "itemId": "age_rating_and_student_safety_reviewed",
+          "status": "pass",
+          "notes": "Age rating is appropriate"
+        },
+        {
+          "itemId": "security_findings_triaged",
+          "status": "pass",
+          "notes": "All findings triaged with no remaining blockers"
+        },
+        {
+          "itemId": "runtime_evidence_captured",
+          "status": "pass",
+          "notes": "Runtime capture attached"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "platform_scan",
+          "summary": "Scanner recorded no unresolved blocker findings.",
+          "location": "scan-run-browser-1",
+          "capturedAt": "2026-04-05T18:00:00.000Z",
+          "findingIds": []
+        },
+        {
+          "source": "reviewer_runtime_capture",
+          "summary": "Reviewer observed only approved behavior in a runtime session.",
+          "location": "browser://shr-191/runtime-capture",
+          "capturedAt": "2026-04-05T18:05:00.000Z",
+          "findingIds": []
+        }
+      ],
+      "id": "4d1475cf-224a-468f-b105-ca1f4ac6130f",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "createdAt": "2026-04-05T20:23:12.177Z",
+      "outcome": "approved"
+    }
+  ],
+  "districtPluginOverrides": [],
+  "runtimeEvents": [
+    {
+      "id": "1f706ec7-15bb-4483-8c20-6185c8b91612",
+      "type": "plugin_rolled_forward",
+      "pluginId": "audit-176-1775420007552",
+      "pluginVersionId": "4ed531f2-3467-4dbc-bd30-8880c19f2744",
+      "effectiveAt": "2026-04-05T20:13:27.609Z",
+      "metadata": {
+        "action": "publish",
+        "activeVersion": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/audit-176-1775420007552/v1.0.0/"
+      }
+    },
+    {
+      "id": "dbeb3c39-624b-4308-9ee0-d3f5c9bd7b18",
+      "type": "plugin_rolled_forward",
+      "pluginId": "shr183-clean-lab",
+      "pluginVersionId": "df1209ef-f1e6-4230-b7ac-64914dca2c3c",
+      "effectiveAt": "2026-04-05T20:18:19.416Z",
+      "metadata": {
+        "action": "publish",
+        "activeVersion": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/shr183-clean-lab/v1.0.0/"
+      }
+    },
+    {
+      "id": "baa844d1-2f52-4c96-a628-22c0476d349e",
+      "type": "plugin_suspended",
+      "pluginId": "shr183-clean-lab",
+      "effectiveAt": "2026-04-05T20:18:43.176Z",
+      "metadata": {
+        "actor": "reviewer-1",
+        "reason": "Manual suspension from admin review console"
+      }
+    },
+    {
+      "id": "eccd897f-7910-4f43-a343-f1a732c59382",
+      "type": "plugin_reinstated",
+      "pluginId": "shr183-clean-lab",
+      "effectiveAt": "2026-04-05T20:19:04.900Z",
+      "metadata": {
+        "actor": "reviewer-1",
+        "reason": "Manual reinstatement from admin review console",
+        "restoredStatus": "approved"
+      }
+    },
+    {
+      "id": "1c93dc06-de9f-47d0-a530-6ba7d1ba2c7d",
+      "type": "plugin_rolled_forward",
+      "pluginId": "shr183-rollback-lab",
+      "pluginVersionId": "f9d50ed4-db9a-44d1-a656-a28064027aa1",
+      "effectiveAt": "2026-04-05T20:19:51.729Z",
+      "metadata": {
+        "action": "publish",
+        "activeVersion": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/shr183-rollback-lab/v1.0.0/"
+      }
+    },
+    {
+      "id": "18572c3f-eb1b-4397-b7c4-0a6f9ee3102b",
+      "type": "plugin_rolled_forward",
+      "pluginId": "shr183-rollback-lab",
+      "pluginVersionId": "7389c800-4e6a-4aee-bf7a-0a38e9fb1415",
+      "effectiveAt": "2026-04-05T20:19:51.739Z",
+      "metadata": {
+        "action": "publish",
+        "activeVersion": "1.1.0",
+        "hostedUrl": "https://plugins.chatbridge.app/shr183-rollback-lab/v1.1.0/"
+      }
+    },
+    {
+      "id": "bde1000e-d003-4171-ade7-2a9256843b76",
+      "type": "plugin_rolled_back",
+      "pluginId": "shr183-rollback-lab",
+      "pluginVersionId": "f9d50ed4-db9a-44d1-a656-a28064027aa1",
+      "effectiveAt": "2026-04-05T20:21:59.138Z",
+      "metadata": {
+        "action": "rollback",
+        "activeVersion": "1.0.0",
+        "previousVersion": "1.1.0",
+        "hostedUrl": "https://plugins.chatbridge.app/shr183-rollback-lab/v1.0.0/"
+      }
+    },
+    {
+      "id": "66664844-9157-4235-8179-3b9dfb12ec16",
+      "type": "plugin_rolled_forward",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "effectiveAt": "2026-04-05T20:23:12.182Z",
+      "metadata": {
+        "action": "publish",
+        "activeVersion": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/runtime-monitor-browser-1775420592101/v1.0.0/"
+      }
+    },
+    {
+      "id": "0d4d7288-b9c0-4e81-ae41-08cf52318fbd",
+      "type": "runtime_violation",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "effectiveAt": "2026-04-05T20:23:12.187Z",
+      "metadata": {
+        "severity": "high",
+        "reason": "hidden iframe bootstrap",
+        "incidentId": "8181df39-c840-4d9b-8e8d-d78b39743c77"
+      }
+    },
+    {
+      "id": "8b7680a1-ade6-4350-a912-0ccf1a3b5118",
+      "type": "runtime_violation",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "effectiveAt": "2026-04-05T20:23:12.191Z",
+      "metadata": {
+        "severity": "high",
+        "reason": "undeclared websocket destination",
+        "incidentId": "7ad5665b-d188-47b9-85f8-826215f047c6"
+      }
+    },
+    {
+      "id": "38a43bec-6e7a-4347-9c75-ec1191c05a8a",
+      "type": "unexpected_network_request",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "districtId": "550e8400-e29b-41d4-a716-446655440055",
+      "effectiveAt": "2026-04-05T20:23:12.195Z",
+      "metadata": {
+        "severity": "critical",
+        "observedDomain": "exfil.example",
+        "requestUrl": "https://exfil.example/beacon",
+        "incidentId": "4429f132-061f-4869-a7bf-4487e30b1faa"
+      }
+    },
+    {
+      "id": "3e28b220-aff2-42b8-b824-5025f1907195",
+      "type": "plugin_suspended",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "effectiveAt": "2026-04-05T20:23:12.200Z",
+      "metadata": {
+        "actor": "runtime_monitor",
+        "reason": "runtime_incident_threshold",
+        "trigger": "runtime_incident_threshold",
+        "incidentIds": [
+          "8181df39-c840-4d9b-8e8d-d78b39743c77",
+          "7ad5665b-d188-47b9-85f8-826215f047c6",
+          "4429f132-061f-4869-a7bf-4487e30b1faa"
+        ]
+      }
+    }
+  ],
+  "runtimeControlAudit": [
+    {
+      "id": "1f706ec7-15bb-4483-8c20-6185c8b91612",
+      "type": "plugin_rolled_forward",
+      "pluginId": "audit-176-1775420007552",
+      "pluginVersionId": "4ed531f2-3467-4dbc-bd30-8880c19f2744",
+      "createdAt": "2026-04-05T20:13:27.609Z",
+      "metadata": {
+        "action": "publish",
+        "activeVersion": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/audit-176-1775420007552/v1.0.0/"
+      }
+    },
+    {
+      "id": "dbeb3c39-624b-4308-9ee0-d3f5c9bd7b18",
+      "type": "plugin_rolled_forward",
+      "pluginId": "shr183-clean-lab",
+      "pluginVersionId": "df1209ef-f1e6-4230-b7ac-64914dca2c3c",
+      "createdAt": "2026-04-05T20:18:19.416Z",
+      "metadata": {
+        "action": "publish",
+        "activeVersion": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/shr183-clean-lab/v1.0.0/"
+      }
+    },
+    {
+      "id": "baa844d1-2f52-4c96-a628-22c0476d349e",
+      "type": "plugin_suspended",
+      "pluginId": "shr183-clean-lab",
+      "createdAt": "2026-04-05T20:18:43.176Z",
+      "metadata": {
+        "actor": "reviewer-1",
+        "reason": "Manual suspension from admin review console"
+      }
+    },
+    {
+      "id": "eccd897f-7910-4f43-a343-f1a732c59382",
+      "type": "plugin_reinstated",
+      "pluginId": "shr183-clean-lab",
+      "createdAt": "2026-04-05T20:19:04.900Z",
+      "metadata": {
+        "actor": "reviewer-1",
+        "reason": "Manual reinstatement from admin review console",
+        "restoredStatus": "approved"
+      }
+    },
+    {
+      "id": "1c93dc06-de9f-47d0-a530-6ba7d1ba2c7d",
+      "type": "plugin_rolled_forward",
+      "pluginId": "shr183-rollback-lab",
+      "pluginVersionId": "f9d50ed4-db9a-44d1-a656-a28064027aa1",
+      "createdAt": "2026-04-05T20:19:51.729Z",
+      "metadata": {
+        "action": "publish",
+        "activeVersion": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/shr183-rollback-lab/v1.0.0/"
+      }
+    },
+    {
+      "id": "18572c3f-eb1b-4397-b7c4-0a6f9ee3102b",
+      "type": "plugin_rolled_forward",
+      "pluginId": "shr183-rollback-lab",
+      "pluginVersionId": "7389c800-4e6a-4aee-bf7a-0a38e9fb1415",
+      "createdAt": "2026-04-05T20:19:51.739Z",
+      "metadata": {
+        "action": "publish",
+        "activeVersion": "1.1.0",
+        "hostedUrl": "https://plugins.chatbridge.app/shr183-rollback-lab/v1.1.0/"
+      }
+    },
+    {
+      "id": "bde1000e-d003-4171-ade7-2a9256843b76",
+      "type": "plugin_rolled_back",
+      "pluginId": "shr183-rollback-lab",
+      "pluginVersionId": "f9d50ed4-db9a-44d1-a656-a28064027aa1",
+      "createdAt": "2026-04-05T20:21:59.138Z",
+      "metadata": {
+        "action": "rollback",
+        "activeVersion": "1.0.0",
+        "previousVersion": "1.1.0",
+        "hostedUrl": "https://plugins.chatbridge.app/shr183-rollback-lab/v1.0.0/"
+      }
+    },
+    {
+      "id": "66664844-9157-4235-8179-3b9dfb12ec16",
+      "type": "plugin_rolled_forward",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "createdAt": "2026-04-05T20:23:12.182Z",
+      "metadata": {
+        "action": "publish",
+        "activeVersion": "1.0.0",
+        "hostedUrl": "https://plugins.chatbridge.app/runtime-monitor-browser-1775420592101/v1.0.0/"
+      }
+    },
+    {
+      "id": "0d4d7288-b9c0-4e81-ae41-08cf52318fbd",
+      "type": "runtime_violation",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "createdAt": "2026-04-05T20:23:12.187Z",
+      "metadata": {
+        "severity": "high",
+        "reason": "hidden iframe bootstrap",
+        "incidentId": "8181df39-c840-4d9b-8e8d-d78b39743c77"
+      }
+    },
+    {
+      "id": "8b7680a1-ade6-4350-a912-0ccf1a3b5118",
+      "type": "runtime_violation",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "createdAt": "2026-04-05T20:23:12.191Z",
+      "metadata": {
+        "severity": "high",
+        "reason": "undeclared websocket destination",
+        "incidentId": "7ad5665b-d188-47b9-85f8-826215f047c6"
+      }
+    },
+    {
+      "id": "38a43bec-6e7a-4347-9c75-ec1191c05a8a",
+      "type": "unexpected_network_request",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "districtId": "550e8400-e29b-41d4-a716-446655440055",
+      "createdAt": "2026-04-05T20:23:12.195Z",
+      "metadata": {
+        "severity": "critical",
+        "observedDomain": "exfil.example",
+        "requestUrl": "https://exfil.example/beacon",
+        "incidentId": "4429f132-061f-4869-a7bf-4487e30b1faa"
+      }
+    },
+    {
+      "id": "3e28b220-aff2-42b8-b824-5025f1907195",
+      "type": "plugin_suspended",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "createdAt": "2026-04-05T20:23:12.200Z",
+      "metadata": {
+        "actor": "runtime_monitor",
+        "reason": "runtime_incident_threshold",
+        "trigger": "runtime_incident_threshold",
+        "incidentIds": [
+          "8181df39-c840-4d9b-8e8d-d78b39743c77",
+          "7ad5665b-d188-47b9-85f8-826215f047c6",
+          "4429f132-061f-4869-a7bf-4487e30b1faa"
+        ]
+      }
+    }
+  ],
+  "runtimeIncidents": [
+    {
+      "id": "8181df39-c840-4d9b-8e8d-d78b39743c77",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "eventType": "runtime_violation",
+      "status": "triaged",
+      "severity": "high",
+      "suspensionTriggered": true,
+      "createdAt": "2026-04-05T20:23:12.187Z",
+      "metadata": {
+        "severity": "high",
+        "reason": "hidden iframe bootstrap"
+      }
+    },
+    {
+      "id": "7ad5665b-d188-47b9-85f8-826215f047c6",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "eventType": "runtime_violation",
+      "status": "triaged",
+      "severity": "high",
+      "suspensionTriggered": true,
+      "createdAt": "2026-04-05T20:23:12.191Z",
+      "metadata": {
+        "severity": "high",
+        "reason": "undeclared websocket destination"
+      }
+    },
+    {
+      "id": "4429f132-061f-4869-a7bf-4487e30b1faa",
+      "pluginId": "runtime-monitor-browser-1775420592101",
+      "pluginVersionId": "69d3f677-44b9-4abf-82b5-843f9eb26a5e",
+      "eventType": "unexpected_network_request",
+      "districtId": "550e8400-e29b-41d4-a716-446655440055",
+      "status": "triaged",
+      "severity": "critical",
+      "suspensionTriggered": true,
+      "createdAt": "2026-04-05T20:23:12.195Z",
+      "metadata": {
+        "severity": "critical",
+        "observedDomain": "exfil.example",
+        "requestUrl": "https://exfil.example/beacon"
+      }
+    }
+  ]
+}

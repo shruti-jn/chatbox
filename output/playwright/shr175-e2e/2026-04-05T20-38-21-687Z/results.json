@@ -1,0 +1,7 @@
+[
+  {
+    "name": "clean-publish-and-registry-contract",
+    "passed": false,
+    "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'manual_review'\n- 'pass'\n\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n\n+ 'manual_review'\n- 'pass'\n\n    at Object.run (file:///Users/shruti/Software/chatbox/packages/developer-platform/test/browser-e2e.mjs:348:14)\n    at async run (file:///Users/shruti/Software/chatbox/packages/developer-platform/test/browser-e2e.mjs:904:25)"
+  }
+]

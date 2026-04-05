@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SHR-191 Verification</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #121933;
+      --panel-2: #172043;
+      --text: #e7ecff;
+      --muted: #9aa7d1;
+      --accent: #7cb3ff;
+      --good: #4ade80;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --border: rgba(255,255,255,0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #16214d 0, var(--bg) 48%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    h1 { margin: 0 0 8px; font-size: 32px; }
+    p { color: var(--muted); }
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 14px 22px;
+      background: linear-gradient(135deg, #6ea8ff, #8a7dff);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 18px 45px rgba(72, 120, 255, 0.28);
+    }
+    button:disabled { opacity: 0.5; cursor: wait; }
+    .grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 18px;
+      margin-top: 24px;
+    }
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 18px;
+      backdrop-filter: blur(10px);
+    }
+    .panel h2 { margin: 0 0 14px; font-size: 18px; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.06);
+    }
+    .status.good { color: var(--good); }
+    .status.warn { color: var(--warn); }
+    .status.bad { color: var(--bad); }
+    ol { margin: 0; padding-left: 18px; }
+    li { margin-bottom: 10px; color: var(--muted); }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-size: 13px;
+      line-height: 1.45;
+      background: rgba(0,0,0,0.22);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      min-height: 220px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+    }
+    .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .value { font-size: 24px; font-weight: 700; margin-top: 8px; }
+    .assertions { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+    .assertion {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      background: var(--panel-2);
+    }
+    .assertion strong { display: block; margin-bottom: 6px; }
+    .assertion.pass strong { color: var(--good); }
+    .assertion.fail strong { color: var(--bad); }
+    @media (max-width: 900px) {
+      .grid, .cards, .assertions { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>SHR-191 Runtime Monitoring Verification</h1>
+    <p>This page runs the runtime incident ingestion and auto-suspension flow in a real browser against the local developer-platform service.</p>
+    <button id="run">Run Verification</button>
+    <span id="status" class="status warn">Idle</span>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>Flow</h2>
+        <ol>
+          <li>Create a plugin and version.</li>
+          <li>Upload an artifact, submit, review, and publish it.</li>
+          <li>Send three high-severity runtime events.</li>
+          <li>Verify incidents are stored and plugin auto-suspends.</li>
+          <li>Verify audit trail includes runtime-monitor suspension metadata.</li>
+        </ol>
+      </section>
+      <section class="panel">
+        <h2>Live Log</h2>
+        <pre id="log"></pre>
+      </section>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="label">Plugin Status</div>
+        <div class="value" id="plugin-status">-</div>
+      </div>
+      <div class="card">
+        <div class="label">Incident Count</div>
+        <div class="value" id="incident-count">-</div>
+      </div>
+      <div class="card">
+        <div class="label">Triggered Suspension</div>
+        <div class="value" id="triggered">-</div>
+      </div>
+    </div>
+
+    <div class="assertions" id="assertions"></div>
+  </div>
+
+  <script>
+    const serviceBase = 'http://127.0.0.1:3101'
+    const runButton = document.getElementById('run')
+    const statusNode = document.getElementById('status')
+    const logNode = document.getElementById('log')
+    const assertionsNode = document.getElementById('assertions')
+    const pluginStatusNode = document.getElementById('plugin-status')
+    const incidentCountNode = document.getElementById('incident-count')
+    const triggeredNode = document.getElementById('triggered')
+
+    const setStatus = (text, kind = 'warn') => {
+      statusNode.textContent = text
+      statusNode.className = `status ${kind}`
+    }
+
+    const log = (message, data) => {
+      const line = data ? `${message}\n${JSON.stringify(data, null, 2)}\n` : `${message}\n`
+      logNode.textContent += line
+      logNode.scrollTop = logNode.scrollHeight
+    }
+
+    const setAssertions = (items) => {
+      assertionsNode.innerHTML = ''
+      for (const item of items) {
+        const div = document.createElement('div')
+        div.className = `assertion ${item.pass ? 'pass' : 'fail'}`
+        div.innerHTML = `<strong>${item.pass ? 'PASS' : 'FAIL'}: ${item.title}</strong><div>${item.detail}</div>`
+        assertionsNode.appendChild(div)
+      }
+    }
+
+    async function request(url, options = {}) {
+      const response = await fetch(url, options)
+      const text = await response.text()
+      let body
+      try {
+        body = text ? JSON.parse(text) : null
+      } catch {
+        body = text
+      }
+      if (!response.ok) {
+        throw new Error(`${response.status} ${response.statusText}: ${JSON.stringify(body)}`)
+      }
+      return body
+    }
+
+    function buildReviewPayload(scanRunId) {
+      return {
+        decision: 'approve',
+        reasonCode: 'clean_review',
+        notes: 'Reviewer compared the reviewed artifact to the manifest, verified only declared network traffic, and captured runtime evidence.',
+        reviewerId: 'reviewer-browser-1',
+        scanContext: {
+          rulesetVersion: 'dp-sec-v1',
+          scanRunIds: [scanRunId],
+          referencedFindingRuleIds: [],
+        },
+        checklist: [
+          { itemId: 'platform_hosting_only', status: 'pass', notes: 'Platform URL verified' },
+          { itemId: 'manifest_matches_artifact', status: 'pass', notes: 'Bundle contents match manifest' },
+          { itemId: 'declared_network_domains_match_observed_behavior', status: 'pass', notes: 'Observed traffic matches declared domains' },
+          { itemId: 'tool_contract_matches_runtime_behavior', status: 'pass', notes: 'Tool contract matches runtime behavior' },
+          { itemId: 'data_collection_and_permissions_disclosed', status: 'pass', notes: 'Data collection and permissions are disclosed' },
+          { itemId: 'age_rating_and_student_safety_reviewed', status: 'pass', notes: 'Age rating is appropriate' },
+          { itemId: 'security_findings_triaged', status: 'pass', notes: 'All findings triaged with no remaining blockers' },
+          { itemId: 'runtime_evidence_captured', status: 'pass', notes: 'Runtime capture attached' },
+        ],
+        evidence: [
+          {
+            source: 'platform_scan',
+            summary: 'Scanner recorded no unresolved blocker findings.',
+            location: 'scan-run-browser-1',
+            capturedAt: '2026-04-05T18:00:00.000Z',
+            findingIds: [],
+          },
+          {
+            source: 'reviewer_runtime_capture',
+            summary: 'Reviewer observed only approved behavior in a runtime session.',
+            location: 'browser://shr-191/runtime-capture',
+            capturedAt: '2026-04-05T18:05:00.000Z',
+            findingIds: [],
+          },
+        ],
+      }
+    }
+
+    async function runVerification() {
+      runButton.disabled = true
+      logNode.textContent = ''
+      setAssertions([])
+      setStatus('Running', 'warn')
+      pluginStatusNode.textContent = '-'
+      incidentCountNode.textContent = '-'
+      triggeredNode.textContent = '-'
+
+      const slug = `runtime-monitor-browser-${Date.now()}`
+      const manifest = {
+        pluginId: slug,
+        name: 'Runtime Monitor Browser Lab',
+        version: '1.0.0',
+        description: 'Browser verification for SHR-191',
+        entrypoint: '/index.html',
+        ageRating: '8+',
+        collectsInput: true,
+        inputFields: [{ name: 'word', required: true, kind: 'text' }],
+        permissions: ['dictionary.read'],
+        networkDomains: ['api.dictionary.example'],
+        dataPolicyUrl: 'https://example.com/privacy',
+        externalResources: [],
+        sriHashes: [],
+        tools: [{ name: 'lookup_word', description: 'Look up a word', inputSchema: { type: 'object' } }],
+      }
+
+      try {
+        log('Creating plugin…')
+        await request(`${serviceBase}/api/v1/developer/plugins`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            slug,
+            name: 'Runtime Monitor Browser Lab',
+            description: 'Browser verification for SHR-191',
+          }),
+        })
+
+        log('Creating version…')
+        const version = await request(`${serviceBase}/api/v1/developer/plugins/${slug}/versions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ version: '1.0.0', manifest }),
+        })
+
+        log('Uploading artifact…')
+        const formData = new FormData()
+        formData.append('artifact', new File(['console.log("runtime monitor browser lab")'], `${slug}.js`, { type: 'application/javascript' }))
+        await fetch(`${serviceBase}/api/v1/developer/plugins/${slug}/versions/${version.id}/artifact`, {
+          method: 'POST',
+          body: formData,
+        }).then(async (response) => {
+          if (!response.ok) throw new Error(await response.text())
+        })
+
+        log('Submitting version…')
+        await request(`${serviceBase}/api/v1/developer/plugins/${slug}/versions/${version.id}/submit`, { method: 'POST' })
+
+        log('Fetching scan run…')
+        const scanRuns = await request(`${serviceBase}/api/v1/admin/plugins/${slug}/versions/${version.id}/scan-runs`)
+        const scanRun = scanRuns[0]
+
+        log('Reviewing and publishing…')
+        await request(`${serviceBase}/api/v1/admin/plugins/${slug}/versions/${version.id}/review-decisions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(buildReviewPayload(scanRun.id)),
+        })
+        await request(`${serviceBase}/api/v1/admin/plugins/${slug}/versions/${version.id}/publish`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+
+        log('Sending runtime incidents…')
+        const events = [
+          { pluginId: slug, pluginVersionId: version.id, eventType: 'runtime_violation', metadata: { severity: 'high', reason: 'hidden iframe bootstrap' } },
+          { pluginId: slug, pluginVersionId: version.id, eventType: 'runtime_violation', metadata: { severity: 'high', reason: 'undeclared websocket destination' } },
+          { pluginId: slug, pluginVersionId: version.id, eventType: 'unexpected_network_request', districtId: '550e8400-e29b-41d4-a716-446655440055', metadata: { severity: 'critical', observedDomain: 'exfil.example', requestUrl: 'https://exfil.example/beacon' } },
+        ]
+
+        let lastIncident = null
+        for (const event of events) {
+          lastIncident = await request(`${serviceBase}/api/v1/registry/runtime-events`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(event),
+          })
+        }
+
+        const incidents = await request(`${serviceBase}/api/v1/admin/plugins/${slug}/runtime-incidents`)
+        const policy = await request(`${serviceBase}/api/v1/registry/policies/${slug}`)
+        const audit = await request(`${serviceBase}/api/v1/admin/plugins/${slug}/audit`)
+
+        pluginStatusNode.textContent = policy.status
+        incidentCountNode.textContent = String(incidents.length)
+        triggeredNode.textContent = lastIncident?.suspensionTriggered ? 'yes' : 'no'
+
+        const assertions = [
+          {
+            title: 'Runtime incidents persisted',
+            pass: incidents.length === 3,
+            detail: `Expected 3 incidents, got ${incidents.length}.`,
+          },
+          {
+            title: 'Latest incident triggered suspension',
+            pass: Boolean(lastIncident?.suspensionTriggered),
+            detail: `Latest incident status: ${lastIncident?.status ?? 'unknown'}.`,
+          },
+          {
+            title: 'Registry policy reflects suspended plugin',
+            pass: policy.status === 'suspended' && policy.killSwitchActive === true,
+            detail: `Policy status=${policy.status}, killSwitchActive=${policy.killSwitchActive}.`,
+          },
+          {
+            title: 'Audit trail links suspension to runtime monitor',
+            pass: audit.controlActions.some((entry) => entry.type === 'plugin_suspended' && entry.metadata?.actor === 'runtime_monitor' && entry.metadata?.trigger === 'runtime_incident_threshold'),
+            detail: 'Checked controlActions for runtime_monitor-triggered suspension.',
+          },
+        ]
+
+        setAssertions(assertions)
+        if (assertions.every((entry) => entry.pass)) {
+          setStatus('Passed', 'good')
+        } else {
+          setStatus('Failed', 'bad')
+        }
+
+        log('Verification complete.', { policy, lastIncident, incidents, audit })
+      } catch (error) {
+        setStatus('Failed', 'bad')
+        log('Verification failed.', { error: String(error) })
+      } finally {
+        runButton.disabled = false
+      }
+    }
+
+    runButton.addEventListener('click', () => {
+      void runVerification()
+    })
+  </script>
+</body>
+</html>

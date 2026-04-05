@@ -1,0 +1,48 @@
+{
+  "id": "github",
+  "name": "GitHub",
+  "version": "0.1.0",
+  "description": "View your GitHub repositories, recent activity, and pull requests",
+  "icon": "🐙",
+  "entrypoint": "/api/v1/apps/github/ui",
+  "auth": {
+    "type": "oauth2",
+    "oauthConfig": {
+      "provider": "github",
+      "scopes": ["read:user", "repo"]
+    }
+  },
+  "tools": [
+    {
+      "name": "get_repos",
+      "description": "Get the authenticated user's GitHub repositories, sorted by recently updated",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "description": "Max repos to return (1-20)",
+            "default": 10
+          }
+        }
+      }
+    },
+    {
+      "name": "get_recent_activity",
+      "description": "Get the authenticated user's recent GitHub activity (commits, PRs, issues)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "description": "Max events to return (1-20)",
+            "default": 10
+          }
+        }
+      }
+    }
+  ],
+  "permissions": ["read:user", "read:repos"],
+  "ageRating": "13+",
+  "dataPolicy": "https://github.com/privacy"
+}

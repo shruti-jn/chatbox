@@ -11,12 +11,13 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'cd ../.. && set -a && source ../../.env && set +a && DATABASE_URL="postgresql://chatbridge:chatbridge@localhost:5435/chatbridge" npx tsx src/server.ts',
+      command:
+        'cd ../.. && set -a && source ../../.env && set +a && DATABASE_URL="postgresql://chatbridge:chatbridge_dev@localhost:5433/chatbridge" npx tsx src/server.ts',
       port: 3001,
       reuseExistingServer: true,
     },
     {
-      command: 'npx serve ../../../release/app/dist/renderer -l 3000 --cors',
+      command: 'cd ../../../../ && npx serve release/app/dist/renderer -l 3000 --cors --single',
       port: 3000,
       reuseExistingServer: true,
     },

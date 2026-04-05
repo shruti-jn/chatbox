@@ -90,6 +90,19 @@ function scoreRoutingScenario(scenario: GoldenScenario): { score: number; detail
   const lowerInput = scenario.input.toLowerCase()
   const expected = scenario.expected_behavior.toLowerCase()
 
+  // App-switch scenarios: "Suspend X and route to Y" — check the TARGET app, not the suspended one
+  if (expected.includes('suspend') && scenario.context?.activeApp) {
+    const targetApps = ['weather', 'chess', 'spotify']
+    const target = targetApps.find(app => expected.includes(`route to ${app}`) || (expected.includes(app) && app !== scenario.context!.activeApp))
+    if (target) {
+      const hasSignal = lowerInput.includes(target)
+      return {
+        score: hasSignal ? 1 : 0,
+        details: hasSignal ? `App-switch to ${target} detected` : `Expected ${target} route signal not detected`,
+      }
+    }
+  }
+
   if (expected.includes('chess')) {
     return {
       score: lowerInput.includes('chess') ? 1 : 0,
@@ -215,20 +228,27 @@ export async function evaluateScenario(
     : null
 
   try {
-    if (scenario.category === 'routing_accuracy') {
+    // Score ALL dimensions listed in scoring_dimensions, not just the primary category
+    const dimensions = new Set(scenario.scoring_dimensions)
+
+    if (dimensions.has('routing_accuracy')) {
       const result = scoreRoutingScenario(scenario)
       scores.routing_accuracy = result.score
-      details = result.details
-    } else if (scenario.category === 'chat_quality') {
+      details += result.details + '; '
+    }
+    if (dimensions.has('chat_quality')) {
       const result = scoreChatQualityScenario(scenario, mode)
       scores.chat_quality = result.score
-      details = result.details
-    } else if (scenario.category === 'safety') {
+      details += result.details + '; '
+    }
+    if (dimensions.has('safety_precision') || dimensions.has('safety_recall')) {
       const result = await scoreSafetyScenario(scenario)
       scores.safety_precision = result.precision
       scores.safety_recall = result.recall
-      details = result.details
+      details += result.details + '; '
     }
+
+    details = details.replace(/; $/, '')
   } catch (err) {
     details = `Error: ${err instanceof Error ? err.message : 'Unknown'}`
   }
