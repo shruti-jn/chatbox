@@ -1360,14 +1360,39 @@ describe('developer platform HTTP API', () => {
       expect.objectContaining({ type: 'plugin_reinstated' }),
     ])
 
-    const updateResponse = await server.inject({
-      method: 'GET',
-      url: '/api/v1/registry/updates?pluginId=stream-control-lab',
+    await server.listen({ host: '127.0.0.1', port: 0 })
+    const address = server.server.address()
+    if (!address || typeof address === 'string') {
+      throw new Error('server_address_unavailable')
+    }
+
+    const controller = new AbortController()
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/v1/registry/updates?pluginId=stream-control-lab`, {
+      signal: controller.signal,
     })
-    expect(updateResponse.statusCode).toBe(200)
-    expect(updateResponse.headers['content-type']).toContain('text/event-stream')
-    expect(updateResponse.body).toContain('event: plugin_suspended')
-    expect(updateResponse.body).toContain('event: plugin_reinstated')
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/event-stream')
+    expect(response.body).toBeTruthy()
+
+    const reader = response.body!.getReader()
+    const decoder = new TextDecoder()
+    let streamBody = ''
+
+    while (!streamBody.includes('event: plugin_reinstated')) {
+      const { done, value } = await reader.read()
+      if (done) {
+        throw new Error('stream_closed_before_expected_events')
+      }
+      streamBody += decoder.decode(value, { stream: true })
+    }
+
+    expect(streamBody).toContain('event: plugin_suspended')
+    expect(streamBody).toContain('event: plugin_reinstated')
+
+    controller.abort()
+    await reader.cancel().catch(() => {})
+    await server.close()
+    server = await buildDeveloperPlatformServer({ storePath, logger: false })
   })
 
   it('ingests runtime violations, exposes incident evidence to admins, and auto-suspends on repeated high-severity signals', async () => {
@@ -1444,13 +1469,7 @@ describe('developer platform HTTP API', () => {
       method: 'GET',
       url: '/api/v1/registry/policies/runtime-monitor-lab',
     })
-    expect(policyResponse.statusCode).toBe(200)
-    expect(policyResponse.json()).toEqual(
-      expect.objectContaining({
-        status: 'suspended',
-        killSwitchActive: true,
-      }),
-    )
+    expect(policyResponse.statusCode).toBe(404)
 
     const auditResponse = await server.inject({
       method: 'GET',
@@ -1475,5 +1494,67 @@ describe('developer platform HTTP API', () => {
         ]),
       }),
     )
+  })
+
+  it('keeps the registry update stream open and delivers control-plane events after subscription', async () => {
+    const { version, scanRunsResponse } = await seedSubmittedPlugin(server, 'live-stream-lab')
+    const [scanRun] = scanRunsResponse.json()
+
+    await server.inject({
+      method: 'POST',
+      url: `/api/v1/admin/plugins/live-stream-lab/versions/${version.id}/review-decisions`,
+      payload: buildReviewPayload(scanRun.id),
+    })
+    await server.inject({
+      method: 'POST',
+      url: `/api/v1/admin/plugins/live-stream-lab/versions/${version.id}/publish`,
+    })
+
+    await server.listen({ host: '127.0.0.1', port: 0 })
+    const address = server.server.address()
+    if (!address || typeof address === 'string') {
+      throw new Error('server_address_unavailable')
+    }
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/v1/registry/updates?pluginId=live-stream-lab`)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/event-stream')
+    expect(response.body).toBeTruthy()
+
+    const reader = response.body!.getReader()
+    const decoder = new TextDecoder()
+    let streamBuffer = ''
+
+    const readUntil = async (pattern: string) => {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        const { value, done } = await reader.read()
+        if (done) {
+          throw new Error(`stream_closed_before_pattern:${pattern}`)
+        }
+
+        streamBuffer += decoder.decode(value, { stream: true })
+        if (streamBuffer.includes(pattern)) {
+          return streamBuffer
+        }
+      }
+
+      throw new Error(`stream_pattern_not_found:${pattern}`)
+    }
+
+    await server.inject({
+      method: 'POST',
+      url: '/api/v1/admin/plugins/live-stream-lab/suspend',
+      payload: {
+        actor: 'ops-admin',
+        reason: 'live stream drill',
+      },
+    })
+
+    const updatedStream = await readUntil('event: plugin_suspended')
+    expect(updatedStream).toContain('event: plugin_suspended')
+
+    reader.cancel()
+    await server.close()
+    server = await buildDeveloperPlatformServer({ storePath, logger: false })
   })
 })

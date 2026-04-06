@@ -521,13 +521,31 @@ export async function buildDeveloperPlatformServer(options: BuildDeveloperPlatfo
       connection: 'keep-alive',
     })
 
-    for (const event of updates) {
+    const writeEvent = (event: (typeof updates)[number]) => {
       reply.raw.write(`id: ${event.id}\n`)
       reply.raw.write(`event: ${event.type}\n`)
       reply.raw.write(`data: ${JSON.stringify(event)}\n\n`)
     }
 
-    reply.raw.end()
+    for (const event of updates) {
+      writeEvent(event)
+    }
+
+    const heartbeat = setInterval(() => {
+      reply.raw.write(': keep-alive\n\n')
+    }, 15_000)
+
+    const unsubscribe = developerPlatformStore.subscribeRegistryUpdates(parsed.data, (event) => {
+      writeEvent(event)
+    })
+
+    const cleanup = () => {
+      clearInterval(heartbeat)
+      unsubscribe()
+    }
+
+    request.raw.on('close', cleanup)
+    request.raw.on('error', cleanup)
   })
 
   server.post('/api/v1/registry/runtime-events', async (request, reply) => {

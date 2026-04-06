@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type { InputJsonValue } from '@prisma/client/runtime/library'
+import { Severity } from '@prisma/client'
 import { authenticate, requireRole, getUser } from '../middleware/auth.js'
 import { withTenantContext, prisma, ownerPrisma } from '../middleware/rls.js'
 import { AIConfigSchema } from '@chatbridge/shared'
@@ -399,6 +400,65 @@ export async function classroomRoutes(server: FastifyInstance) {
       classroomName: classroom.name,
       tools,
     }
+  })
+
+  // GET /classrooms/:id/students — Mission Control student list
+  server.get('/classrooms/:id/students', {
+    preHandler: [authenticate, requireRole('teacher', 'district_admin')],
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const user = getUser(request)
+
+    const ACTIVE_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
+    const now = Date.now()
+
+    const students = await withTenantContext(user.districtId, async (tx) => {
+      const memberships = await tx.classroomMembership.findMany({
+        where: { classroomId: id, districtId: user.districtId },
+        include: {
+          student: { select: { id: true, displayName: true } },
+        },
+      })
+
+      return Promise.all(memberships.map(async (m) => {
+        const [lastMsg, recentFlag] = await Promise.all([
+          tx.message.findFirst({
+            where: {
+              conversation: { classroomId: id, studentId: m.studentId },
+              authorRole: 'student',
+            },
+            orderBy: { createdAt: 'desc' },
+            select: { createdAt: true },
+          }),
+          tx.safetyEvent.findFirst({
+            where: {
+              userId: m.studentId,
+              districtId: user.districtId,
+              severity: { in: [Severity.blocked, Severity.critical] },
+              createdAt: { gte: new Date(now - ACTIVE_WINDOW_MS) },
+            },
+            select: { id: true },
+          }),
+        ])
+
+        const lastActivity = lastMsg?.createdAt ?? m.joinedAt
+        let status: 'active' | 'idle' | 'flagged' = 'idle'
+        if (recentFlag) {
+          status = 'flagged'
+        } else if (lastMsg && (now - lastMsg.createdAt.getTime()) < ACTIVE_WINDOW_MS) {
+          status = 'active'
+        }
+
+        return {
+          id: m.student.id,
+          displayName: m.student.displayName,
+          status,
+          lastActivity: lastActivity.toISOString(),
+        }
+      }))
+    })
+
+    return { students }
   })
 
   // POST /classrooms/:id/students/:studentId/whisper — Teacher whisper

@@ -596,7 +596,14 @@ export const RegistryAppsResponseSchema = z.object({
 export const RegistryContextRequestSchema = z.object({
   districtId: z.string().uuid().optional(),
   classroomId: z.string().uuid().optional(),
-  includeSuspended: z.boolean().default(false),
+  includeSuspended: z.preprocess(
+    (val) => {
+      if (val === 'true') return true
+      if (val === 'false') return false
+      return val
+    },
+    z.boolean().default(false),
+  ),
 })
 
 export const DistrictPluginOverrideRequestSchema = z.object({

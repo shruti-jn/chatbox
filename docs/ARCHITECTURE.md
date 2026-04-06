@@ -192,6 +192,91 @@ Response streamed to student via WebSocket
 Mission Control notified via Redis Pub/Sub -> /ws/mission-control
 ```
 
+## App Lifecycle — Registration, Invocation, State Sync, Teardown
+
+Third-party apps are **asynchronous participants**, not synchronous tool calls. The backend owns lifecycle truth. The frontend renders state and forwards events but does not own workflow correctness.
+
+### Instance States (FSM)
+
+The authoritative state machine is defined in `packages/backend/src/apps/lifecycle.ts`. Six states, event-driven transitions:
+
+```
+loading ──activate──→ active ──suspend──→ suspended ──resume──→ active
+                        │                                         │
+                        ├──complete──→ collapsed                  │
+                        │                                         │
+                        ├──fail──→ error ──terminate──→ terminated│
+                        │                                         │
+                        └──terminate──→ terminated ←──terminate───┘
+```
+
+| State | Meaning |
+|-------|---------|
+| `loading` | App instance created, iframe loading |
+| `active` | App running, receiving state updates |
+| `suspended` | Paused (another app took focus, or user navigated away) |
+| `collapsed` | Successfully completed (game over, playlist created) |
+| `error` | Unrecoverable failure |
+| `terminated` | Cleaned up, no longer active |
+
+Only the backend transitions state authoritatively. Frontend and app events are inputs, not truth. Every transition is validated by the FSM — invalid transitions (e.g., `terminated → active`) throw `InvalidTransitionError`.
+
+### State Freshness Contract
+
+Every AI context injection includes state metadata (when an app is active or stale):
+
+| Field | Values |
+|-------|--------|
+| `stateSource` | `app_reported`, `not_received` |
+| `stateFreshnessMs` | milliseconds since last update |
+| `confidence` | `fresh` (<30s), `stale` (>30s), `missing` |
+| `lastSuccessfulSyncAt` | ISO timestamp |
+
+Note: suspended apps receive no freshness metadata — only a text note that the app is paused.
+
+**AI behavior by confidence:**
+- **fresh**: Reference state confidently
+- **stale**: Hedge — "Based on the last position I saw..."
+- **missing**: "I can't see the board right now. Can you describe what you see?"
+
+### State Sync Flow
+
+```
+Chess iframe → postMessage (state_update)
+  → cbp-client.ts validates + forwards via WebSocket
+  → websocket.ts: handleAppStateUpdate()
+    → Redis publish (cbp:state:{instanceId})
+    → DB persist (appInstance.stateSnapshot)
+  → Next chat message:
+    → context-builder loads stateSnapshot
+    → registry.ts computes freshness + confidence
+    → AI system prompt includes state + metadata
+```
+
+### Failure Modes and Platform Responsibility
+
+| Failure | Platform Response | FSM Transition |
+|---------|-------------------|----------------|
+| Tool execution timeout (15s) | Synthesize failure for LLM: "The app did not respond" | `active → error` (planned: SHR-197) |
+| 3+ consecutive tool failures | Circuit breaker: tool removed from AI's tool list at `degraded` threshold | Health status only (not an instance transition) |
+| 5+ consecutive failures | App marked `unresponsive` in health subsystem | Health status only |
+| App stops sending heartbeats | Planned: `active → error → terminated` after silence threshold (SHR-210) | Not yet implemented |
+| WebSocket disconnects | State updates silently dropped; no reconnect (SHR-197) | No transition |
+| iframe fails to load | Error UI shown; instance should transition to `error` (SHR-197) | Gap: stays `active` |
+| Game completes | FSM: `active → collapsed` via `complete` event (SHR-197 to wire) | `active → collapsed` |
+| Admin suspends app | Bulk `terminated` + disable in catalog (SHR-197 to add WS notification) | `active → terminated` |
+| User navigates away | WS disconnected; instance should `suspend` (SHR-197) | Gap: stays `active` |
+
+### Tool Execution Architecture
+
+Tool calls are decoupled from the SSE connection:
+- **15s hard timeout** on every tool execution (`Promise.race`)
+- **SSE heartbeat** (`:` comment every 5s) prevents proxy timeouts
+- **Circuit breaker** blocks tools after 3 consecutive failures
+- **Synthesized failure** when tool times out — LLM degrades gracefully
+
+See `docs/ASYNC_EXECUTION_PLAN.md` for the full resume-token + priority queue design (SHR-198).
+
 ## Database Schema (19 Entities)
 
 All tenant-scoped tables have RLS policies. Key entities:

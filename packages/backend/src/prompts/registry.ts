@@ -107,26 +107,60 @@ export function assembleSystemPrompt(config: SystemPromptConfig): string {
     parts.push(gradeBandText)
   }
 
-  // Active app state (if present)
+  // Active app state with freshness metadata
   if (config.activeAppName && config.activeAppState) {
     const stateJson = JSON.stringify(config.activeAppState)
     const appParts = [`Currently active app: ${config.activeAppName}.`]
 
-    if (config.stateUpdatedAt) {
-      const ageMs = Date.now() - config.stateUpdatedAt.getTime()
-      if (ageMs > 5 * 60 * 1000) {
-        appParts.push(`Current state (last updated ${Math.round(ageMs / 60000)} minutes ago — may be stale): ${stateJson}.`)
-      } else {
-        appParts.push(`Current state: ${stateJson}.`)
-      }
-    } else {
-      appParts.push(`Current state: ${stateJson}.`)
+    // Compute state freshness and confidence
+    const ageMs = config.stateUpdatedAt ? Date.now() - config.stateUpdatedAt.getTime() : null
+    let confidence: 'fresh' | 'stale' | 'missing' = 'fresh'
+    if (ageMs === null || ageMs < 0) {
+      confidence = 'missing'
+    } else if (ageMs > 30 * 1000) {
+      confidence = 'stale'
     }
 
-    appParts.push('Reference this state when the student asks about the app. If the state includes a FEN string, analyze the chess position.')
-    parts.push(appParts.join(' '))
+    // State freshness metadata block
+    const freshnessBlock = [
+      `[STATE_METADATA]`,
+      `stateSource: app_reported`,
+      `stateFreshnessMs: ${ageMs ?? 'unknown'}`,
+      `confidence: ${confidence}`,
+      `lastSuccessfulSyncAt: ${config.stateUpdatedAt?.toISOString() ?? 'never'}`,
+      `[/STATE_METADATA]`,
+    ].join('\n')
+
+    if (confidence === 'fresh') {
+      appParts.push(`Current state: ${stateJson}.`)
+      appParts.push(freshnessBlock)
+      appParts.push('This state is fresh. Reference it confidently when the student asks about the app. If the state includes a FEN string, analyze the chess position.')
+    } else if (confidence === 'stale') {
+      const ageSec = Math.round((ageMs ?? 0) / 1000)
+      const ageLabel = ageSec >= 60 ? `${Math.max(1, Math.round(ageSec / 60))} minutes` : `${ageSec} seconds`
+      appParts.push(`Last known state (${ageLabel} ago): ${stateJson}.`)
+      appParts.push(freshnessBlock)
+      appParts.push('This state may be outdated. Hedge your response: "Based on the last position I saw..." or "The board may have changed since..." If the state includes a FEN string, analyze the chess position but note it may not reflect the current board.')
+    }
+
+    parts.push(appParts.join('\n'))
   } else if (config.activeAppName && !config.activeAppState) {
-    parts.push(`App ${config.activeAppName} is active but has not reported state yet. It may still be loading or encountered an error.`)
+    // Missing state — app active but no state reported
+    const freshnessBlock = [
+      `[STATE_METADATA]`,
+      `stateSource: not_received`,
+      `stateFreshnessMs: unknown`,
+      `confidence: missing`,
+      `lastSuccessfulSyncAt: never`,
+      `[/STATE_METADATA]`,
+    ].join('\n')
+    parts.push(
+      `App ${config.activeAppName} is active but has not reported state yet.`,
+    )
+    parts.push(freshnessBlock)
+    parts.push(
+      `You cannot see the app's current state. If the student asks about it, say: "I can't see the board right now. Can you describe what you see?" Do not guess or fabricate state.`,
+    )
   } else if (config.activeAppStatus === 'suspended' && config.activeAppName) {
     parts.push(`App ${config.activeAppName} was previously active but is now paused. Do not reference its last state as current.`)
   }

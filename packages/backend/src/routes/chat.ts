@@ -234,11 +234,8 @@ export async function chatRoutes(server: FastifyInstance) {
       // Generate AI response
       const result = await generateResponse(aiContext, systemPrompt)
 
-      // Collect full response
-      let fullText = ''
-      for await (const chunk of result.textStream) {
-        fullText += chunk
-      }
+      // Collect full response — use result.text which properly propagates stream errors
+      let fullText = await result.text
 
       // Apply output guardrails on AI response
       const guardrailResult = applyOutputGuardrails(fullText, {

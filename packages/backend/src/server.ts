@@ -6,7 +6,7 @@ import websocket from '@fastify/websocket'
 import Fastify from 'fastify'
 import Redis from 'ioredis'
 import { validateEnv } from './lib/env.js'
-import { prisma, setTenantContext } from './middleware/rls.js'
+import { prisma, ownerPrisma, setTenantContext } from './middleware/rls.js'
 import { flushTraces, initLangfuse, shutdownLangfuse } from './observability/langfuse.js'
 import { adminRoutes } from './routes/admin.js'
 import { aiProxyRoutes } from './routes/ai-proxy.js'
@@ -183,7 +183,7 @@ export async function registerBuiltInApps() {
 
   const CHESS_DATA = {
     id: CHESS_APP_ID,
-    name: 'Chess Tutor',
+    name: 'Chess',
     description: 'Interactive chess learning app with AI opponent and move analysis',
     toolDefinitions: CHESS_TOOLS,
     uiManifest: { url: '/api/v1/apps/chess/ui/', width: 600, height: 600, sandboxAttrs: ['allow-scripts'] },
@@ -193,7 +193,17 @@ export async function registerBuiltInApps() {
     reviewStatus: 'approved' as const,
   }
 
-  await prisma.app.upsert({
+  // Update ALL existing "Chess" apps (by name) so legacy apps with different IDs are also patched
+  await ownerPrisma.app.updateMany({
+    where: { name: 'Chess' },
+    data: {
+      toolDefinitions: CHESS_DATA.toolDefinitions,
+      reviewStatus: CHESS_DATA.reviewStatus,
+    },
+  })
+
+  // Upsert canonical chess app by its fixed ID
+  await ownerPrisma.app.upsert({
     where: { id: CHESS_APP_ID },
     create: CHESS_DATA,
     update: {
@@ -247,4 +257,7 @@ async function start() {
   }
 }
 
-start()
+// Only run when executed directly (not when imported as a module in tests)
+if (process.env.NODE_ENV !== 'test') {
+  start()
+}

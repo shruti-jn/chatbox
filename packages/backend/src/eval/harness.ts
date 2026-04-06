@@ -151,7 +151,7 @@ function scoreChatQualityScenario(scenario: GoldenScenario, mode: 'stub' | 'live
     return { score: 0.85, details: `Grade adaptation context present (${ctx.gradeBand})` }
   }
   if (ctx.aiMode === 'socratic' || ctx.whisper || ctx.appTimedOut || ctx.collabSession) {
-    return { score: 0.85, details: 'Instructional or recovery context present' }
+    return { score: 0.85, details: 'Pedagogical or recovery context present' }
   }
   return {
     score: mode === 'live' ? 0.8 : 0.75,

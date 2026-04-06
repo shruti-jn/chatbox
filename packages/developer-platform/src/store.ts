@@ -606,6 +606,7 @@ export async function createDeveloperPlatformStore(filePath = DEFAULT_STORE_PATH
   let state = await loadState(filePath)
   const artifactRoot = path.join(path.dirname(filePath), 'artifacts')
   const activeScanJobs = new Map<string, Promise<void>>()
+  const runtimeEventSubscribers = new Set<(event: RegistryUpdateEvent) => void>()
 
   const persist = async () => {
     await saveState(filePath, state)
@@ -630,6 +631,20 @@ export async function createDeveloperPlatformStore(filePath = DEFAULT_STORE_PATH
   const isIncidentThresholdCandidate = (incident: RuntimeIncident) => (
     ['runtime_violation', 'unexpected_network_request'].includes(incident.eventType)
     && ['high', 'critical'].includes(incident.severity)
+  )
+  const matchesRuntimeUpdateContext = (
+    entry: RegistryUpdateEvent,
+    context: {
+      districtId?: string
+      classroomId?: string
+      pluginId?: string
+      since?: string
+    },
+  ) => (
+    (context.pluginId ? entry.pluginId === context.pluginId : true)
+    && (context.districtId ? !entry.districtId || entry.districtId === context.districtId : true)
+    && (context.classroomId ? !entry.classroomId || entry.classroomId === context.classroomId : true)
+    && (context.since ? entry.effectiveAt >= context.since : true)
   )
 
   const recordRuntimeEvent = async (
@@ -671,6 +686,9 @@ export async function createDeveloperPlatformStore(filePath = DEFAULT_STORE_PATH
       runtimeControlAudit: [...state.runtimeControlAudit, auditEntry],
     }
     await persist()
+    for (const subscriber of runtimeEventSubscribers) {
+      subscriber(event)
+    }
     return event
   }
   const resolveActivePublishedVersion = (pluginId: string) => state.versions
@@ -1417,6 +1435,7 @@ export async function createDeveloperPlatformStore(filePath = DEFAULT_STORE_PATH
     async getRegistryApp(pluginSlug: string): Promise<RegistryApp | null> {
       const plugin = findPluginBySlug(pluginSlug)
       if (!plugin) return null
+      if (plugin.status === 'suspended') return null
 
       const publishedVersion = resolveActivePublishedVersion(plugin.id)
       if (!publishedVersion) return null
@@ -1771,11 +1790,29 @@ export async function createDeveloperPlatformStore(filePath = DEFAULT_STORE_PATH
       since?: string
     } = {}) {
       return state.runtimeEvents
-        .filter((entry) => (context.pluginId ? entry.pluginId === context.pluginId : true))
-        .filter((entry) => (context.districtId ? !entry.districtId || entry.districtId === context.districtId : true))
-        .filter((entry) => (context.classroomId ? !entry.classroomId || entry.classroomId === context.classroomId : true))
-        .filter((entry) => (context.since ? entry.effectiveAt >= context.since : true))
+        .filter((entry) => matchesRuntimeUpdateContext(entry, context))
         .sort((a, b) => a.effectiveAt.localeCompare(b.effectiveAt))
+    },
+
+    subscribeRegistryUpdates(
+      context: {
+        districtId?: string
+        classroomId?: string
+        pluginId?: string
+        since?: string
+      } = {},
+      listener: (event: RegistryUpdateEvent) => void,
+    ) {
+      const subscriber = (event: RegistryUpdateEvent) => {
+        if (matchesRuntimeUpdateContext(event, context)) {
+          listener(event)
+        }
+      }
+
+      runtimeEventSubscribers.add(subscriber)
+      return () => {
+        runtimeEventSubscribers.delete(subscriber)
+      }
     },
   }
 

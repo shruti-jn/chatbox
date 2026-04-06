@@ -5,7 +5,25 @@
  * These are the scenarios that will be graded.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+
+vi.mock('../src/ai/service.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/ai/service.js')>('../src/ai/service.js')
+  return {
+    ...actual,
+    generateResponse: vi.fn().mockImplementation((ctx: { latestStudentMessage?: string | null }) => {
+      const msg = (ctx.latestStudentMessage ?? '').toLowerCase()
+      let text = 'I can help you with that!'
+      if (msg.includes('+') || (msg.includes('3') && msg.includes('7'))) {
+        text = '3 + 7 = 10. Adding those two numbers gives you ten.'
+      } else if (msg.includes('dinosaur')) {
+        text = 'Dinosaurs were prehistoric reptiles that went extinct about 66 million years ago. Fascinating fossils are still being discovered!'
+      }
+      return Promise.resolve({ text: Promise.resolve(text) })
+    }),
+  }
+})
+
 import { buildServer } from '../src/server.js'
 import { signJWT } from '../src/middleware/auth.js'
 import { prisma, ownerPrisma } from '../src/middleware/rls.js'

@@ -330,7 +330,7 @@ export async function websocketRoutes(server: FastifyInstance) {
 }
 
 // Broadcast to Mission Control connections for a classroom/district
-function broadcastToMissionControl(districtId: string, data: Record<string, unknown>) {
+export function broadcastToMissionControl(districtId: string, data: Record<string, unknown>) {
   const msg = JSON.stringify(data)
   for (const [, sockets] of missionControlConnections) {
     for (const socket of sockets) {
