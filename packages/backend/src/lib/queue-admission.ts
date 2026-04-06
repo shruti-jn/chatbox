@@ -16,8 +16,8 @@ const prisma = new PrismaClient({
   datasources: { db: { url: process.env.DATABASE_URL } },
 })
 
-const P2_SHED_THRESHOLD = parseInt(process.env.QUEUE_P2_SHED_THRESHOLD ?? '100', 10)
-const ALL_SHED_THRESHOLD = parseInt(process.env.QUEUE_ALL_SHED_THRESHOLD ?? '500', 10)
+function getP2ShedThreshold() { return parseInt(process.env.QUEUE_P2_SHED_THRESHOLD ?? '100', 10) }
+function getAllShedThreshold() { return parseInt(process.env.QUEUE_ALL_SHED_THRESHOLD ?? '500', 10) }
 
 export interface AdmissionResult {
   admitted: boolean
@@ -34,8 +34,11 @@ export async function checkAdmission(priority: number): Promise<AdmissionResult>
     where: { status: { in: ['queued', 'running'] } },
   })
 
+  const p2Threshold = getP2ShedThreshold()
+  const allThreshold = getAllShedThreshold()
+
   // Under threshold: admit all
-  if (queueDepth < P2_SHED_THRESHOLD) {
+  if (queueDepth < p2Threshold) {
     return { admitted: true, queueDepth }
   }
 
@@ -45,7 +48,7 @@ export async function checkAdmission(priority: number): Promise<AdmissionResult>
   }
 
   // 100-500: shed P2 only
-  if (queueDepth < ALL_SHED_THRESHOLD && priority <= 1) {
+  if (queueDepth < allThreshold && priority <= 1) {
     return { admitted: true, queueDepth }
   }
 
@@ -53,7 +56,7 @@ export async function checkAdmission(priority: number): Promise<AdmissionResult>
   const retryAfterSeconds = 3 + Math.random() * 7 // 3-10s with jitter
   return {
     admitted: false,
-    reason: queueDepth >= ALL_SHED_THRESHOLD
+    reason: queueDepth >= allThreshold
       ? 'queue_overloaded'
       : 'queue_saturated_low_priority',
     retryAfterSeconds: Math.round(retryAfterSeconds * 10) / 10,
@@ -110,7 +113,7 @@ export async function getQueueStats() {
     completed,
     failed,
     timedOut,
-    p2ShedThreshold: P2_SHED_THRESHOLD,
-    allShedThreshold: ALL_SHED_THRESHOLD,
+    p2ShedThreshold: getP2ShedThreshold(),
+    allShedThreshold: getAllShedThreshold(),
   }
 }

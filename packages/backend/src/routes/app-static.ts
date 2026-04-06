@@ -18,13 +18,24 @@ const CONTENT_TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
 }
 
+function getAllowedFrameAncestors() {
+  const configuredOrigins = (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => /^https?:\/\//.test(origin))
+
+  return [`'self'`, ...new Set(configuredOrigins)].join(' ')
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applySecurityHeaders(reply: any, ext: string) {
   reply.header('X-Content-Type-Options', 'nosniff')
 
   if (ext === '.html' || ext === '') {
-    reply.header('Content-Security-Policy', "default-src 'self'; frame-ancestors 'self'")
-    reply.header('X-Frame-Options', 'SAMEORIGIN')
+    reply.header(
+      'Content-Security-Policy',
+      `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors ${getAllowedFrameAncestors()}`,
+    )
     reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
   } else if (ext === '.js') {
     reply.header('Content-Security-Policy', "script-src 'self'")

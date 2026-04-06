@@ -24,7 +24,9 @@ export async function consentRoutes(server: FastifyInstance) {
     const parentEmailHash = crypto.createHash('sha256').update(parentEmail.toLowerCase()).digest('hex')
     const token = crypto.randomUUID()
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000)
-    const baseUrl = process.env.BASE_URL ?? 'http://localhost:3001'
+    const proto = (request.headers['x-forwarded-proto'] as string)?.split(',')[0]?.trim() ?? request.protocol
+    const host = String(request.headers.host ?? 'localhost:3001')
+    const baseUrl = process.env.BASE_URL ?? `${proto}://${host}`
     const verifyUrl = `${baseUrl}/api/v1/consent/verify?token=${token}`
 
     await withTenantContext(user.districtId, async (tx) => {

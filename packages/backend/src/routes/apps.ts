@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import type { FastifyInstance } from 'fastify'
 import { authenticate, requireRole, getUser } from '../middleware/auth.js'
 import { requireCoppaConsent } from '../middleware/coppa.js'
@@ -264,6 +265,32 @@ export async function appRoutes(server: FastifyInstance) {
 
       // Record successful invocation in health monitor
       await recordSuccess(appId, Date.now() - start)
+
+      // Create durable AppInvocationJob for async tracking and resume support
+      if (conversationId) {
+        const requestKey = (request.headers['x-request-key'] as string | undefined) ?? randomUUID()
+        await withTenantContext(user.districtId, async (tx) => {
+          await tx.appInvocationJob.create({
+            data: {
+              districtId: user.districtId,
+              conversationId,
+              instanceId: instance?.id ?? null,
+              requestKey,
+              toolName,
+              parameters: parameters as any,
+              status: 'completed',
+              startedAt: new Date(start),
+              completedAt: new Date(),
+              deadlineAt: new Date(start + 15_000),
+              resumeToken: randomUUID(),
+              result: result as any,
+              attemptCount: 1,
+            },
+          }).catch(() => {
+            // Silently skip if requestKey already exists (idempotent duplicate)
+          })
+        })
+      }
 
       return {
         toolName,

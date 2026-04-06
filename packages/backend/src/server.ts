@@ -4,6 +4,8 @@ import swagger from '@fastify/swagger'
 import swaggerUI from '@fastify/swagger-ui'
 import websocket from '@fastify/websocket'
 import Fastify from 'fastify'
+import fs from 'fs'
+import path from 'path'
 import Redis from 'ioredis'
 import { validateEnv } from './lib/env.js'
 import { prisma, ownerPrisma, setTenantContext } from './middleware/rls.js'
@@ -115,6 +117,25 @@ export async function buildServer() {
   await server.register(aiProxyRoutes, { prefix: '/api/v1' })
   await server.register(chatbridgeCompletionsRoutes, { prefix: '/api/v1' })
   await server.register(appStaticRoutes, { prefix: '/api/v1' })
+
+  // Serve frontend SPA if FRONTEND_DIST_PATH is set (production deployment)
+  const frontendDist = process.env.FRONTEND_DIST_PATH
+  if (frontendDist && fs.existsSync(frontendDist)) {
+    await server.register((await import('@fastify/static')).default, {
+      root: path.resolve(frontendDist),
+      prefix: '/',
+      decorateReply: false,
+    })
+    const indexHtml = fs.readFileSync(path.join(path.resolve(frontendDist), 'index.html'), 'utf8')
+    server.setNotFoundHandler((_request, reply) => {
+      const url = (_request as any).url ?? ''
+      if (url.startsWith('/api/') || url.startsWith('/ws/') || url.startsWith('/docs')) {
+        return reply.status(404).send({ error: 'Not found' })
+      }
+      return reply.type('text/html').send(indexHtml)
+    })
+    server.log.info(`Frontend SPA served from ${frontendDist}`)
+  }
 
   // RLS middleware: SET LOCAL app.tenant_id for authenticated requests
   // This ensures every DB query is scoped to the correct tenant (FERPA compliance).
@@ -235,8 +256,12 @@ async function start() {
     await server.listen({ port, host })
 
     // A6: Register built-in apps at startup (not just via seed)
-    await registerBuiltInApps()
-    server.log.info('Built-in apps registered')
+    try {
+      await registerBuiltInApps()
+      server.log.info('Built-in apps registered')
+    } catch (err) {
+      server.log.warn({ err: (err as Error).message }, 'Built-in app registration failed — server continues with degraded app support')
+    }
 
     server.log.info(`ChatBridge v2 API running on ${host}:${port}`)
     server.log.info(`Swagger UI: http://localhost:${port}/docs`)

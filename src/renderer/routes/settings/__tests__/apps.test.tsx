@@ -3,7 +3,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { RouteComponent } from './apps'
+import { RouteComponent } from '../apps'
 
 type FetchResponseInit = {
   ok?: boolean

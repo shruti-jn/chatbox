@@ -65,6 +65,23 @@ let onStateUpdate: StateUpdateHandler | null = null
 let onCompletion: CompletionHandler | null = null
 let listenerInitialized = false
 
+// Per-instance callback maps (used by AppCardPartUI components)
+const instanceStateHandlers = new Map<string, StateUpdateHandler>()
+const instanceCompletionHandlers = new Map<string, CompletionHandler>()
+
+export function registerInstanceHandlers(
+  instanceId: string,
+  handlers: { onStateUpdate?: StateUpdateHandler; onCompletion?: CompletionHandler },
+) {
+  if (handlers.onStateUpdate) instanceStateHandlers.set(instanceId, handlers.onStateUpdate)
+  if (handlers.onCompletion) instanceCompletionHandlers.set(instanceId, handlers.onCompletion)
+}
+
+export function unregisterInstanceHandlers(instanceId: string) {
+  instanceStateHandlers.delete(instanceId)
+  instanceCompletionHandlers.delete(instanceId)
+}
+
 export function setStateUpdateHandler(handler: StateUpdateHandler) {
   onStateUpdate = handler
 }
@@ -111,11 +128,13 @@ function handleCBPMessage(msg: CBPMessage) {
     const params = msg.params as { instance_id: string; state: Record<string, unknown> }
     if (!params?.instance_id || !params?.state) return
 
-    // Check for completion signal
+    // Check for completion signal — prefer per-instance handlers, fall back to global
     if (params.state.completed) {
-      onCompletion?.(params.instance_id, params.state)
+      const handler = instanceCompletionHandlers.get(params.instance_id) ?? onCompletion
+      handler?.(params.instance_id, params.state)
     } else {
-      onStateUpdate?.(params.instance_id, params.state)
+      const handler = instanceStateHandlers.get(params.instance_id) ?? onStateUpdate
+      handler?.(params.instance_id, params.state)
     }
 
     // Forward to backend via WS

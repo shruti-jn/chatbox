@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+!release/app/dist/renderer
+**/.git
+.claude
+src/main
+src/renderer
+test-results
+.env
+.env.*
+*.log

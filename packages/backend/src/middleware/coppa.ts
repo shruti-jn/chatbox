@@ -36,7 +36,9 @@ export async function requireCoppaConsent(request: FastifyRequest, reply: Fastif
   })
 
   if (!consent || consent.consentStatus !== 'granted') {
-    const baseUrl = process.env.BASE_URL ?? 'http://localhost:3001'
+    const proto = (request.headers['x-forwarded-proto'] as string)?.split(',')[0]?.trim() ?? request.protocol
+    const host = String(request.headers.host ?? 'localhost:3001')
+    const baseUrl = process.env.BASE_URL ?? `${proto}://${host}`
     return reply.status(403).send({
       error: 'parental_consent_required',
       message: 'Parental consent required for students under 13',

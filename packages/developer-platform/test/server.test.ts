@@ -1469,7 +1469,14 @@ describe('developer platform HTTP API', () => {
       method: 'GET',
       url: '/api/v1/registry/policies/runtime-monitor-lab',
     })
-    expect(policyResponse.statusCode).toBe(404)
+    expect(policyResponse.statusCode).toBe(200)
+    expect(policyResponse.json()).toEqual(
+      expect.objectContaining({
+        pluginId: 'runtime-monitor-lab',
+        status: 'suspended',
+        killSwitchActive: true,
+      }),
+    )
 
     const auditResponse = await server.inject({
       method: 'GET',

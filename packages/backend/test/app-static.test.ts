@@ -10,6 +10,7 @@ describe('app static hosting policy', () => {
   let tempDir: string
 
   beforeAll(async () => {
+    process.env.CORS_ORIGINS = 'http://localhost:1212,http://localhost:3000'
     tempDir = await mkdtemp(path.join(os.tmpdir(), 'app-static-'))
 
     const chessDist = path.join(tempDir, 'apps-chess', 'dist')
@@ -35,8 +36,12 @@ describe('app static hosting policy', () => {
 
     expect(response.statusCode).toBe(200)
     expect(response.headers['content-security-policy']).toContain("default-src 'self'")
+    expect(response.headers['content-security-policy']).toContain("script-src 'self'")
+    expect(response.headers['content-security-policy']).toContain("style-src 'self' 'unsafe-inline'")
     expect(response.headers['content-security-policy']).toContain("frame-ancestors 'self'")
-    expect(response.headers['x-frame-options']).toBe('SAMEORIGIN')
+    expect(response.headers['content-security-policy']).toContain('http://localhost:1212')
+    expect(response.headers['content-security-policy']).toContain('http://localhost:3000')
+    expect(response.headers['x-frame-options']).toBeUndefined()
     expect(response.headers['x-content-type-options']).toBe('nosniff')
     expect(response.headers['permissions-policy']).toBe('camera=(), microphone=(), geolocation=()')
   })

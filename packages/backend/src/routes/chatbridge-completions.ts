@@ -40,7 +40,6 @@ const anthropic = createAnthropic({
 // (which would falsely trigger the prompt-registry lint rule)
 const SAFETY_CONFIG_KEY = ('safety' + 'Instructions') as 'safetyInstructions'
 
-const DEFAULT_DISTRICT_ID = '00000000-0000-4000-a000-000000000001'
 const BUILT_IN_APP_IDS = [
   '00000000-0000-4000-e000-000000000001',
   '00000000-0000-4000-e000-000000000002',
@@ -57,6 +56,15 @@ export async function listFallbackApps() {
   })
 
   return apps.map(app => ({ appId: app.id, app: app as any }))
+}
+
+function getRequestBaseUrl(request: { protocol: string; headers: Record<string, unknown> }) {
+  const forwardedProto = request.headers['x-forwarded-proto']
+  const proto = typeof forwardedProto === 'string'
+    ? forwardedProto.split(',')[0]?.trim()
+    : request.protocol
+  const host = String(request.headers.host ?? 'localhost:3001')
+  return `${proto}://${host}`
 }
 
 export async function ensureConversationForSession(
@@ -282,9 +290,7 @@ async function executeChatbridgeTool(
 
 export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
   server.post('/chatbridge/completions', {
-    // TODO: Add proper auth for ChatBridge native endpoint
-    // Currently no auth — the Chatbox frontend can't provide JWT
-    // preHandler: [authenticate, requireCoppaConsent],
+    preHandler: [authenticate, requireCoppaConsent],
     schema: {
       body: {
         type: 'object',
@@ -309,14 +315,8 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
       conversationId: string
       messages: Array<{ role: string; content: string }>
     }
-    // Try to get authenticated user; fall back to default for development
-    let user: { userId: string; districtId: string; role: string }
-    try {
-      user = getUser(request)
-    } catch {
-      // No auth — use default district for development
-      user = { userId: 'anonymous', districtId: DEFAULT_DISTRICT_ID, role: 'student' }
-    }
+    const user = getUser(request)
+    const requestBaseUrl = getRequestBaseUrl(request)
 
     const trace = createTrace('chatbridge_native_completion', {
       userId: user.userId,
@@ -580,7 +580,7 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
 
         // Emit app card event (loading state) before closing SSE
         if (meta) {
-          const url = meta.uiManifestUrl.startsWith('http') ? meta.uiManifestUrl : `http://localhost:3001${meta.uiManifestUrl}`
+          const url = meta.uiManifestUrl.startsWith('http') ? meta.uiManifestUrl : `${requestBaseUrl}${meta.uiManifestUrl}`
           reply.raw.write(`event: chatbridge_app_card\ndata: ${JSON.stringify({
             appId: meta.appId,
             appName: meta.appName,
@@ -654,6 +654,7 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
                   completedAt: new Date(),
                   result: {
                     ...executed.result,
+                    _instanceId: executed.instanceId ?? null,
                     _assistantContent: firstResult.content,
                     _toolUseId: toolUse.id,
                   } as any,
@@ -685,6 +686,7 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
                   result: {
                     error: true,
                     message: toolErr instanceof Error ? toolErr.message : 'Unknown error',
+                    _instanceId: null,
                     _assistantContent: firstResult.content,
                     _toolUseId: toolUse.id,
                   } as any,
@@ -909,6 +911,7 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
     })
 
     const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
+    let resumedText = ''
 
     // C-2/C-3 fix: Include the real assistant tool_use turn before the tool_result
     const resumeMessages: any[] = [...recentMessages]
@@ -946,9 +949,54 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        reply.raw.write(decoder.decode(value, { stream: true }))
+        const chunk = decoder.decode(value, { stream: true })
+        reply.raw.write(chunk)
+
+        const lines = chunk.split('\n')
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const data = JSON.parse(line.slice(6))
+            if (data.delta?.type === 'text_delta' && typeof data.delta.text === 'string') {
+              resumedText += data.delta.text
+            }
+          } catch {
+            // Ignore non-JSON SSE lines
+          }
+        }
       }
     }
+
+    const guardrailResult = applyOutputGuardrails(resumedText, {
+      mode: ctx.aiConfig.mode,
+      subject: ctx.aiConfig.subject,
+    })
+
+    const contentParts: any[] = [{ type: 'text', text: guardrailResult.text }]
+    if (activeApp?.status === 'active') {
+      contentParts.push({
+        type: 'app-card',
+        appId: activeApp.appId,
+        appName: activeApp.app.name,
+        instanceId: activeApp.id,
+        status: 'active',
+        url: activeApp.app.uiManifest?.url ?? undefined,
+        height: activeApp.app.uiManifest?.height ?? undefined,
+        ...(activeApp.app.uiManifest?.displayMode === 'panel' ? { displayMode: 'panel' as const } : {}),
+        stateSnapshot: activeApp.stateSnapshot ?? undefined,
+      })
+    }
+
+    await withTenantContext(user.districtId, async (tx) => {
+      await tx.message.create({
+        data: {
+          conversationId: job.conversationId,
+          districtId: user.districtId,
+          authorRole: 'assistant',
+          contentParts,
+        },
+      })
+    })
 
     reply.raw.end()
   })

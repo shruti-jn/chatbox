@@ -62,6 +62,16 @@ function createSseResponse(chunks: string[]) {
   }
 }
 
+function createJsonResponse(body: Record<string, unknown>, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    body: null,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  }
+}
+
 describe('ChatBridgeModel', () => {
   const mockFetch = vi.fn()
 
@@ -123,5 +133,53 @@ describe('ChatBridgeModel', () => {
         status: 'active',
       },
     ])
+  })
+
+  it('resumes async tool execution after tool_pending and appends the follow-up text', async () => {
+    const model = createModel()
+    mockFetch
+      .mockResolvedValueOnce(createSseResponse([
+        'event: chatbridge_app_card\ndata: {"appId":"550e8400-e29b-41d4-a716-446655440000","appName":"Chess","instanceId":null,"url":"/api/v1/apps/chess/ui/","height":500,"status":"loading","jobId":"job-123"}\n\n',
+        'event: tool_pending\ndata: {"jobId":"job-123","resumeToken":"resume-123","toolName":"chess__start_game","appName":"Chess"}\n\n',
+      ]))
+      .mockResolvedValueOnce(createJsonResponse({
+        jobId: 'job-123',
+        status: 'completed',
+        resumeToken: 'resume-123',
+        result: {
+          _instanceId: '550e8400-e29b-41d4-a716-446655440001',
+          fen: 'start-fen',
+          status: 'new_game',
+        },
+      }))
+      .mockResolvedValueOnce(createSseResponse([
+        'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Let\\u2019s begin with e4."}}\n\n',
+        'event: message_stop\ndata: {"type":"message_stop","finishReason":"stop"}\n\n',
+      ]))
+
+    const result = await model.chat([{ role: 'user', content: 'Start chess' }], {
+      sessionId: 'conv-async',
+    })
+
+    expect(mockFetch).toHaveBeenCalledTimes(3)
+    expect(mockFetch.mock.calls[1]?.[0]).toBe('http://localhost:3001/api/v1/chatbridge/jobs/job-123')
+    expect(mockFetch.mock.calls[2]?.[0]).toBe('http://localhost:3001/api/v1/chatbridge/completions/resume')
+    expect(result.contentParts[0]).toMatchObject({
+      type: 'app-card',
+      appId: '550e8400-e29b-41d4-a716-446655440000',
+      appName: 'Chess',
+      instanceId: '550e8400-e29b-41d4-a716-446655440001',
+      url: 'http://localhost:3001/api/v1/apps/chess/ui/',
+      height: 500,
+      status: 'active',
+      jobId: 'job-123',
+      jobStatus: 'completed',
+      stateSnapshot: {
+        _instanceId: '550e8400-e29b-41d4-a716-446655440001',
+        fen: 'start-fen',
+        status: 'new_game',
+      },
+    })
+    expect(result.contentParts[1]).toEqual({ type: 'text', text: 'Let’s begin with e4.' })
   })
 })

@@ -20,6 +20,7 @@
     "@fastify/cookie": "11.0.2",
     "@fastify/cors": "10.0.2",
     "@fastify/rate-limit": "10.2.1",
+    "@fastify/static": "^9.0.0",
     "@fastify/swagger": "9.4.2",
     "@fastify/swagger-ui": "5.2.1",
     "@fastify/websocket": "11.0.1",
@@ -32,6 +33,7 @@
     "jsonwebtoken": "9.0.2",
     "langfuse": "3.35.1",
     "pino": "9.6.0",
+    "tsx": "4.19.4",
     "zod": "^4.0.0"
   },
   "prisma": {
@@ -41,7 +43,6 @@
     "@playwright/test": "^1.58.2",
     "@types/jsonwebtoken": "9.0.9",
     "prisma": "6.3.1",
-    "tsx": "4.19.4",
     "typescript": "5.7.3",
     "vitest": "3.1.1"
   }

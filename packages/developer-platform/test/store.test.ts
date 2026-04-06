@@ -891,6 +891,9 @@ describe('developerPlatformStore', () => {
     await store.suspendPlugin('kill-switch-lab', { actor: 'ops-admin', reason: 'kill switch test' })
 
     expect(await store.getRegistryApp('kill-switch-lab')).toBeNull()
+    expect(await store.getRegistryApp('kill-switch-lab', { includeSuspended: true })).toEqual(
+      expect.objectContaining({ pluginId: 'kill-switch-lab', status: 'suspended' }),
+    )
     expect(await store.getRegistryVersion('kill-switch-lab')).toBeNull()
   })
 

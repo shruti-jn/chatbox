@@ -200,7 +200,7 @@ describe('developer-platform admin auth and registry hardening', () => {
     expect(response.json()).toEqual({ error: 'admin_auth_invalid' })
   })
 
-  it('keeps suspended plugins out of direct runtime version resolution', async () => {
+  it('keeps suspended plugins out of runtime version resolution while preserving policy visibility', async () => {
     await seedPublishedPlugin(server, 'suspend-lab')
 
     const suspendResponse = await inject(server, {
@@ -216,13 +216,32 @@ describe('developer-platform admin auth and registry hardening', () => {
       method: 'GET',
       url: '/api/v1/registry/apps/suspend-lab',
     })
-    expect(directAppResponse.statusCode).toBe(404)
+    expect(directAppResponse.statusCode).toBe(200)
+    expect(directAppResponse.json()).toEqual(
+      expect.objectContaining({
+        pluginId: 'suspend-lab',
+        status: 'suspended',
+      }),
+    )
 
     const directVersionResponse = await inject(server, {
       method: 'GET',
       url: '/api/v1/registry/apps/suspend-lab/version',
     })
     expect(directVersionResponse.statusCode).toBe(404)
+
+    const policyResponse = await inject(server, {
+      method: 'GET',
+      url: '/api/v1/registry/policies/suspend-lab',
+    })
+    expect(policyResponse.statusCode).toBe(200)
+    expect(policyResponse.json()).toEqual(
+      expect.objectContaining({
+        pluginId: 'suspend-lab',
+        status: 'suspended',
+        killSwitchActive: true,
+      }),
+    )
   })
 
   it('parses boolean registry query parameters without relying on unsafe casts', async () => {

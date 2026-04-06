@@ -188,3 +188,6 @@ storybook-static
 .gstack/
 .worktrees/
 .claude/worktrees/
+output/**
+packages/backend/output/**
+packages/backend/tmp-*

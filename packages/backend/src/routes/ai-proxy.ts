@@ -20,6 +20,15 @@ import { prisma } from '../middleware/rls.js'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com'
 
+function getRequestBaseUrl(request: { protocol: string; headers: Record<string, unknown> }) {
+  const forwardedProto = request.headers['x-forwarded-proto']
+  const proto = typeof forwardedProto === 'string'
+    ? forwardedProto.split(',')[0]?.trim()
+    : request.protocol
+  const host = String(request.headers.host ?? 'localhost:3001')
+  return `${proto}://${host}`
+}
+
 /**
  * Send a safety-blocked/crisis response in the correct format.
  * If the client requested streaming (stream: true), returns SSE events.
@@ -76,6 +85,7 @@ function sendSafetyResponse(
 export async function aiProxyRoutes(server: FastifyInstance) {
   // Proxy all requests under /ai/proxy/* to Anthropic with safety interception
   server.all('/ai/proxy/*', async (request, reply) => {
+    const requestBaseUrl = getRequestBaseUrl(request)
     const path = (request.params as Record<string, string>)['*']
     // If path doesn't start with v1/, prepend it (Anthropic SDK sends /messages, we need /v1/messages)
     const normalizedPath = path.startsWith('v1/') ? path : `v1/${path}`
@@ -271,7 +281,7 @@ export async function aiProxyRoutes(server: FastifyInstance) {
                   _cbDirective: toolResult.__cbApp
                     ? (() => {
                         const url = toolResult.__cbApp.url as string
-                        const fullUrl = url.startsWith('http') ? url : `http://localhost:3001${url}`
+                        const fullUrl = url.startsWith('http') ? url : `${requestBaseUrl}${url}`
                         return `The app is now open. Include this exact markdown link in your response so the student can see it: [Open ${toolResult.__cbApp.appName}](${fullUrl})`
                       })()
                     : undefined,
@@ -321,7 +331,7 @@ export async function aiProxyRoutes(server: FastifyInstance) {
             // an inline iframe. The marker is always present when a tool executed.
             if (toolResult.__cbApp) {
               const cb = toolResult.__cbApp as Record<string, unknown>
-              const url = (cb.url as string)?.startsWith('http') ? cb.url : `http://localhost:3001${cb.url}`
+              const url = (cb.url as string)?.startsWith('http') ? cb.url : `${requestBaseUrl}${cb.url}`
               const marker = `\n\n[Open ${cb.appName}](${url})`
 
               // Emit as a new content block in Anthropic SSE format

@@ -1,7 +1,20 @@
-import { describe, expect, it } from 'vitest'
-import { processAppCards } from './app-card-processor'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { settingsStore } from '../settingsStore'
+import { processAppCards, resolveChatBridgeUrl } from './app-card-processor'
 
 describe('processAppCards', () => {
+  beforeEach(() => {
+    settingsStore.setState((state) => {
+      state.providers = {
+        ...state.providers,
+        chatbridge: {
+          ...state.providers?.chatbridge,
+          apiHost: 'http://localhost:3005',
+        },
+      }
+    })
+  })
+
   it('converts a persisted chess markdown link into an app-card part', () => {
     const result = processAppCards([
       {
@@ -51,6 +64,37 @@ describe('processAppCards', () => {
       url: 'http://127.0.0.1:3001/api/v1/apps/chess/ui/',
       status: 'loading',
       height: 500,
+    })
+  })
+
+  it('resolves relative app URLs against the configured ChatBridge API host', () => {
+    expect(resolveChatBridgeUrl('/api/v1/apps/chess/ui/')).toBe('http://localhost:3005/api/v1/apps/chess/ui/')
+  })
+
+  it('uses the configured ChatBridge API host for __cbApp relative URLs', () => {
+    const result = processAppCards([
+      {
+        type: 'tool-call',
+        state: 'result',
+        toolCallId: 'tool-2',
+        toolName: 'start_chess',
+        args: {},
+        result: {
+          __cbApp: {
+            appId: '11111111-1111-4111-8111-111111111111',
+            appName: 'Chess',
+            instanceId: '22222222-2222-4222-8222-222222222222',
+            url: '/api/v1/apps/chess/ui/',
+            height: 500,
+          },
+        },
+      },
+    ])
+
+    expect(result[1]).toMatchObject({
+      type: 'app-card',
+      url: 'http://localhost:3005/api/v1/apps/chess/ui/',
+      status: 'loading',
     })
   })
 })

@@ -214,6 +214,8 @@ describe('analyzeTokenRequirements', () => {
     })
 
     it('creates task for attachment without cache', () => {
+      // Current-input attachments skip task creation (return cached/0 inline),
+      // so use contextMessages to test uncached attachment task creation.
       const file = createFile({ id: 'file-no-cache' })
       const message = createMessage({
         id: 'msg-with-file',
@@ -223,13 +225,13 @@ describe('analyzeTokenRequirements', () => {
       })
 
       const result = analyzeTokenRequirements({
-        constructedMessage: message,
-        contextMessages: [],
+        constructedMessage: undefined,
+        contextMessages: [message],
         tokenizerType: 'default',
         modelSupportToolUseForFile: false,
       })
 
-      expect(result.breakdown.currentInput.attachments).toBe(0)
+      expect(result.breakdown.context.attachments).toBe(0)
       expect(result.pendingTasks).toHaveLength(1)
       expect(result.pendingTasks[0]).toMatchObject({
         type: 'attachment',
@@ -238,7 +240,7 @@ describe('analyzeTokenRequirements', () => {
         attachmentType: 'file',
         tokenizerType: 'default',
         contentMode: 'full',
-        priority: PRIORITY.CURRENT_INPUT_ATTACHMENT,
+        priority: PRIORITY.CONTEXT_ATTACHMENT,
       })
     })
 
@@ -263,6 +265,8 @@ describe('analyzeTokenRequirements', () => {
   })
 
   describe('preview mode for large files', () => {
+    // These tests use contextMessages because current-input attachments
+    // skip task creation (return cached/0 inline).
     it('uses full mode when modelSupportToolUseForFile is false', () => {
       const file = createFile({
         id: 'large-file',
@@ -276,8 +280,8 @@ describe('analyzeTokenRequirements', () => {
       })
 
       const result = analyzeTokenRequirements({
-        constructedMessage: message,
-        contextMessages: [],
+        constructedMessage: undefined,
+        contextMessages: [message],
         tokenizerType: 'default',
         modelSupportToolUseForFile: false,
       })
@@ -300,8 +304,8 @@ describe('analyzeTokenRequirements', () => {
       })
 
       const result = analyzeTokenRequirements({
-        constructedMessage: message,
-        contextMessages: [],
+        constructedMessage: undefined,
+        contextMessages: [message],
         tokenizerType: 'default',
         modelSupportToolUseForFile: true,
       })
@@ -324,8 +328,8 @@ describe('analyzeTokenRequirements', () => {
       })
 
       const result = analyzeTokenRequirements({
-        constructedMessage: message,
-        contextMessages: [],
+        constructedMessage: undefined,
+        contextMessages: [message],
         tokenizerType: 'default',
         modelSupportToolUseForFile: true,
       })
@@ -444,23 +448,25 @@ describe('analyzeTokenRequirements', () => {
       expect(result.currentInputTokens).toBe(2)
     })
 
-    it('assigns CURRENT_INPUT_ATTACHMENT priority for current input attachments', () => {
+    it('assigns CONTEXT_ATTACHMENT priority for context attachments (most recent)', () => {
+      // Current-input attachments skip task creation (inline only),
+      // so verify attachment priority via context messages instead.
       const file = createFile()
       const message = createMessage({
-        id: 'current',
+        id: 'ctx-attach',
         files: [file],
         tokenCountMap: { default: 10 },
         tokenCalculatedAt: { default: 1000 },
       })
 
       const result = analyzeTokenRequirements({
-        constructedMessage: message,
-        contextMessages: [],
+        constructedMessage: undefined,
+        contextMessages: [message],
         tokenizerType: 'default',
         modelSupportToolUseForFile: false,
       })
 
-      expect(result.pendingTasks[0].priority).toBe(PRIORITY.CURRENT_INPUT_ATTACHMENT)
+      expect(result.pendingTasks[0].priority).toBe(PRIORITY.CONTEXT_ATTACHMENT)
     })
 
     it('assigns CONTEXT_TEXT + reversed index priority for context text (newest first)', () => {

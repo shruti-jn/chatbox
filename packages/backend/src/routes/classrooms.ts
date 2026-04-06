@@ -6,8 +6,36 @@ import { withTenantContext, prisma, ownerPrisma } from '../middleware/rls.js'
 import { AIConfigSchema } from '@chatbridge/shared'
 import { detectAndRedactPII } from '../safety/pii-detector.js'
 import crypto from 'crypto'
+import { syncDeveloperPlatformAppsForDistrict } from '../lib/developer-platform-sync.js'
 
 export async function classroomRoutes(server: FastifyInstance) {
+  // GET /classrooms — List classrooms visible to the current teacher/admin
+  server.get('/classrooms', {
+    preHandler: [authenticate, requireRole('teacher', 'district_admin')],
+    schema: {
+      security: [{ bearerAuth: [] }],
+    },
+  }, async (request) => {
+    const user = getUser(request)
+
+    const classrooms = await withTenantContext(user.districtId, async (tx) => {
+      return tx.classroom.findMany({
+        where: user.role === 'teacher'
+          ? { districtId: user.districtId, teacherId: user.userId }
+          : { districtId: user.districtId },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          joinCode: true,
+          gradeBand: true,
+        },
+      })
+    })
+
+    return { classrooms }
+  })
+
   // GET /classroom-context — Public endpoint to resolve classroom badge info from join code
   // No auth required: join codes are shared with students to enter classrooms
   server.get('/classroom-context', {
@@ -199,6 +227,11 @@ export async function classroomRoutes(server: FastifyInstance) {
     const { id } = request.params as { id: string }
     const user = getUser(request)
 
+    await syncDeveloperPlatformAppsForDistrict({
+      districtId: user.districtId,
+      logger: request.log,
+    })
+
     // Verify classroom belongs to this tenant before returning apps
     const classroom = await withTenantContext(user.districtId, async (tx) => {
       return tx.classroom.findFirst({
@@ -247,6 +280,11 @@ export async function classroomRoutes(server: FastifyInstance) {
     const { id, appId } = request.params as { id: string; appId: string }
     const { enabled } = request.body as { enabled: boolean }
     const user = getUser(request)
+
+    await syncDeveloperPlatformAppsForDistrict({
+      districtId: user.districtId,
+      logger: request.log,
+    })
 
     // F1: Use withTenantContext for RLS enforcement
     const result = await withTenantContext(user.districtId, async (tx) => {
@@ -327,6 +365,23 @@ export async function classroomRoutes(server: FastifyInstance) {
     const { joinCode } = request.params as { joinCode: string }
 
     // ownerPrisma bypasses RLS — join code lookup is cross-tenant by design
+    const classroomLookup = await ownerPrisma.classroom.findUnique({
+      where: { joinCode },
+      select: {
+        id: true,
+        districtId: true,
+      },
+    })
+
+    if (!classroomLookup) {
+      return reply.status(404).send({ error: 'Classroom not found' })
+    }
+
+    await syncDeveloperPlatformAppsForDistrict({
+      districtId: classroomLookup.districtId,
+      logger: request.log,
+    })
+
     const classroom = await ownerPrisma.classroom.findUnique({
       where: { joinCode },
       select: {
@@ -334,8 +389,9 @@ export async function classroomRoutes(server: FastifyInstance) {
         name: true,
         districtId: true,
         appConfigs: {
-          where: { enabled: true },
           select: {
+            enabled: true,
+            appId: true,
             app: {
               select: {
                 id: true,
@@ -343,6 +399,25 @@ export async function classroomRoutes(server: FastifyInstance) {
                 toolDefinitions: true,
                 uiManifest: true,
                 reviewStatus: true,
+              },
+            },
+          },
+        },
+        district: {
+          select: {
+            catalogEntries: {
+              where: { status: 'approved' },
+              select: {
+                appId: true,
+                app: {
+                  select: {
+                    id: true,
+                    name: true,
+                    toolDefinitions: true,
+                    uiManifest: true,
+                    reviewStatus: true,
+                  },
+                },
               },
             },
           },
@@ -364,8 +439,12 @@ export async function classroomRoutes(server: FastifyInstance) {
       uiManifest: { url: string | null; height: number; width?: number; displayMode: 'inline' | 'panel' }
     }> = []
 
-    for (const config of classroom.appConfigs) {
-      const app = config.app
+    const configMap = new Map(classroom.appConfigs.map((config) => [config.appId, config.enabled]))
+
+    for (const entry of classroom.district.catalogEntries) {
+      const app = entry.app
+      const appEnabled = configMap.get(entry.appId) ?? true
+      if (!appEnabled) continue
       // Only include approved apps
       if (app.reviewStatus !== 'approved') continue
 

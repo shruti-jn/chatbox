@@ -15,9 +15,11 @@ import {
   disconnectAppInstance,
   initCBPListener,
   registerAppIframe,
+  registerInstanceHandlers,
   sendCommand,
   sendLifecycleEvent,
   unregisterAppIframe,
+  unregisterInstanceHandlers,
 } from '../../packages/chatbridge/cbp-client'
 
 interface AppCardPartUIProps {
@@ -44,6 +46,16 @@ export function AppCardPartUI({ part, onStateUpdate, onCompletion, onExpand }: A
   useEffect(() => {
     initCBPListener()
   }, [])
+
+  // Register per-instance CBP handlers so iframe events reach React state
+  useEffect(() => {
+    if (!part.instanceId) return
+    registerInstanceHandlers(part.instanceId, {
+      onStateUpdate,
+      onCompletion,
+    })
+    return () => unregisterInstanceHandlers(part.instanceId)
+  }, [part.instanceId, onStateUpdate, onCompletion])
 
   useEffect(() => {
     if (!part.instanceId || !iframeRef.current || !part.url) return

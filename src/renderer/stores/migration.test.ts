@@ -22,9 +22,12 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
  *   - Mobile: Fully migrated to IndexedDB - all data in IndexedDB
  *   - Desktop: Split storage - sessions in IndexedDB, configs/settings/configVersion stay in IPC file
  *
- * v1.17.0 (config version 12-13) [CURRENT]
+ * v1.17.0 (config version 12-13)
  *   - Mobile: Migrated to SQLite for better performance - all data in SQLite
  *   - Desktop: No change from v1.16.1 - sessions in IndexedDB, configs/settings/configVersion in IPC file
+ *
+ * v1.18.0 (config version 13-14) [CURRENT]
+ *   - Image generation records migrated to standalone tool page
  *
  * Key Points:
  *   - Desktop has ALWAYS kept configVersion/settings/configs in file storage (never in IndexedDB)
@@ -319,7 +322,39 @@ vi.mock('./sessionHelpers', () => ({
 }))
 
 vi.mock('@/platform/web_platform', () => ({
-  default: vi.fn(),
+  default: class MockWebPlatform {
+    type: string = 'web'
+    // Storage backend depends on platform type: mobile uses sqliteData, web/desktop use localforageData
+    private get _store(): Record<string, string> {
+      return this.type === 'mobile' ? sqliteData : localforageData
+    }
+    async getStoreValue(key: string) {
+      const json = this._store[key]
+      return json ? JSON.parse(json) : null
+    }
+    async setStoreValue(key: string, value: unknown) {
+      this._store[key] = JSON.stringify(value)
+    }
+    async delStoreValue(key: string) {
+      delete this._store[key]
+    }
+    async getAllStoreValues() {
+      const ret: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(this._store)) {
+        try { ret[key] = JSON.parse(value) } catch { ret[key] = value }
+      }
+      return ret
+    }
+    async getAllStoreKeys() {
+      return Object.keys(this._store)
+    }
+    async setAllStoreValues(data: Record<string, unknown>) {
+      for (const [key, value] of Object.entries(data)) {
+        this._store[key] = JSON.stringify(value)
+      }
+    }
+    getStorageType() { return this.type === 'mobile' ? 'MOBILE_SQLITE' : 'INDEXEDDB' }
+  },
 }))
 
 vi.mock('@sentry/react', () => ({
@@ -375,6 +410,7 @@ describe('migrateStorage test', () => {
 
     desktopPlatform = new DesktopPlatformClass(window.electronAPI)
     mobilePlatform = new MobilePlatformClass()
+    ;(mobilePlatform as any).type = 'mobile'
     currentPlatform = desktopPlatform
   })
 
@@ -391,16 +427,16 @@ describe('migrateStorage test', () => {
   it('should skip migration when config version is already current', async () => {
     const { initData } = await import('@/setup/init_data')
 
-    // Setup: Desktop v1.17.0 - configVersion = 13 (current) in IPC file storage
-    ipcFileData[StorageKey.ConfigVersion] = JSON.stringify(13)
+    // Setup: Desktop v1.18.0 - configVersion = 14 (current) in IPC file storage
+    ipcFileData[StorageKey.ConfigVersion] = JSON.stringify(14)
 
     const migration = await import('./migration')
     await migration._migrateStorageForTest()
 
     // Should not initialize data or set version when already at current version
     expect(initData).not.toHaveBeenCalled()
-    // configVersion should remain 13
-    expect(ipcFileData[StorageKey.ConfigVersion]).toBe(JSON.stringify(13))
+    // configVersion should remain 14
+    expect(ipcFileData[StorageKey.ConfigVersion]).toBe(JSON.stringify(14))
   })
 
   it('should initialize data on first run (configVersion = 0, no old storage)', async () => {
@@ -417,8 +453,8 @@ describe('migrateStorage test', () => {
     const migration = await import('./migration')
     await migration._migrateStorageForTest()
 
-    // Should set current version (13) to IPC file storage (Desktop platform)
-    expect(ipcFileData[StorageKey.ConfigVersion]).toBe(JSON.stringify(13))
+    // Should set current version (14) to IPC file storage (Desktop platform)
+    expect(ipcFileData[StorageKey.ConfigVersion]).toBe(JSON.stringify(14))
     expect(initData).toHaveBeenCalled()
   })
 
@@ -791,7 +827,7 @@ describe('migrateStorage test', () => {
     await migration._migrateStorageForTest()
 
     // Current storage reads configVersion from sqliteData, which is 7 (not 0)
-    // Since configVersion (7) < CurrentVersion (13), it checks for migration
+    // Since configVersion (7) < CurrentVersion (14), it checks for migration
     // But since old and current storage are same type, no migration occurs
     // And since configVersion is NOT 0, initData() is also not called
 

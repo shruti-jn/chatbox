@@ -524,7 +524,26 @@ const _Message: FC<Props> = (props) => {
                 ) : item.type === 'tool-call' ? (
                   <ToolCallPartUI key={item.toolCallId} part={item as MessageToolCallPart} />
                 ) : item.type === 'app-card' ? (
-                  item.displayMode === 'panel' ? renderPanelAppSummary(item) : <AppCardPartUI key={item.instanceId} part={item} />
+                  item.displayMode === 'panel' ? renderPanelAppSummary(item) : <AppCardPartUI
+                    key={item.instanceId}
+                    part={item}
+                    onStateUpdate={(instanceId, state) => {
+                      const updatedParts = (msg.contentParts ?? []).map(p =>
+                        p.type === 'app-card' && p.instanceId === instanceId
+                          ? { ...p, stateSnapshot: state }
+                          : p
+                      )
+                      modifyMessage(sessionId, { ...msg, contentParts: updatedParts }, true)
+                    }}
+                    onCompletion={(instanceId, result) => {
+                      const updatedParts = (msg.contentParts ?? []).map(p =>
+                        p.type === 'app-card' && p.instanceId === instanceId
+                          ? { ...p, status: 'collapsed' as const, summary: result.summary as string ?? `${p.appName} — completed`, stateSnapshot: result }
+                          : p
+                      )
+                      modifyMessage(sessionId, { ...msg, contentParts: updatedParts }, true)
+                    }}
+                  />
                 ) : null
               )}
             </div>

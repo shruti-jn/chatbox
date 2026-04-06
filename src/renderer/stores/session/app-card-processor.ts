@@ -7,6 +7,7 @@
 
 import { v4 as uuidv4 } from 'uuid'
 import type { MessageContentParts, MessageAppCardPart, MessageTextPart } from '@shared/types'
+import { settingsStore } from '../settingsStore'
 
 interface AppPattern {
   /** Matches the display text (e.g. "Open Chess Board") */
@@ -151,6 +152,17 @@ function createAppCardPart(match: LinkMatch): MessageAppCardPart {
   }
 }
 
+export function getChatBridgeApiHost() {
+  const configured = settingsStore.getState().getSettings().providers?.chatbridge?.apiHost
+  if (configured) return configured.replace(/\/$/, '')
+  return 'http://localhost:3001'
+}
+
+export function resolveChatBridgeUrl(url: string): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  return new URL(url, `${getChatBridgeApiHost()}/`).toString()
+}
+
 /**
  * Scans text content parts for app link patterns and replaces them with
  * app-card content parts. Non-text parts are passed through unchanged.
@@ -213,12 +225,8 @@ export function processAppCards(contentParts: MessageContentParts): MessageConte
 
       // Resolve relative URLs against the backend host
       let resolvedUrl = meta.url
-      if (resolvedUrl.startsWith('/')) {
-        // In browser context, derive backend URL from current location or default
-        const backendHost = typeof window !== 'undefined'
-          ? window.location.origin.replace(':3000', ':3001').replace(':1212', ':3001')
-          : 'http://localhost:3001'
-        resolvedUrl = `${backendHost}${resolvedUrl}`
+      if (!resolvedUrl.startsWith('http://') && !resolvedUrl.startsWith('https://')) {
+        resolvedUrl = resolveChatBridgeUrl(resolvedUrl)
       }
 
       const appCard: MessageAppCardPart = {

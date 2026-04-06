@@ -1432,10 +1432,13 @@ export async function createDeveloperPlatformStore(filePath = DEFAULT_STORE_PATH
         .filter((app) => app.hostedUrl.startsWith('https://plugins.chatbridge.app/'))
     },
 
-    async getRegistryApp(pluginSlug: string): Promise<RegistryApp | null> {
+    async getRegistryApp(
+      pluginSlug: string,
+      options: { includeSuspended?: boolean } = {},
+    ): Promise<RegistryApp | null> {
       const plugin = findPluginBySlug(pluginSlug)
       if (!plugin) return null
-      if (plugin.status === 'suspended') return null
+      if (plugin.status === 'suspended' && !options.includeSuspended) return null
 
       const publishedVersion = resolveActivePublishedVersion(plugin.id)
       if (!publishedVersion) return null
@@ -1479,7 +1482,7 @@ export async function createDeveloperPlatformStore(filePath = DEFAULT_STORE_PATH
     },
 
     async getRegistryPolicy(pluginSlug: string): Promise<RegistryPolicyResponse | null> {
-      const app = await api.getRegistryApp(pluginSlug)
+      const app = await api.getRegistryApp(pluginSlug, { includeSuspended: true })
       if (!app) return null
 
       return {

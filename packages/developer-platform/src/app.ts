@@ -34,6 +34,7 @@ import { createDeveloperPlatformStore } from './store.js'
 type BuildDeveloperPlatformServerOptions = {
   logger?: FastifyServerOptions['logger'] | FastifyBaseLogger
   storePath?: string
+  adminApiKey?: string
 }
 
 function mapStoreError(error: unknown) {
@@ -91,6 +92,7 @@ function mapStoreError(error: unknown) {
 export async function buildDeveloperPlatformServer(options: BuildDeveloperPlatformServerOptions = {}) {
   const server = Fastify({ logger: options.logger ?? true })
   const developerPlatformStore = await createDeveloperPlatformStore(options.storePath)
+  const adminApiKey = options.adminApiKey?.trim() || null
 
   await server.register(cors, {
     origin: true,
@@ -107,6 +109,28 @@ export async function buildDeveloperPlatformServer(options: BuildDeveloperPlatfo
   })
 
   await server.register(swaggerUI, { routePrefix: '/docs' })
+
+  server.addHook('preHandler', async (request, reply) => {
+    const routeUrl = request.routeOptions.url ?? ''
+    if (!routeUrl.startsWith('/api/v1/admin/')) {
+      return
+    }
+
+    if (!adminApiKey) {
+      return
+    }
+
+    const providedApiKey = request.headers['x-developer-platform-admin-key']
+    const normalizedApiKey = Array.isArray(providedApiKey) ? providedApiKey[0] : providedApiKey
+
+    if (!normalizedApiKey) {
+      return reply.status(401).send({ error: 'admin_auth_required' })
+    }
+
+    if (normalizedApiKey !== adminApiKey) {
+      return reply.status(403).send({ error: 'admin_auth_invalid' })
+    }
+  })
 
   server.get('/health', async () => {
     return { ok: true, service: 'developer-platform' }
@@ -455,7 +479,7 @@ export async function buildDeveloperPlatformServer(options: BuildDeveloperPlatfo
 
   server.get('/api/v1/registry/apps/:pluginId', async (request, reply) => {
     const { pluginId } = request.params as { pluginId: string }
-    const app = await developerPlatformStore.getRegistryApp(pluginId)
+    const app = await developerPlatformStore.getRegistryApp(pluginId, { includeSuspended: true })
     if (!app) {
       return reply.status(404).send({ error: `plugin_not_found:${pluginId}` })
     }
