@@ -79,6 +79,10 @@ CREATE POLICY deletion_request_isolation ON data_deletion_requests
 CREATE POLICY email_outbox_isolation ON email_outbox
   USING (district_id::text = current_setting('app.tenant_id', true));
 
+ALTER TABLE app_invocation_jobs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY job_isolation ON app_invocation_jobs
+  USING (district_id::text = current_setting('app.tenant_id', true));
+
 CREATE POLICY audit_event_isolation ON audit_events
   USING (district_id::text = current_setting('app.tenant_id', true));
 

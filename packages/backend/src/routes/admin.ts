@@ -1,6 +1,9 @@
 import type { FastifyInstance } from 'fastify'
 import { authenticate, requireRole, getUser } from '../middleware/auth.js'
-import { withTenantContext } from '../middleware/rls.js'
+import { withTenantContext, ownerPrisma } from '../middleware/rls.js'
+import { getHealthStatus } from '../apps/index.js'
+import { getQueueStats } from '../lib/queue-admission.js'
+import { preWarmClassroom } from '../lib/session-pool.js'
 
 export async function adminRoutes(server: FastifyInstance) {
   // POST /admin/apps/:appId/suspend — Suspend app district-wide
@@ -91,6 +94,71 @@ export async function adminRoutes(server: FastifyInstance) {
     return { events, total: events.length }
   })
 
+  // GET /admin/apps — List all apps with reviewStatus
+  server.get('/admin/apps', {
+    preHandler: [authenticate, requireRole('district_admin')],
+  }, async () => {
+
+    const apps = await ownerPrisma.app.findMany({ orderBy: { createdAt: 'desc' } })
+    return {
+      apps: apps.map((app) => ({
+        ...app,
+        healthStatus: getHealthStatus(app.id),
+      })),
+    }
+  })
+
+  // GET /admin/apps/:id — Get app detail
+  server.get('/admin/apps/:id', {
+    preHandler: [authenticate, requireRole('district_admin')],
+  }, async (request) => {
+    const { id } = request.params as { id: string }
+
+    const app = await ownerPrisma.app.findUnique({ where: { id } })
+    if (!app) {
+      throw { statusCode: 404, message: 'App not found' }
+    }
+    return app
+  })
+
+  // POST /admin/apps/:id/approve — Approve app
+  server.post('/admin/apps/:id/approve', {
+    preHandler: [authenticate, requireRole('district_admin')],
+  }, async (request) => {
+    const { id } = request.params as { id: string }
+
+    const app = await ownerPrisma.app.update({
+      where: { id },
+      data: { reviewStatus: 'approved' },
+    })
+    return { id: app.id, reviewStatus: app.reviewStatus }
+  })
+
+  // GET /admin/analytics — Pseudonymous analytics (no PII)
+  server.get('/admin/analytics', {
+    preHandler: [authenticate, requireRole('district_admin')],
+  }, async (request) => {
+    const user = getUser(request)
+
+
+    const [messageCount, safetyEventCount, activeStudentCount, classrooms] = await Promise.all([
+      ownerPrisma.message.count(),
+      ownerPrisma.safetyEvent.count(),
+      ownerPrisma.user.count({ where: { districtId: user.districtId, role: 'student' } }),
+      ownerPrisma.classroom.findMany({
+        where: { districtId: user.districtId },
+        select: { id: true, name: true, gradeBand: true, createdAt: true },
+      }),
+    ])
+
+    return {
+      messageCount,
+      safetyEventCount,
+      activeStudents: activeStudentCount,
+      classrooms,
+    }
+  })
+
   // GET /admin/tool-invocations — Tool invocation log
   server.get('/admin/tool-invocations', {
     preHandler: [authenticate, requireRole('district_admin')],
@@ -118,5 +186,22 @@ export async function adminRoutes(server: FastifyInstance) {
     })
 
     return { invocations, total: invocations.length }
+  })
+
+  // GET /admin/queue-stats — Job queue monitoring
+  server.get('/admin/queue-stats', {
+    preHandler: [authenticate, requireRole('district_admin')],
+  }, async () => {
+    return getQueueStats()
+  })
+
+  // POST /admin/pre-warm — Pre-warm student sessions in a classroom
+  server.post('/admin/pre-warm', {
+    preHandler: [authenticate, requireRole('teacher', 'district_admin')],
+  }, async (request) => {
+    const { classroomId } = request.body as { classroomId: string }
+    const user = getUser(request)
+    const result = await preWarmClassroom(classroomId, user.districtId)
+    return { classroomId, ...result }
   })
 }

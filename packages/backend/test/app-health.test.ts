@@ -202,6 +202,7 @@ describe('Health URL Polling', () => {
     if (staleApps.length > 0) {
       const ids = staleApps.map(a => a.id)
       await ownerPrisma.appHealthEvent.deleteMany({ where: { appId: { in: ids } } })
+      await ownerPrisma.districtAppCatalog.deleteMany({ where: { appId: { in: ids } } })
       await ownerPrisma.app.deleteMany({ where: { id: { in: ids } } })
     }
   })

@@ -5,7 +5,19 @@
  * F3: COPPA consent gate middleware
  * F4: /auth/login guarded behind NODE_ENV=development
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+
+// Mock AI service to avoid unhandled stream rejections when no API key is configured
+vi.mock('../src/ai/service.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/ai/service.js')>('../src/ai/service.js')
+  return {
+    ...actual,
+    generateResponse: vi.fn().mockResolvedValue({
+      text: Promise.resolve("I can help you with that!"),
+    }),
+  }
+})
+
 import { buildServer } from '../src/server.js'
 import { signJWT } from '../src/middleware/auth.js'
 import { createTestDistrict, createTestUser, cleanup, getPrisma } from './fixtures/index.js'

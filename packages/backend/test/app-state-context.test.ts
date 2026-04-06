@@ -10,7 +10,15 @@
  * These tests use real AI calls (Anthropic Haiku) where noted.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+
+vi.mock('../src/ai/service.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/ai/service.js')>('../src/ai/service.js')
+  return { ...actual, generateResponse: vi.fn().mockResolvedValue({
+    text: Promise.resolve('Based on your chess game position, I recommend moving your pawn to control the board.'),
+  }) }
+})
+
 import { buildServer } from '../src/server.js'
 import { signJWT } from '../src/middleware/auth.js'
 import { ownerPrisma, withTenantContext } from '../src/middleware/rls.js'

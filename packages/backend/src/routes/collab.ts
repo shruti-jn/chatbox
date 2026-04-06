@@ -114,6 +114,35 @@ export async function collabRoutes(server: FastifyInstance) {
     }
   })
 
+  // GET /collaborative-sessions/:id — Get session detail with participants
+  server.get('/collaborative-sessions/:id', {
+    preHandler: [authenticate],
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const user = getUser(request)
+
+    const session = await withTenantContext(user.districtId, async (tx) => {
+      return tx.collaborativeSession.findUnique({
+        where: { id },
+        include: { participants: true },
+      })
+    })
+
+    if (!session) return reply.status(404).send({ error: 'Session not found' })
+
+    return {
+      sessionId: session.id,
+      sessionCode: session.sessionCode,
+      status: session.status,
+      interactionModel: session.interactionModel,
+      participants: session.participants.map(p => ({
+        userId: p.userId,
+        color: p.colorAssignment,
+        turnOrder: p.turnOrder,
+      })),
+    }
+  })
+
   // POST /collaborative-sessions/:id/close — Close session (teacher)
   server.post('/collaborative-sessions/:id/close', {
     preHandler: [authenticate, requireRole('teacher', 'district_admin')],

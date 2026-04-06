@@ -858,6 +858,42 @@ describe('developerPlatformStore', () => {
     ])
   })
 
+  it('treats suspension as a hard kill switch for direct runtime version lookup', async () => {
+    const store = await createDeveloperPlatformStore(dbPath)
+    await store.createPlugin({
+      slug: 'kill-switch-lab',
+      name: 'Kill Switch Lab',
+      description: 'Direct lookup suspension coverage',
+    })
+    const version = await store.createVersion('kill-switch-lab', {
+      version: '1.0.0',
+      manifest: {
+        ...manifest,
+        pluginId: 'kill-switch-lab',
+        name: 'Kill Switch Lab',
+      },
+    })
+
+    await store.saveArtifactUpload('kill-switch-lab', version.id, {
+      fileName: 'kill-switch-lab.js',
+      contentType: 'application/javascript',
+      body: Buffer.from('console.log("kill switch")', 'utf8'),
+    })
+    await store.submitVersion('kill-switch-lab', version.id)
+    const scanRunId = await getSingleScanRunId(store, 'kill-switch-lab', version.id)
+    await store.reviewVersion('kill-switch-lab', version.id, buildReviewDecision(scanRunId))
+    await store.publishVersion('kill-switch-lab', version.id)
+
+    expect(await store.getRegistryVersion('kill-switch-lab')).toEqual(
+      expect.objectContaining({ activeVersion: '1.0.0' }),
+    )
+
+    await store.suspendPlugin('kill-switch-lab', { actor: 'ops-admin', reason: 'kill switch test' })
+
+    expect(await store.getRegistryApp('kill-switch-lab')).toBeNull()
+    expect(await store.getRegistryVersion('kill-switch-lab')).toBeNull()
+  })
+
   it('persists runtime incidents as auditable evidence for a published plugin', async () => {
     const store = await createDeveloperPlatformStore(dbPath)
     await store.createPlugin({
@@ -977,7 +1013,7 @@ describe('developerPlatformStore', () => {
         status: 'triaged',
       }),
     )
-    expect(runtimeVersion?.status).toBe('suspended')
+    expect(runtimeVersion).toBeNull()
     expect(audit?.controlActions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

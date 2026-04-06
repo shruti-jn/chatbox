@@ -100,7 +100,7 @@ test('A2: get_weather tool returns real data or explicit error — no fake data'
   const body = await res.json()
 
   const result = body.result
-  const hasRealData = result.temperature && result.temperature !== 0 && result.conditions
+  const hasRealData = !!(result.temperature && result.temperature !== 0 && result.conditions)
   const hasError = !!result.error
 
   // Must be one or the other — never fake data

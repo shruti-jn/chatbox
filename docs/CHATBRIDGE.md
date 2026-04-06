@@ -1,5 +1,7 @@
 # ChatBridge v2 — Architecture Overview
 
+> **Canonical reference:** See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full architecture including app lifecycle, state freshness contract, and tool execution model.
+
 ## What This Is
 
 ChatBridge v2 is a K-12 AI chat platform with third-party app integration, built on the Chatbox fork. Educational apps (Chess, Spotify, Weather) live inside the chat conversation — students interact with them while the AI remains aware of app state. Teachers control everything via Mission Control.

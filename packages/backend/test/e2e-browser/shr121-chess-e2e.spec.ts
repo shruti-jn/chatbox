@@ -184,8 +184,10 @@ test('A2: Injection blocked mid-game, FEN unchanged', async ({ request, page }) 
 // ── A3: Chess app renders in browser — board + moves + state ─────────
 
 test('A3: Chess app renders, moves work, state persists after reload', async ({ page }) => {
-  // Step 1: Open chess app directly
+  // Step 1: Open chess app and clear stale localStorage
   await page.goto(CHESS_URL)
+  await page.evaluate(() => localStorage.removeItem('chatbridge:apps-chess:session'))
+  await page.reload()
   await page.waitForFunction(
     () => document.querySelectorAll('#board .square').length === 64,
     null,

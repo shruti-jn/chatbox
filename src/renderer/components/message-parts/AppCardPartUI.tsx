@@ -104,10 +104,25 @@ export function AppCardPartUI({ part, onStateUpdate, onCompletion, onExpand }: A
     }
   }, [part.status, part.instanceId, onExpand])
 
+  // Queued state — job in queue, not yet picked up
+  if ((part as any).jobStatus === 'queued') {
+    return (
+      <div data-testid="app-card" data-status="queued" style={{
+        background: '#F8FAFC', border: '2px solid #E2E8F0', borderRadius: '12px',
+        padding: '20px', margin: '8px 0', textAlign: 'center',
+      }}>
+        <div style={{ fontSize: '20px', marginBottom: '8px' }}>⏳</div>
+        <div style={{ fontSize: '14px', color: '#64748B' }}>
+          Your {part.appName} is queued. Starting soon...
+        </div>
+      </div>
+    )
+  }
+
   // Loading skeleton
   if (part.status === 'loading' && !isLoaded) {
     return (
-      <div style={{
+      <div data-testid="app-card" data-status="loading" style={{
         background: '#F1F5F9',
         borderRadius: '12px',
         padding: '16px',
@@ -117,17 +132,60 @@ export function AppCardPartUI({ part, onStateUpdate, onCompletion, onExpand }: A
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
           <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#E2E8F0' }} />
-          <div style={{ fontSize: '14px', color: '#64748B' }}>Opening {part.appName}...</div>
+          <div style={{ fontSize: '14px', color: '#64748B' }}>Your {part.appName} is starting...</div>
         </div>
         <div style={{ background: '#E2E8F0', borderRadius: '8px', height: '80%' }} />
       </div>
     )
   }
 
-  // Error state
+  // Slow state — job running longer than expected
+  if ((part as any).jobStatus === 'slow') {
+    return (
+      <div data-testid="app-card" data-status="slow" style={{
+        background: '#FFFBEB', border: '2px solid #F59E0B', borderRadius: '12px',
+        padding: '20px', margin: '8px 0', textAlign: 'center',
+      }}>
+        <div style={{ fontSize: '20px', marginBottom: '8px' }}>🐢</div>
+        <div style={{ fontSize: '14px', color: '#92400E' }}>
+          This app is slower than usual right now.
+        </div>
+        <div style={{ width: '100%', height: '4px', background: '#FDE68A', borderRadius: '2px', marginTop: '12px', overflow: 'hidden' }}>
+          <div style={{ width: '60%', height: '100%', background: '#F59E0B', borderRadius: '2px', animation: 'progress 2s infinite' }} />
+        </div>
+      </div>
+    )
+  }
+
+  // Failed state — tool timed out or errored, with continue button
+  if ((part as any).jobStatus === 'failed' || (part as any).jobStatus === 'timed_out') {
+    return (
+      <div data-testid="app-card" data-status="failed" style={{
+        background: '#FFF1F2', border: '2px solid #FECDD3', borderRadius: '12px',
+        padding: '20px', margin: '8px 0', textAlign: 'center',
+      }}>
+        <div style={{ fontSize: '20px', marginBottom: '8px' }}>⚠️</div>
+        <div style={{ fontSize: '14px', color: '#E11D48', marginBottom: '12px' }}>
+          This app isn't available right now.
+        </div>
+        <button
+          data-testid="continue-btn"
+          onClick={() => { /* Dismiss card, continue chat */ }}
+          style={{
+            padding: '8px 20px', background: '#4F46E5', color: 'white',
+            border: 'none', borderRadius: '20px', cursor: 'pointer', fontSize: '13px',
+          }}
+        >
+          Continue without app
+        </button>
+      </div>
+    )
+  }
+
+  // Error state (iframe load failure)
   if (error || part.status === 'error') {
     return (
-      <div style={{
+      <div data-testid="app-card" data-status="error" style={{
         background: '#FFF1F2',
         border: '2px solid #FECDD3',
         borderRadius: '12px',
@@ -161,6 +219,8 @@ export function AppCardPartUI({ part, onStateUpdate, onCompletion, onExpand }: A
   if (part.status === 'suspended') {
     return (
       <div
+        data-testid="app-card"
+        data-status="suspended"
         onClick={handleClick}
         style={{
           background: '#F8FAFC',
@@ -187,6 +247,8 @@ export function AppCardPartUI({ part, onStateUpdate, onCompletion, onExpand }: A
   if (part.status === 'collapsed') {
     return (
       <div
+        data-testid="app-card"
+        data-status="completed"
         onClick={handleClick}
         style={{
           background: '#F0FDF4',
@@ -211,7 +273,7 @@ export function AppCardPartUI({ part, onStateUpdate, onCompletion, onExpand }: A
   // Terminated
   if (part.status === 'terminated') {
     return (
-      <div style={{
+      <div data-testid="app-card" data-status="terminated" style={{
         background: '#F8FAFC',
         border: '1px solid #E2E8F0',
         borderRadius: '12px',
@@ -229,7 +291,7 @@ export function AppCardPartUI({ part, onStateUpdate, onCompletion, onExpand }: A
 
   // Active — render iframe
   return (
-    <div style={{
+    <div data-testid="app-card" data-status="active" style={{
       borderRadius: '12px',
       overflow: 'hidden',
       margin: '8px 0',

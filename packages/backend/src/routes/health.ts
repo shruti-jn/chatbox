@@ -25,6 +25,7 @@ export async function healthRoutes(server: FastifyInstance) {
                 redis: { type: 'object', properties: { status: { type: 'string' }, latency_ms: { type: 'number' } } },
                 anthropic_api: { type: 'object', properties: { status: { type: 'string' } } },
                 langfuse: { type: 'object', properties: { status: { type: 'string' } } },
+                weather: { type: 'object', properties: { status: { type: 'string' } } },
               },
             },
           },
@@ -80,6 +81,11 @@ export async function healthRoutes(server: FastifyInstance) {
     // Langfuse check
     capabilities.langfuse = {
       status: process.env.LANGFUSE_PUBLIC_KEY ? 'configured' : 'not_configured',
+    }
+
+    // Weather API check
+    capabilities.weather = {
+      status: process.env.OPENWEATHER_API_KEY ? 'configured' : 'not_configured',
     }
 
     // Overall status: worst capability determines status
