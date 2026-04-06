@@ -29,6 +29,7 @@ import { resolveTools, findToolMeta, parseToolName, type ChatBridgeTool } from '
 import { assembleSystemPrompt } from '../prompts/registry.js'
 import { transition, type AppState, isBlocked, isUnresponsive, recordSuccess, recordFailure } from '../apps/index.js'
 import { randomUUID } from 'crypto'
+import { broadcastToChatConversation } from './websocket.js'
 import { createTrace, createSafetySpan, createGeneration, endGeneration, flushTraces } from '../observability/langfuse.js'
 
 const anthropic = createAnthropic({
@@ -536,13 +537,17 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
       }
 
       if (toolUse) {
-        // Execute tool server-side with hard 15s timeout + circuit breaker
-        request.log.info({ toolName: toolUse.name }, 'Executing tool')
+        // DECOUPLED TOOL EXECUTION (SHR-198/204)
+        // The SSE stream closes immediately with a tool_pending event.
+        // Tool execution happens asynchronously after the response ends.
+        // The client calls POST /chatbridge/completions/resume to get the follow-up.
+        request.log.info({ toolName: toolUse.name }, 'Tool detected — decoupling execution')
         executedToolName = toolUse.name
         const meta = findToolMeta(chatbridgeTools, toolUse.name)
         const parsed = parseToolName(toolUse.name)
+        const toolAppId = meta?.appId
 
-        // Create durable invocation job (SHR-203/204)
+        // Create job as QUEUED (not running) — worker or async handler will claim it
         const requestKey = (request.headers['x-request-key'] as string) ?? randomUUID()
         const resumeToken = randomUUID()
         let job: any
@@ -558,15 +563,12 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
                 priority: 0,
                 deadlineAt: new Date(Date.now() + 15_000),
                 resumeToken,
-                status: 'running',
-                startedAt: new Date(),
-                // Store the assistant tool_use turn for resume reconstruction (C-2/C-3 fix)
+                status: 'queued', // QUEUED — not running
                 result: { _assistantContent: firstResult.content, _toolUseId: toolUse.id },
               },
             })
           })
         } catch (createErr: any) {
-          // Idempotency: unique constraint on requestKey → return existing job
           if (createErr?.code === 'P2002') {
             job = await withTenantContext(user.districtId, async (tx) => {
               return tx.appInvocationJob.findUnique({ where: { requestKey } })
@@ -576,136 +578,136 @@ export async function chatbridgeCompletionsRoutes(server: FastifyInstance) {
           }
         }
 
-        const toolAppId = meta?.appId
-
-        // SSE heartbeat during tool execution (prevents proxy timeout)
-        const heartbeat = setInterval(() => {
-          try { reply.raw.write(':\n\n') } catch {}
-        }, 5000)
-
-        let executed: { result: Record<string, unknown>; instanceId?: string }
-        const toolExecStart = Date.now()
-        try {
-          // Circuit breaker: skip execution if app has 3+ consecutive failures
-          if (toolAppId && isBlocked(toolAppId)) {
-            const appName = meta?.appName ?? 'app'
-            const blockedStatus = isUnresponsive(toolAppId) ? 'unresponsive' : 'degraded'
-            request.log.warn({ appId: toolAppId, status: blockedStatus }, 'Tool blocked by circuit breaker')
-            executed = {
-              result: {
-                error: true,
-                message: `The ${appName} app is temporarily unavailable. ` +
-                  `Acknowledge this to the student and continue the lesson using other methods.`,
-              },
-            }
-          } else {
-            executed = parsed
-              ? await Promise.race([
-                  executeChatbridgeTool(parsed.toolName, toolUse.input ?? {}, {
-                    appId: meta?.appId,
-                    appName: meta?.appName,
-                    conversationId,
-                    districtId: user.districtId,
-                    userId: ctx.conversation?.studentId ?? user.userId,
-                  }),
-                  new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error('TOOL_TIMEOUT')), 15_000),
-                  ),
-                ])
-              : { result: { status: 'unknown' } }
-
-            // Record success for circuit breaker
-            if (toolAppId) {
-              await recordSuccess(toolAppId, Date.now() - toolExecStart)
-            }
-          }
-        } catch (toolErr) {
-          // Tool timed out or failed — synthesize graceful failure for the LLM
-          const appName = meta?.appName ?? parsed?.toolName ?? 'app'
-          request.log.warn({ toolName: toolUse.name, error: String(toolErr) }, 'Tool execution failed')
-
-          // Record failure for circuit breaker
-          if (toolAppId) {
-            await recordFailure(toolAppId)
-          }
-
-          executed = {
-            result: {
-              error: true,
-              message: `The ${appName} app did not respond in time. ` +
-                `Acknowledge this to the student and continue the lesson using other methods.`,
-            },
-          }
-        } finally {
-          clearInterval(heartbeat)
-        }
-
-        // Update job with result (preserve assistant content for resume)
-        const isTimeout = String(executed.result.message ?? '').includes('did not respond')
-        const isCircuitBreaker = String(executed.result.message ?? '').includes('temporarily unavailable')
-        const jobStatus = executed.result.error
-          ? (isTimeout ? 'timed_out' as const : 'failed' as const)
-          : 'completed' as const
-        const errorCode = isTimeout ? 'TOOL_TIMEOUT' : isCircuitBreaker ? 'CIRCUIT_BREAKER_OPEN' : undefined
-
-        await withTenantContext(user.districtId, async (tx) => {
-          await tx.appInvocationJob.update({
-            where: { id: job.id },
-            data: {
-              status: jobStatus,
-              completedAt: new Date(),
-              result: {
-                ...executed.result,
-                _assistantContent: firstResult.content,
-                _toolUseId: toolUse.id,
-              } as any,
-              attemptCount: 1,
-              ...(errorCode ? { errorCode } : {}),
-            },
-          })
-        })
-
-        const toolResult = executed.result
-
-        // Build follow-up with tool result
-        streamBody = {
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1024,
-          system: systemPrompt,
-          messages: [
-            ...allMessages,
-            { role: 'assistant', content: firstResult.content },
-            {
-              role: 'user',
-              content: [{
-                type: 'tool_result',
-                tool_use_id: toolUse.id,
-                content: JSON.stringify({
-                  ...toolResult,
-                  _cbDirective: meta
-                    ? `The app is now open. Include this markdown link: [Open ${meta.appName}](http://localhost:3001${meta.uiManifestUrl})`
-                    : undefined,
-                }),
-              }],
-            },
-          ],
-          stream: true,
-        }
-
-        // Emit app card event
+        // Emit app card event (loading state) before closing SSE
         if (meta) {
           const url = meta.uiManifestUrl.startsWith('http') ? meta.uiManifestUrl : `http://localhost:3001${meta.uiManifestUrl}`
-          appCards.push({
+          reply.raw.write(`event: chatbridge_app_card\ndata: ${JSON.stringify({
             appId: meta.appId,
             appName: meta.appName,
-            instanceId: executed.instanceId,
+            instanceId: null,
             url,
             height: meta.uiManifestHeight,
             ...(meta.displayMode === 'panel' ? { displayMode: 'panel' as const } : {}),
-            status: 'active',
-          })
+            status: 'loading',
+            jobId: job.id,
+          })}\n\n`)
         }
+
+        // Emit tool_pending event — tells the client to call /resume later
+        reply.raw.write(`event: tool_pending\ndata: ${JSON.stringify({
+          jobId: job.id,
+          resumeToken: job.resumeToken,
+          toolName: toolUse.name,
+          appName: meta?.appName ?? null,
+        })}\n\n`)
+
+        // CLOSE THE SSE STREAM — decoupled from tool execution
+        reply.raw.end()
+
+        // Execute tool ASYNCHRONOUSLY after response ends
+        setImmediate(async () => {
+          const toolExecStart = Date.now()
+          try {
+            // Claim the job
+            await withTenantContext(user.districtId, async (tx) => {
+              await tx.appInvocationJob.update({
+                where: { id: job.id },
+                data: { status: 'running', startedAt: new Date() },
+              })
+            })
+
+            let executed: { result: Record<string, unknown>; instanceId?: string }
+
+            // Circuit breaker check
+            if (toolAppId && isBlocked(toolAppId)) {
+              executed = {
+                result: {
+                  error: true,
+                  message: `The ${meta?.appName ?? 'app'} app is temporarily unavailable.`,
+                },
+              }
+            } else {
+              executed = parsed
+                ? await Promise.race([
+                    executeChatbridgeTool(parsed.toolName, toolUse.input ?? {}, {
+                      appId: meta?.appId,
+                      appName: meta?.appName,
+                      conversationId,
+                      districtId: user.districtId,
+                    }),
+                    new Promise<never>((_, reject) =>
+                      setTimeout(() => reject(new Error('TOOL_TIMEOUT')), 15_000),
+                    ),
+                  ])
+                : { result: { status: 'unknown' } }
+
+              if (toolAppId) await recordSuccess(toolAppId, Date.now() - toolExecStart)
+            }
+
+            // Update job with result
+            const jobStatus = executed.result.error ? 'timed_out' as const : 'completed' as const
+            await withTenantContext(user.districtId, async (tx) => {
+              await tx.appInvocationJob.update({
+                where: { id: job.id },
+                data: {
+                  status: jobStatus,
+                  completedAt: new Date(),
+                  result: {
+                    ...executed.result,
+                    _assistantContent: firstResult.content,
+                    _toolUseId: toolUse.id,
+                  } as any,
+                  attemptCount: 1,
+                  ...(executed.result.error ? { errorCode: 'TOOL_TIMEOUT' } : {}),
+                },
+              })
+            })
+
+            // Notify client via WebSocket that tool is done
+            broadcastToChatConversation(conversationId, {
+              type: 'job_completed',
+              jobId: job.id,
+              status: jobStatus,
+              resumeToken: job.resumeToken,
+            })
+
+            request.log.info({ jobId: job.id, status: jobStatus, latencyMs: Date.now() - toolExecStart }, 'Async tool execution complete')
+          } catch (toolErr) {
+            if (toolAppId) await recordFailure(toolAppId)
+
+            await withTenantContext(user.districtId, async (tx) => {
+              await tx.appInvocationJob.update({
+                where: { id: job.id },
+                data: {
+                  status: 'failed',
+                  completedAt: new Date(),
+                  errorCode: 'EXECUTION_FAILED',
+                  result: {
+                    error: true,
+                    message: toolErr instanceof Error ? toolErr.message : 'Unknown error',
+                    _assistantContent: firstResult.content,
+                    _toolUseId: toolUse.id,
+                  } as any,
+                },
+              })
+            }).catch(() => {})
+
+            broadcastToChatConversation(conversationId, {
+              type: 'job_completed',
+              jobId: job.id,
+              status: 'failed',
+              resumeToken: job.resumeToken,
+            })
+
+            request.log.error({ jobId: job.id, error: String(toolErr) }, 'Async tool execution failed')
+          }
+        })
+
+        // Response already ended — return early
+        return
       }
+
+      // No tool_use — stream the AI response directly (no decoupling needed)
 
       // Stream the final response
       const streamResponse = await fetch('https://api.anthropic.com/v1/messages', {
